@@ -1,0 +1,25 @@
+/******************************************************************************
+	Simple search thru current scope for a matching symbol
+******************************************************************************/
+Symbol findSymbol(String name)
+{
+Instance	field;
+    /**********************************************************************
+        Look in the current stack.
+    **********************************************************************/
+    if field = instances[name]
+        if field.symbol return symbol;
+    /**********************************************************************
+        Look in the current type and its components.
+    **********************************************************************/
+    field = presentClass.findField(name);
+        if field.symbol return symbol;
+    /**********************************************************************
+        Look in globals.
+    **********************************************************************/
+    if globalFields
+        if field = globalFields[name]
+            if field.symbol return symbol;
+    return null;
+}
+

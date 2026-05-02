@@ -1,0 +1,49 @@
+include includes
+/*******************************************************************************
+        This encapsulates an operator, providing precedence rating and pointer
+        to the verbs code.
+*******************************************************************************/
+class Operate
+{
+String      op;
+int         rank;
+void		&method(Instance);
+boolean
+    assign
+    call
+    comparison:4[eql ltn lte gtn gte neq]
+    conjunction
+    overload
+    pointing
+    question
+    isRange
+    unary
+    ;
+static KeyTable verbs;
+
+/*******************************************************************************
+        The following constructor is used when creating new overload operators.
+*******************************************************************************/
+Operate(String v)
+{
+    op      = v;
+    rank    = 99;
+    verbs[op]   = (void*)this;
+}
+
+/*******************************************************************************
+        The following constructor is used to create operators in setOperators()
+        in the Tok parser.
+*******************************************************************************/
+Operate(String v,int p)
+{
+    op      = v;
+    rank    = p;
+    verbs[op]   = (void*)this;
+}
+
+int compare(String v)
+{
+    return strcmp(op,v);
+}
+}

@@ -1,0 +1,1298 @@
+include includes
+
+/*******************************************************************************
+        The Instance class captures a reference to a syntax element that can be
+		a cast, symbol, expression, statement, block, type or constant.
+*******************************************************************************/
+class Instance
+{
+Block		block;
+Expression	express;
+Statement	statement;
+Symbol		symbol;
+SymbolType	type;
+Instance	cast,
+            format,
+            parent;
+int
+            instanceIndex,
+            level;
+boolean
+		arrayRef:4
+        assigning
+		atString
+		checked
+        emitted
+        hasBranch
+		indirection:4
+        isCase
+		isCast
+		isComment
+        isCondition
+		isConstant
+        isCopy
+		isDeclaration
+		isError
+        isExternalType
+		isLabel
+		isLambda
+        isLocal
+		isMethod
+		isNew
+        isPrintMethod
+        isRange
+        isSelector
+        isUsed
+        noBody
+        noGetter
+		reference:4
+        requalified
+        resolved
+        terminated
+        virtuous
+		;
+String          prefix,
+                postfix;	// when is cast, may contain array specification (i.e. [] list)
+DoubleLinkList  parameters; // if item is array, this is a list of instances in [] list
+                            // if item is a method, these are the parameter instances
+static int      instanceCount;
+static Symbol   objectiveCsend;
+
+/*******************************************************************************
+        Constructors
+*******************************************************************************/
+Instance()
+{
+	instanceIndex   = instanceCount++;
+}
+
+	Instance(Block b)
+{
+    block           = b;
+	instanceIndex   = instanceCount++;
+}
+
+Instance(Expression e)
+{
+    express         = e;
+	instanceIndex   = instanceCount++;
+	if subject
+		isMethod    = subject.isMethod;
+}
+
+Instance(Instance i)
+{
+DoubleLink  link;
+Instance    parameter;
+#initNOT
+    *this           = *i;
+    isDeclaration   = false;
+    parameters      = null;
+    if i.parameters
+        for link = i.parameters.first
+            {
+            parameter = link.value;
+            addParameter(parameter);
+            }
+	instanceIndex = instanceCount++;
+    isCopy = true;
+}
+
+Instance(Statement s)
+{
+    statement   = s;
+	instanceIndex       = instanceCount++;
+}
+
+Instance(String s)
+{
+    prefix      = s;
+    isConstant  = true;
+    type        = stringType;
+	instanceIndex       = instanceCount++;
+}
+
+Instance(Symbol s)
+{
+    symbol		= s;
+	isMethod	= s.isMethod ? true : false;
+    reference   = isMethod ? s.reference : 0;
+	isLambda	= s.isLambda;
+	level		= 1;
+	instanceIndex       = instanceCount++;
+}
+
+Instance(SymbolType t)
+{
+    type        = t;
+	instanceIndex       = instanceCount++;
+}
+
+/*******************************************************************************
+        Add a parameter to this instance (when instance is a method or array)
+*******************************************************************************/
+void addParameter(Instance parameter)
+{
+    if !parameters
+		parameters = new;
+    parameters.add((void*)parameter);
+}
+
+/*******************************************************************************
+        Add a prefix to instance (append after existing prefix if there is one)
+*******************************************************************************/
+void addPrefix(String s)
+{
+    if prefix prefix = prefix s;
+    else prefix = s;
+}
+
+/*******************************************************************************
+        Add a postfix to instance (append after existing postfix if there is one)
+*******************************************************************************/
+void addPostFix(String s)
+{
+    if postfix postfix = postfix s;
+    else postfix = s;
+}
+
+/*******************************************************************************
+        If alias and alias not the same type as source, generate a cast
+		and wrap in an expression
+*******************************************************************************/
+Instance castAlias()
+{
+Instance	instance;
+Expression	exp;
+	if !symbol || !isAlias || symbol.type == source.type return this;
+	instance = new(symbol.type);
+	instance.indirection = getDirect();
+	exp     = new;
+	subject = new(this);
+	hasParens = true;
+	subject.cast = instance;
+	if isMethod
+		{
+		subject.cast.reference	= reference;
+		subject.cast.isMethod	= isMethod;
+		}
+	subject.cast.isCast = true;
+	subject.symbol = source;
+	instance = new(exp);
+	return instance;
+}
+
+/*******************************************************************************
+        Runs all fields thru a sanity check
+*******************************************************************************/
+void check()
+{
+	if express
+        {
+        if !emitted express.check();
+        if statement || symbol || type
+            cerr "Instance express check: multiple fields set":;
+        }
+	or statement
+        {
+        if !emitted statement.check();
+        if symbol || type
+            cerr "Instance statement check: multiple fields set":;
+        }
+    or symbol && type
+        cerr "Instance check: multiple fields set":;
+	or block && !symbol && !type && !emitted
+        block.check();
+    if !emitted emitted = true;
+    //else cerr "Instance check: already done":;
+}
+
+/*******************************************************************************
+        Process overload of []= (assumes this instance is an expression)
+*******************************************************************************/
+void checkBracketEqual()
+{
+SymbolType  assignType;
+Instance    instance;
+String      text;
+    if subject.symbol
+        {
+        assignType = subject.getType();
+        if text = assignType.overloaded("[]=")
+            {
+            instance            = new(text);
+            instance.parameters = subject.parameters;
+            instance.addParameter(object);
+            if instance.symbol  = assignType.findMethod(instance)
+                {
+                subject.parameters  = null;
+                subject.arrayRef    = null;
+                instance.parent     = subject;
+                instance.prefix     = null;
+                instance.resolved   = true;
+                instance.isMethod   = true;
+                *this = *instance;
+                }
+            }
+        }
+}
+
+/*******************************************************************************
+        Checks that the type of the instance passed in matches this instance
+        and if not, casts this instance to match. Note this ignores alias type
+*******************************************************************************/
+Instance checkCast(Instance target)
+{
+int         indirect        = howDirect(),
+            targetDirect    = target.howDirect();
+SymbolType	thisType,
+			targetType;
+Instance instance = this;
+    if target
+        {
+        targetType = target.getType();
+        if targetType == intType && isVoidPointer()
+            targetType = longType;
+        thisType = sourceType();
+        if !cast && thisType != targetType || indirect != targetDirect
+            || (target.reference && isMethod != target.isMethod)
+            {
+            instance        = new(this);
+            instance.cast   = new(targetType);
+            instance.cast.indirection   = targetDirect;
+            if target.isMethod
+                {
+                instance.cast.reference	= target.reference;
+                instance.cast.isMethod	= target.isMethod;
+                instance.cast.symbol	= target.symbol;
+                }
+            instance.cast.isCast = true;
+            }
+        or cast && thisType != targetType || indirect != targetDirect
+            {
+            instance                    = new(this);
+            instance.cast.type          = targetType;
+            instance.cast.indirection   = targetDirect;
+            if target.isMethod
+                {
+                instance.cast.reference	= target.reference;
+                instance.cast.isMethod	= target.isMethod;
+                instance.cast.symbol	= target.symbol;
+                }
+            instance.cast.isCast = true;
+            }
+        }
+    return instance;
+}
+
+/*******************************************************************************
+        Checks that the type of the symbol passed in matches this instance
+        and if not, casts this instance to match.
+*******************************************************************************/
+Instance checkCast(Symbol target)
+{
+int         indirect    = howDirect();
+SymbolType	thisType,
+			targetType;
+Instance instance = this;
+	if !cast && target
+        {
+        thisType    = sourceType();
+        targetType  = target.type;
+        if targetType == intType && isVoidPointer()
+            targetType = longType;
+        if thisType != targetType || indirect != target.indirect
+            {
+            instance        = new(this);
+            instance.cast   = new(targetType);
+            instance.cast.indirection   = target.indirect;
+            if target.isMethod
+                {
+                instance.cast.reference	= target.reference;
+                instance.cast.isMethod	= target.isMethod;
+                instance.cast.symbol	= target;
+                }
+            instance.cast.isCast = true;
+            }
+        }
+    return instance;
+}
+
+/*******************************************************************************
+        If there is an overloaded method that applies, convert this instance
+		to contain the overloaded method. If there is no overloaded method,
+		returns null. Note [] has precedent over prefix or postfix (++ or --)
+*******************************************************************************/
+Instance checkOverload()
+{
+SymbolType      overloadType;
+String          splitOver,
+                text;
+Symbol          method;
+Instance        copy,
+                instance;
+DoubleLinkList  objectParameters;
+int             chained;
+use express
+    if checked return this;
+	checked = true;
+startOver:
+    if express
+        {
+        if object && !object.checked && (object.express || object.isVirtuous())
+            object = object.checkOverload();
+        if subject && subject.isVirtuous()
+            {
+            if verb && subject.arrayRef && verb eq "="
+                {
+                checkBracketEqual();
+                return this;
+                }
+            if !subject.checked subject = subject.checkOverload();
+            }
+        }
+    if express && subject overloadType = subject.getType();
+    else overloadType = getType();
+	if !overloadType || !overloads return this;
+    /***************************************************************************
+         Resolve overloaded verb
+    ***************************************************************************/
+    if express && verb && subject && object
+        {
+        String operation = verb.op;
+        if text = overloaded(operation)
+            if object.express && object.express.verb
+                {
+                operation = verb.op object.express.verb.op;
+                splitOver = overloaded(operation);
+                if splitOver text   = splitOver;
+                else chained        = true;
+                }
+        if text
+            {
+            instance = new(text);
+            /*******************************************************************
+                 In case of casts, expression wont have both subject and object
+            *******************************************************************/
+            if object.express && object.express.full
+                {
+                instance.addParameter(subject);
+                if chained instance.addParameter(object.express.subject);
+                else instance.addParameter(object.express.object);
+                }
+            else instance.addParameter(object);
+            if copy = overloadType.findMethodInstance(instance)
+                {
+                copy = new(copy);
+                copy.addParameter(object);
+                instance = copy;
+                }
+            if !instance.symbol
+                {
+                instance.parameters.first.value = object.getSubject();
+                instance.symbol = overloadType.findMethod(instance);
+                if !instance.symbol
+                    instance.error("Could not find overload method");
+                }
+            if !instance.isError
+                {
+                instance.prefix     = null;
+                instance.type       = null;
+                instance.isConstant = false;
+                instance.isMethod   = true;
+                if chained
+                    {
+                    object.express.subject = instance;
+                    express = object.express;
+                    chained = false;
+                    goto startOver;
+                    }
+                if object.isConstant && object.parameters
+                    objectParameters    = object.parameters;
+                instance.parent         = subject;
+                overloadType            = instance.getType();
+                /***************************************************************
+                     Prepare to handle remaining overload of [] if any
+                ***************************************************************/
+                if objectParameters
+                    {
+                    Instance block      = new(overloadType);
+                    block.parent        = instance;
+                    block.arrayRef      = true;
+                    block.parameters    = objectParameters;
+                    copy    = block;
+                    }
+                else copy   = instance;
+                resolved    = true;
+                goto finish;
+                }
+            }
+        }
+    /***************************************************************************
+         Resolve overloaded array reference
+    ***************************************************************************/
+    if !express && arrayRef && !howDirect()
+        if text = overloaded("[]")
+            {
+            copy = new(text);
+            copy.parameters = parameters;
+            if instance = overloadType.findMethodInstance(copy)
+                {
+                *copy           = *instance;
+                copy.parameters = parameters;
+                parameters      = null;
+                arrayRef        = 0;
+                copy.parent     = this;
+                resolved = true;
+                goto finish;
+                }
+            delete copy;
+            }
+    if symbol
+        {
+        /***********************************************************************
+             Resolve increment or decrement (assumes overload type stays the same).
+             No distinction made between prefix or postfix.
+        ***********************************************************************/
+        if prefix || postfix
+            {
+            if text = prefix ? overloaded(prefix) : overloaded(postfix)
+                {
+                text += "()";
+                if method = overloadType.getMethod(text)
+                    {
+                    instance        = new(method);
+                    instance.parent = copy;
+                    copy            = instance;
+                    resolved        = true;
+                    }
+                prefix  = null;
+                postfix = null;
+                }
+            goto finish;
+            }
+        /***********************************************************************
+             Handle overloaded () on a symbol that is not a method. Note: the
+             fact that this instance isMethod means that there are () and may
+             or may not be parameters
+        ***********************************************************************/
+        if isMethod && !symbol.isMethod && (text = overloaded("()"))
+            {
+            copy    = new(text);
+            copy.parameters = parameters;
+            if instance = overloadType.findMethodInstance(copy)
+                {
+                *copy           = *instance;
+                copy.parameters = parameters;
+                copy.reference  = false;
+                parameters      = null;
+                isMethod        = false;
+                copy.parent     = this;
+                resolved = true;
+                }
+            }
+        }
+finish:
+	checked = true;
+    if copy return copy;
+    return this;
+    //if resolved cout "checkOverload resolved: " text:;
+}
+
+/*******************************************************************************
+        Check symbol and resolve alias if there is one
+*******************************************************************************/
+void checkSymbol()
+{
+Symbol      thisSymbol;
+Instance    newParameter;
+use symbol
+    if !symbol return;
+    /***************************************************************************
+         Check for C method and extensions; fix if necessary. The alias is not
+         resolved if the alias type does not match the source type.
+    ***************************************************************************/
+    if isMethod && !reference
+        && (isAlias || (symbol.parentClass && symbol.parentClass.isC))
+        {
+        //cout "checkSymbol: " symbol.name:;
+        if isExtension fixExtension();
+        else {
+            while source
+                if symbol.type != source.type break;
+                else symbol = symbol.source;
+            if symbol.parentClass && symbol.parentClass.isC && !symbol.parentClass.isGlobal
+                && symbol.parameters && symbol.parentClass.components
+                && (!parameters || symbol.parameters.length > parameters.length)
+                {
+                if parent
+                    {
+                    newParameter    = parent;
+                    parent          = null;
+                    }
+                if !newParameter
+                    {
+                    thisSymbol      = parentClass.components["tHIS"];
+                    newParameter    = new(thisSymbol);
+                    }
+                if !parameters addParameter(newParameter);
+                else parameters.insert((void*)newParameter);
+                }
+            }
+        }
+}
+	
+/******************************************************************************
+	Returns a copy of this with a parent set
+******************************************************************************/
+Instance copyAndSetParent(Instance instance)
+{
+Instance copy = new(this);
+    copy.setParent(instance);
+    return copy;
+}
+
+/*******************************************************************************
+        Debugging routine
+*******************************************************************************/
+void dump()
+{
+    if symbol cout "Symbol",;
+    or express cout "Expression",;
+    cout toString():;
+}
+
+/*******************************************************************************
+        Write error message into this instance
+*******************************************************************************/
+void error(String text)
+{
+String message  = " ERROR " text;
+    if postfix
+		postfix = postfix message;
+    else postfix = message;
+    isError = true;
+    if symbol
+        message = symbol.name ":" message;
+	symbol      = new(message,nullType);
+    postfix     = null;
+}
+
+/*******************************************************************************
+        Looks thru instance parent hierarchy to find the named setter or getter
+        The name passed should be a methodName
+*******************************************************************************/
+Instance findGetterOrSetter(String name)
+{
+Instance    instance = parent;
+Symbol      method;
+    while instance
+        {
+        SymbolType  methodType = instance.getType();
+        if method = methodType.findField(name)
+            if method.isMethod break;
+        instance = instance.parent;
+        }
+    return instance;
+}
+
+/*******************************************************************************
+        If the instance symbol is an extension, set the symbol to its source
+        and fix the parameters to include the extended class pointer
+*******************************************************************************/
+void fixExtension()
+{
+Instance	argument;
+	if !symbol || !symbol.isExtension return;
+	if parent
+		{
+		argument    = parent;
+		parent      = null;
+        while source
+            if symbol.type != source.type break;
+            else symbol = symbol.source;
+        if !parameters addParameter(argument);
+        or parameters.length < symbol.parameters.length
+            parameters.insert((void*)argument);
+        }
+}
+
+/*******************************************************************************
+        Get the block associated with this instance (if it has one)
+*******************************************************************************/
+Block getBlock()
+{
+Instance	instance;
+	if block return block;
+	if statement return statement.getBlock();
+	if express
+		{
+		instance = getSubject();
+		return instance.getBlock();
+		}
+	return null;
+}
+
+/*******************************************************************************
+        Return cast string for this instance w/out enclosing ()
+*******************************************************************************/
+void getCast(Buffer buffer)
+{
+SymbolType	castType = getType();
+int i;
+    if !castType
+        {
+        error("Instance getCast: bogus type");
+        print postfix;
+        print(buffer) postfix;
+        }
+	or symbol && isMethod && (isLambda || reference)
+		print symbol.getSignature(true);
+	else {
+		print castType.name;
+		for ( i = getDirect(); i > 0; i-- ) print "*";
+		for ( i = reference; i; i-- )
+			print "&";
+		}
+}
+
+String getCast()
+{
+String		castText;
+Buffer		buffer = new;
+	getCast(buffer);
+	castText = buffer.toString();
+	delete buffer;
+	return castText;
+}
+
+/*******************************************************************************
+        Get the compare method associated with this instance (if it has one)
+*******************************************************************************/
+Symbol getCompareMethod(Instance object)
+{
+Symbol		method;
+SymbolType	objectType = object.getType();
+String		buffer = alloca(50), atBuffer;
+int	i;
+	if !objectType return null;
+	atBuffer = buffer;
+	print(atBuffer) "compare(" objectType.name;
+	atBuffer += (int)strlen(atBuffer);
+	i = howDirect();
+	while i-- > 0 { *atBuffer++ = '*'; }
+	print ")";
+	objectType = getType();
+	if !objectType return null;
+	method = objectType.ownMethod(buffer);
+	return method;
+}
+
+/*******************************************************************************
+        Get the indirection of this instance, that is in effect, the number
+        of asterisks prepended to it (as opposed to its native indirection,
+        which is returned by howDirect().
+*******************************************************************************/
+int getDirect()
+{
+int		direct;
+    if indirection direct = indirection;
+	or express && subject
+		direct = subject.getDirect();
+    return direct;
+}
+
+/*******************************************************************************
+        Get the format associated with this instance (if there is one)
+*******************************************************************************/
+Instance getFormat()
+{
+Instance    fmt;
+Symbol		sym = getSymbol();
+SymbolType	typ;
+int         direct;
+	if format fmt = format;
+	or sym && sym.format fmt = sym.format;
+	else {
+		typ = getType();
+        direct = howDirect();
+		if (typ == charType || typ == stringType) && direct == 1
+			fmt = new("%s");
+        or direct fmt = pointerType.format;
+		else fmt = typ.format;
+		}
+    return fmt;
+}
+
+/*******************************************************************************
+        Get the name of this instance (if it has one)
+*******************************************************************************/
+String getName()
+{
+Symbol expressSymbol;
+    if symbol   return  symbol.name;
+    if express
+        {
+        expressSymbol   = getSymbol();
+        return  expressSymbol.name;
+        }
+	if prefix    return  prefix;
+    if isComment return "comment";
+    return "no name";
+}
+
+/*******************************************************************************
+        Get the name of this instance (if it has one) w/qualifications.
+        This is only for debugging.
+*******************************************************************************/
+String getQualifiedName()
+{
+Instance    instance = this;
+String      qName;
+Symbol      qSymbol = getSymbol();
+    while qSymbol
+        {
+        if !qName
+            if qSymbol.isMethod
+                qName   = qSymbol.name " " qSymbol.methodName;
+            else qName  = qSymbol.name;
+        or qSymbol.isMethod
+            qName   = qSymbol.methodName "." qName;
+        else qName  = qSymbol.name "." qName;
+        if instance = instance.parent
+            qSymbol = instance.getSymbol();
+        else break;
+        }
+    return qName;
+}
+
+/*******************************************************************************
+        Get the subject of this instance
+*******************************************************************************/
+Instance getSubject()
+{
+	if statement && statement.first return statement.first.getSubject();
+	if express
+		if subject  return subject.getSubject();
+		or object   return object.getSubject();
+	return this;
+}
+
+/*******************************************************************************
+        Get the Symbol associated with this instance
+*******************************************************************************/
+Symbol getSymbol()
+{
+Instance instance;
+    if symbol return symbol;
+	instance = getSubject();
+	if instance && instance != this
+		return instance.getSymbol();
+	return null;
+}
+
+/*******************************************************************************
+        Get the SymbolType associated with this instance
+*******************************************************************************/
+SymbolType getType()
+{
+    if cast		return cast.getType();
+    or type		return type;
+    or symbol	return symbol.type;
+    or express	return express.getType();
+    or statement && statement.first return statement.first.getType();
+    or isSelector return selectorType;
+	if isError	return SymbolType.nullType;
+    return null;
+}
+
+/*******************************************************************************
+        Get the name of the SymbolType associated with this instance
+*******************************************************************************/
+String getTypeName()
+{
+SymbolType	type = getType();
+String		error;
+	if type return type.name;
+	or prefix return prefix;
+	if symbol error = "ERROR: no type for " symbol.name;
+	else error = "ERROR: no type or symbol";
+	return error;
+}
+
+/*******************************************************************************
+        Get the text associated with this instance
+*******************************************************************************/
+String getValue()
+{
+    if isConstant
+		{
+		if prefix return prefix;
+		or symbol return symbol.name;
+		}
+    or express
+		if express.subject return express.subject.getValue();
+		or express.object return express.object.getValue();
+    return null;
+}
+
+/*******************************************************************************
+        Returns true if its symbol is a method and has no body (ie. passed as
+        a reference in a parameter)
+*******************************************************************************/
+int hasNoBody()
+{
+    if symbol return noBody;
+    or express && subject && !object
+        return subject.hasNoBody();
+    return false;
+}
+
+/*******************************************************************************
+        Get the level of indirection of this instance
+*******************************************************************************/
+int howDirect()
+{
+int		direct;
+    if cast
+		{
+		direct = cast.indirection;
+		if cast.prefix direct -= (int)strlen(cast.prefix);
+		}
+	or isExternalType || (isConstant && type == stringType)
+		return 1;
+	or express
+        {
+        if verb && verb.op == '?'
+            direct = object.howDirect();
+        or subject
+		    direct = subject.howDirect();
+        }
+    or symbol
+        if isArray
+            direct  = isArray;
+        else direct = indirect;
+    if indirection  direct -= indirection;
+    if reference    direct += reference;
+    if arrayRef
+        direct -= arrayRef;
+	if direct < 0 error("Too much indirection");
+    return direct;
+}
+
+/*******************************************************************************
+    Remove parent and insert parent as the first parameter.
+    If this is an alias, the parent may be from a descendent class so have to
+    walk the parent chain to find the right parent to use as parameter
+*******************************************************************************/
+void insertParentAsParameter()
+{
+Instance argument;
+    if !symbol return;
+    //cout "insertParentAsParameter: " symbol.name:;
+    argument = parent;
+    while argument && argument.getType() != parentClass
+        argument = argument.parent;
+    if argument && parentClass && parentClass.isC
+        {
+        if parameters
+            parameters.insert(argument);
+        else addParameter(argument);
+        parent = null;
+        }
+}
+
+/*******************************************************************************
+        Returns true if instance is OC
+*******************************************************************************/
+int instanceOC()
+{
+	if symbol && isOCfield
+		return true;
+	return false;
+}
+
+/*******************************************************************************
+        Returns true if this is a block statement
+*******************************************************************************/
+int isBlockStatement()
+{
+    return statement && statement.first && statement.first.block;
+}
+
+/*******************************************************************************
+        Returns true if this instance refers to something virtuous
+*******************************************************************************/
+int isVirtuous()
+{
+SymbolType myType;
+int direct;
+    if !virtuous
+        {
+        direct = howDirect();
+        if !(direct > 1 || (arrayRef && direct == 1) || (symbol && symbol.isConstructor))
+            {
+            if type == stringType && isConstant && parent
+                myType  = parent.getType();
+            else myType = getType();
+            if myType && myType.isVirtuous
+                virtuous = 1;
+            }
+        }
+    return virtuous;
+}
+
+/*******************************************************************************
+        Returns true if this instance is a void * pointer.
+*******************************************************************************/
+int isVoidPointer()
+{
+SymbolType  instanceType = getType();
+Symbol      instanceSymbol  = getSymbol();
+    if instanceType
+        if (instanceType == voidType && instanceSymbol && instanceSymbol.indirect && howDirect() ==  1)
+            || instanceType.name eq "void*"
+            return true;
+    return false;
+}
+
+/*******************************************************************************
+        Set prefix to the mangled name for a method instance and return
+        the mangled name
+*******************************************************************************/
+String mangle()
+{
+int			i,length, parameterDirect;
+DoubleLink  link;
+Instance    parameter;
+String	    methodName;
+Symbol		pSymbol;
+
+    if symbol && symbol.isMethod return symbol.gitMethodName();
+    if !parameters
+        {
+        methodName = prefix "()";
+		goto endMangle;
+        }
+    else {
+		length   = (int)strlen(prefix) + 2;
+		for link = parameters.first
+			{
+			parameter	= link.value;
+            if parameter.cast
+                {
+                parameter = parameter.cast;
+                parameterDirect = parameter.getDirect();
+                }
+            else parameterDirect = parameter.howDirect();
+            pSymbol     = parameter.getSymbol();
+            if parameter.isMethod && parameter.hasNoBody() pSymbol.reference++;
+            if pSymbol && (pSymbol.isLambda || (pSymbol.isMethod && pSymbol.reference))
+                {
+				methodName = pSymbol.getSignature();
+				length += (int)strlen(methodName);
+                if pSymbol.isMethod length++; // assumes method is a reference
+				}
+			else length	+= (int)strlen(parameter.getTypeName()) + parameterDirect;
+            length++;   // allow for comma
+			}
+	    }
+	methodName	= (String)malloc(++length);
+	strcpy(methodName, prefix);
+	strcat(methodName,"(");
+	for link = parameters.first
+	    {
+	    parameter	= link.value;
+        if parameter.cast
+            {
+            parameter = parameter.cast;
+            parameterDirect = parameter.getDirect();
+            }
+        else parameterDirect = parameter.howDirect();
+        pSymbol     = parameter.getSymbol();
+        if pSymbol && (pSymbol.isLambda || (pSymbol.isMethod && pSymbol.reference))
+            {
+            strcat(methodName,pSymbol.getSignature());
+            if parameter.hasNoBody() pSymbol.reference--;
+            }
+		else {
+			strcat(methodName,parameter.getTypeName());
+			for ( i = parameterDirect; i > 0; i-- )
+				strcat(methodName,"*");
+			}
+		if link.next strcat(methodName,",");
+	    }
+	strcat(methodName,")");
+endMangle:
+    return methodName;
+}
+
+/*******************************************************************************
+        Get a pointer name by appending instanceIndex to name.
+*******************************************************************************/
+String pointerName()
+{
+String  text;
+use symbol
+    if symbol
+        {
+        text = malloc(strlen(name) + 10);
+        print(text) name symbolIndex "p";
+        }
+    return text;
+}
+
+/*******************************************************************************
+        Returns true if this instance is qualified. Returns false if this
+        does not contain a symbol.
+*******************************************************************************/
+int qualified()
+{
+    return symbol && parent;
+}
+
+/******************************************************************************
+	In the case of an alias method that has default parameter(s), insert the
+    default parameters amongst the other parameters supplied in the method call.
+    If the alias for a method with 3 parameters has one default, the alias is
+    essentially a two parameter method calling the underlying method with 3
+    parameters, including the default. Note that the non-default parameters
+    have to be supplied in the order given by the underlying method.
+******************************************************************************/
+void setDefaults(Tawk tok)
+{
+Symbol      arg;
+Instance    instance;
+int         count, defaults;
+DoubleLinkList  list = parameters;
+    parameters = null;
+    if symbol.parameters
+        {
+        /**********************************************************************
+            Only need to add in default parameters if the number of parameters
+            supplied is less than expected
+                defaults    The number of parameters needed
+                count       The number of default parameters added
+        **********************************************************************/
+        defaults = list ? symbol.parameters.length - list.length : symbol.parameters.length;
+        if defaults > 0
+            {
+            symbol.parameters.entry = null;
+            while arg = symbol.parameters.next()
+                {
+                if list && count == defaults
+                    break;
+                if arg.isThis
+                    {
+                    count++;
+                    continue;
+                    }
+                if arg.isDefault
+                    {
+                    count++;
+                    if arg.comment
+                        {
+                        PLGitem inst,
+                                exp = divertInput(arg.comment,"Expression");
+                        if exp
+                            if inst = exp["instance"]
+                                instance = inst.value;
+                            else cerr "Instance setDefaults: could not get expression instance for",arg.comment:;
+                        else cerr "Instance setDefaults: alias argument parse failed for",arg.comment:;
+                        }
+                    }
+                or list instance  = list.next();
+                if instance
+                    addParameter(instance);
+                }
+            }
+        }
+    if list
+        {
+        while instance = list.next()
+            addParameter(instance);
+        list.clear();
+        }
+    //cout "setDefaults added " count " default parameters " mangle():;
+}
+
+/*****************************************************************************
+	Set indirection and reference levels in a copy of this instance and
+    returns the copy
+*****************************************************************************/
+Instance setIndirectItem(PLGitem direct)
+{
+int		i;
+char	*atChar = direct.start;
+Instance instance = new(this);
+	instance.indirection = 0;
+	instance.reference = 0;
+	for ( i = direct.length; i; i--, atChar++ )
+		if *atChar == '*' instance.indirection++;
+		or *atChar == '&' instance.reference++;
+		or *atChar == '^' instance.isLambda = true;
+    return instance;
+}
+
+/******************************************************************************
+	Sets the isUsed flag
+******************************************************************************/
+void setIsUsed()
+{
+Instance    piece;
+Instance	instance;
+    if isComment return;
+	for instance = this on parent
+        if isDeclaration
+            {
+            if express
+                {
+                object.setIsUsed();
+                if subject && subject.express subject.setIsUsed();
+                }
+            continue;
+            }
+        else {
+            Symbol symbol = instance.symbol;
+            if symbol
+                {
+                if !symbol.isUsed
+                    {
+                    //cout "setIsUsed for:",symbol.name:;
+                    symbol.isUsed = true;
+                    }
+                if parameters
+                    {
+                    parameters.reset();
+                    while piece = parameters.next()
+                        piece.setIsUsed();
+                    }
+                }
+            or express
+                {
+                if subject  subject.setIsUsed();
+                if object   object.setIsUsed();
+                }
+            or statement
+                statement.setIsUsed();
+            or block && block.statements
+                {
+                statements.reset();
+                while piece = statements.next()
+                    piece.setIsUsed();
+                }
+            }
+}
+
+/******************************************************************************
+	Sets the level
+******************************************************************************/
+void setLevel()
+{
+Instance	instance;
+	if !symbol return;
+    level = 0;
+	for instance = this on parent level++;
+}
+	
+/******************************************************************************
+	Sets the parent checking to make sure there is no looping.
+******************************************************************************/
+void setParent(Instance instance)
+{
+Instance    last,
+            before = this;
+    if !instance parent = instance;
+    else {
+        for before on parent
+            if before == instance
+                {
+                cerr "Attempt to assign recursive parent\n";
+                dump();
+                return;
+                }
+            or before.parent
+                {
+                last    = new(before.parent);
+                before.parent = last;
+                }
+            else break;
+        if !before.symbol || !before.symbol.isStatic
+            if before == this
+                parent = instance;
+            else before.parent = instance;
+        }
+    setLevel();
+}
+	
+/******************************************************************************
+	Sets the isReferenced flag for its symbol and parents, if any
+******************************************************************************/
+void setRefer()
+{
+Symbol item = getSymbol();
+	if !item return;
+	item.setRefer();
+	if parent parent.setRefer();
+}
+	
+/******************************************************************************
+	Sets the instance reference. This setter is here because there are a lot
+    of places where reference is set and this gives us a place to debug them.
+    Note reference is when you use & (as opposed to *);
+******************************************************************************/
+void setReference(int flag)
+{
+    reference = flag;
+}
+
+/*******************************************************************************
+        Like getType but ignores alias type
+*******************************************************************************/
+SymbolType sourceType()
+{
+	if isMethod && reference && instanceOC() return selectorType;
+    or cast		return cast.getType();
+    or type		return type;
+	or isError	return SymbolType.nullType;
+    or express && !verb && subject
+        return subject.sourceType();
+    or !(express && verb && verb eq "?")
+        {
+		Symbol symbol = getSymbol();
+		if symbol
+			if symbol.isAlias return source.type;
+			else return symbol.type;
+		}
+    return getType();
+}
+
+/*******************************************************************************
+        Create a string representation of this instance best we can
+*******************************************************************************/
+String toString()
+{
+Instance    instance;
+String      text;
+    if symbol   text    = "Symbol: " symbol.name;
+    or express  text    = "Expression: " express.toString();
+    or statement text   = "Statement Type: " statement.toString();
+    or prefix
+        if type text    = type.name " " prefix;
+        else    text    = prefix;
+    if parameters
+        {
+        int nextFlag;
+        text += "(";
+        parameters.entry = null;
+        while instance = parameters.next()
+            {
+            if nextFlag++ text += ",";
+            text += instance.toString();
+            }
+        text += ")";
+        }
+    if postfix text += postfix;
+return text;
+}
+}

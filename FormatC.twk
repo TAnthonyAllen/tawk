@@ -1,0 +1,1991 @@
+include includes
+
+Conditions
+	subjectString		(subjectType == stringType && (subjectDirect == 1 || subject.isConstant))
+	subjectChar			(subjectType == charType && subjectDirect == 0) 
+	objectString		(objectType == stringType && (objectDirect == 1 || object.isConstant))
+	objectChar			(objectType == charType && objectDirect == 0)
+	stringEQchar		(subjectString && objectChar)
+	charEQstring		(objectString && subjectChar)
+	subjectOrObjectString	(subjectString || objectString)
+;
+
+/*******************************************************************************
+        Formats tok code in ObjectiveC or C++ or C (C++ w/methods global) format
+*******************************************************************************/
+class FormatC
+{
+Block		staticBlock;
+Buffer		buffer,
+            errorBuffer,
+            forwardBuffer,
+            headerBuffer,
+			includeText,
+			junkBuffer,
+			structBuffer;
+Instance	stringEncoder;
+String		currentNameSpace,
+            filename;
+SymbolType	currentType;
+Symbol		ocStringConverter,
+			enclosingMethod;
+Stak		mStak;
+int         suppressedDeclarations;
+Directive   pendingDirective,
+            endDirective,
+            startDirective;
+boolean
+			argumentIsOC
+            jitting
+			makeOCfile
+            processingGlobalMethods
+            writingParameters
+			;
+
+FormatC()
+{
+    forwardBuffer   = new("forward");
+	headerBuffer	= new("header");
+	includeText		= new("include");
+	junkBuffer		= new("junk");
+	staticBlock		= new;
+	structBuffer	= new("struct");
+	mStak			= new;
+	buffer			= junkBuffer;
+}
+
+/*******************************************************************************
+        Use mStak to stash referenced namespaces (used when creating forward
+        class references)
+*******************************************************************************/
+void addNameSpace(String name)
+{
+String  space;
+    mStak.entry = null;
+    while space = mStak.next()
+        if space eq name return;
+    //cout "Adding namespace: " name:;
+    mStak.push(name);
+}
+
+/*******************************************************************************
+        Set isInitialized
+*******************************************************************************/
+void checkInitialize(Instance instance)
+{
+Symbol	symbol;
+	if !instance return;
+	if statement  checkStatement(statement);
+	or express && verb && verb eq "="
+		{
+		symbol = subject.getSymbol();
+		if symbol && !isStatic && !isInitialized && !isMethod
+			isInitialized = true;
+		}
+}
+
+/*******************************************************************************
+        Check that sortedComponents and sortedMethods have been set
+*******************************************************************************/
+void checkSort(SymbolType type)
+{
+DoubleLinkList  list;
+DoubleLink      newLink,
+                link;
+    /**************************************************************************
+        The following is done in order to have components and methods
+        declared in the order they were entered rather than in hash order
+    **************************************************************************/
+    if components && !sortedComponents
+        {
+        list            = new;
+        list.hasKeys    = true;
+        sortAscending   = true;
+        components.reset();
+        while link = components.nextLink()
+            list.addInLinkOrder(link);
+        sortedComponents    = list;
+        }
+    // Need to strip out the duplicate methodname entries
+    if methods && !sortedMethods
+        {
+        list            = new;
+        list.hasKeys    = true;
+        sortAscending   = true;
+        methods.reset();
+        while link = methods.nextLink()
+            {
+            Symbol method = link.value;
+            if link.key != method.name continue;
+            else newLink = list.add(key,value);
+            }
+        sortedMethods       = list;
+        }
+}
+/*******************************************************************************
+        Set isInitialized
+*******************************************************************************/
+void checkStatement(Statement statement)
+{
+    if statementType != NOTSPECIFIED return;
+	checkInitialize(first);
+	if second
+        {
+        checkInitialize(second);
+        if third
+            {
+            checkInitialize(third);
+            if fourth checkInitialize(fourth);
+            }
+        }
+}
+
+/*******************************************************************************
+        Make sure referenced typedef include files get referenced
+*******************************************************************************/
+void checkTypedefs()
+{
+SymbolType  type;
+Symbol      field;
+    while type = types.next()
+        {
+        if !isReferenced || !hasTypedef continue;
+        checkSort(type);
+        if sortedComponents
+            {
+            sortedComponents.reset();
+            while field = sortedComponents.next()
+                if field.type.isType
+                    field.setRefer();
+            }
+        if sortedMethods
+            {
+            sortedMethods.reset();
+            while field = sortedMethods.next()
+                {
+                if field.isHidden continue;
+                if field.type.isType
+                    field.setRefer();
+                }
+            }
+        }
+}
+
+/*****************************************************************************
+	Close the formatter and print the formatted files
+*****************************************************************************/
+void close()
+{
+    forwardBuffer.append(headerBuffer.string());
+    headerBuffer.reset();
+	forwardBuffer.closeFile();
+	if buffer != forwardBuffer && buffer.file
+		buffer.closeFile();
+    if suppressedDeclarations
+        cout "Declarations ignored because not used:",suppressedDeclarations:;
+}
+
+/*****************************************************************************
+	Inserts a cast when void* is involved in simple assignments and
+	munges comparison expressions
+*****************************************************************************/
+void convert(Expression express)
+{
+Symbol	    method,
+			toString;
+SymbolType  subjectType,
+			objectType;
+Operate     isComparison;
+Instance    right,
+			left,
+			string;
+int			objectDirect,
+			subjectDirect;
+
+    if !subject || !object || subject.isError || object.isError || !verb
+		return;
+	subjectType		= subject.sourceType();
+	objectType		= object.sourceType();
+	objectDirect	= object.howDirect();
+	subjectDirect	= subject.howDirect();
+	if verb eq "="
+		{
+		if subjectType.isOC && objectString object = makeOCstring(object);
+		if subjectString && !objectString && !objectType.isNumber
+			{
+			if subjectDirect != 1 goto checkStringCast;
+			toString = objectType.getMethod("toString");
+			if !toString goto checkStringCast;
+			string = new(toString);
+			if toString.isExtension
+				{
+				string.symbol = toString.source;
+				string.addParameter(object);
+				}
+			else string.parent = object;
+			object = string;
+			objectType = toString.type;
+			}
+checkStringCast:
+		if !subject.isLambda && (subject.isVoidPointer() || object.isVoidPointer())
+            && !(subject.symbol && subject.symbol.setter && !subject.symbol.isSetter)
+			&& (subjectType != objectType || subjectDirect != objectDirect
+                || subject.isMethod != object.isMethod)
+			{
+			object = object.checkCast(subject);
+			return;
+			}
+		}
+    or verb.comparison && subjectType.isChar && objectType.isChar
+        {
+        // Convenience fix for string/char mismatch
+        if subjectType == stringType && objectType == charType
+            && subjectDirect == 1 && !objectDirect
+            {
+            subject = new(subject);
+            subject.indirection = 1;
+            }
+        or subjectType == charType && objectType == stringType
+            && !subjectDirect && objectDirect == 1
+            {
+            object = new(object);
+            object.indirection = 1;
+            }
+        }
+    /*************************************************************************
+		Checks comparison expressions to handle string compares and
+		insertion of compare methods
+    *************************************************************************/
+    if verb.call
+        isComparison = CompareOperators.get(verb.op);
+    if isComparison
+		{
+		verb = isComparison;
+		right = new("0");
+		right.isConstant = true;
+		right.type = SymbolType.intType;
+		if !subjectType.isAtomic method = subject.getCompareMethod(object);
+		if !method
+			{
+			if !objectType.isAtomic method = object.getCompareMethod(subject);
+			if method
+				{
+				left = new(method);
+				left.addParameter(subject);
+				left.parent = object;
+				}
+			}
+		else {
+			left = new(method);
+			left.addParameter(object);
+			left.parent = subject;
+			}
+		if !method && subjectOrObjectString
+			if subjectType != stringType
+				{
+				if subjectDirect != 1 goto bail;
+				toString = subjectType.ownMethod("toString()");
+				if !toString goto bail;
+				string = new(toString);
+				string.parent = subject;
+				subject = string;
+				subjectType = stringType;
+				}
+			or objectType != stringType
+				{
+				if objectDirect != 1 goto bail;
+				toString = objectType.ownMethod("toString()");
+				if !toString goto bail;
+				string = new(toString);
+				string.parent = object;
+				object = string;
+				objectType = stringType;
+				}
+			else {
+				method = new("compare",SymbolType.intType);
+				stringRoutines.setRefer();
+				method.isMethod = true;
+				method.parentClass = globalType;
+				left = new(method);
+				left.addParameter(subject);
+				left.addParameter(object);
+				}
+bail:
+		if method
+			{
+			subject = left;
+			object = right;
+			}
+		}
+}
+
+/*******************************************************************************
+        Called when declaring static expressions
+*******************************************************************************/
+void declare(Block block)
+{
+DoubleLink  line;
+Instance	instance;
+	if !statements return;
+	for line = statements.first
+		{
+		instance = line.value;
+		statement.first.isDeclaration = true;
+		declare(statement.first,false);
+		print(buffer) ";\n";
+		}
+}
+
+/*******************************************************************************
+        Write out a declaration for this expression
+*******************************************************************************/
+void declare(Expression expression)
+{
+int	j;
+	expression.checkExpression(this);
+    if subject
+		declare(subject);
+	if object
+		{
+		if verb
+			if verb eq ","
+				{
+				if subject && subject.symbol print " = 0,\n";
+				else print ",\n";
+				if object.block
+					for (  j = object.block.width; j > 0; j-- )
+						print "\t";
+				object.isDeclaration = true;
+				writeIndirect(object);
+				object.isDeclaration = false;
+				}
+			else print " " verb.op " ";
+		declareTail(object,true);
+		}
+}
+
+/*******************************************************************************
+        Write out a declaration for this instance
+*******************************************************************************/
+void declare(Instance instance,int forDotH)
+{
+int	width;
+	if !isDeclaration
+		{
+		write(instance);
+		return;
+		}
+	if block width = block.getWidth();
+    if symbol && !symbol.isAlias
+        {
+        /***********************************************************************
+                Write out warning if declaration is not used
+        ***********************************************************************/
+        if isLocal && !symbol.isUsed
+            {
+            Buffer  saveBuffer = buffer;
+            if !errorBuffer errorBuffer = new("errors");
+            buffer      = errorBuffer;
+            print "// Ignoring declaration of unused variable",;
+            if enclosingMethod
+                print getSymbol().name,"in method:",enclosingMethod.methodName:;
+            else print getSymbol().name:;
+            suppressedDeclarations++;
+            buffer      = saveBuffer;
+            instance.isComment = true;
+            }
+        else {
+            declare(symbol,forDotH,width);
+            if symbol.isConstructor && parameters
+                {
+                writeParameters(instance);
+                // clean out converting constructor stuff
+                isConstructor   = false;
+                isMethod        = false;
+                parameters      = null;
+                }
+            }
+        }
+	or express declareTail(instance,forDotH);
+    isDeclaration = false;
+}
+
+/*******************************************************************************
+	Write out a declaration for this symbol. If the flag is set, the declaration
+	is for a .h file, otherwise it is a declaration appropriate for a method
+	parameter, Does not write out the trailing ;
+*******************************************************************************/
+int declare(Symbol symbol,int flag,int width)
+{
+int			j;
+int			isString = false;
+String		atArray;
+Buffer		saveBuffer;
+    symbol.setRefer();
+    if flag && isStatic print "static ";
+    if symbol.type.structure
+		{
+		/**********************************************************************
+			Declare enums, unions, booleans and structs
+		**********************************************************************/
+		if type.structure && !type.isDeclared && !type.isType && !type.isProtocol
+			{
+			saveBuffer = buffer;
+			if isHidden && !(parentClass.isStruct || parentClass.isUnion)
+				buffer = headerBuffer;
+			else buffer = structBuffer;
+			declareStructure(type);
+			buffer = saveBuffer;
+			}
+		if !isHidden && !isItem goto normal;
+		return false;
+		}
+    or isMethod
+		{
+		writeSignature(symbol,false);
+		return true;
+		}
+    else {
+		/**********************************************************************
+			Declare regular variables, arrays
+		**********************************************************************/
+normal:
+		if !type
+			{
+			print "missing type for " name;
+			return true;
+			}
+		if !(isItem && parentClass.isEnumerator)
+			{
+            if isConst print "const ";
+			if isOutlet && currentType.isOC print "IBOutlet ";
+            if type.nameSpace print type.nameSpace "::";
+			if type == stringType
+				{
+				isString = true;
+				print "char ";
+				}
+			or type != nullType
+                if isItem && structType && structType.isBoolean
+                    && currentType.isOC
+                    print "BOOL ";
+				else print type.name,;
+			for ( j = width - ( 1 + (int)strlen(type.name))/4; j > 0; j-- )
+				print "\t";
+			if indirect
+				for ( j = indirect - isArray; j > 0; j-- )
+					print "*";
+			else
+			if !type.isDirect && !isConstructor print '*';
+			for (j = reference; j; j--)
+				print '&';
+			if !flag && isStatic && !currentType.isOC
+				print parentClass.name "::";
+			}
+		print name;
+		if !isArray && flag && array && !currentType.isOC
+			print array;
+		or isArray && array
+			if flag
+				print array;
+			else
+			for ( atArray = array; *atArray; atArray++ )
+				if *atArray == '[' print "[]";
+		return true;
+		}
+}
+
+/******************************************************************************
+	Print out class body
+******************************************************************************/
+void declareBody(SymbolType type)
+{
+Symbol		field;
+Buffer		saveBuffer = buffer;
+DoubleLink	entry;
+String codeName = type.name "code";
+    //cout "Declare class body for " type.name:;
+	if !codeBuffer
+		codeBuffer = new(codeName);
+	buffer = codeBuffer;
+    checkSort(type);
+    if sortedComponents
+        while field = sortedComponents.next(entry)
+            {
+            field.setRefer();
+            if isStatic && !isMethod && !isInitialized
+                {
+                declare(field,false);
+                print ";\n";
+                }
+            }
+    if sortedMethods
+        {
+        entry = null;
+        while field = sortedMethods.next(entry)
+            {
+            if field.isHidden continue;
+            field.setRefer();
+            if field.isAlias continue;
+        int j; if field.name eq "lazyGetField" j = 0;
+            writeSignature(field,true);
+            }
+        }
+	buffer = saveBuffer;
+}
+
+/******************************************************************************
+	Write out the files needed to implement this type as a class.
+	Note that the header and code PrintBuffers are
+	not closed here so that globals can be added to the files
+******************************************************************************/
+void declareClass(SymbolType type)
+{
+Buffer      saveBuffer;
+SymbolType	structType;
+String codeName = type.name "code";
+use type
+    if isExternal || isAtomic || isType return;
+    checkSort(type);
+    /**************************************************************************
+        If protocol, write the protocol declaration
+    **************************************************************************/
+    if isProtocol && !isExternal
+        {
+		saveBuffer  = buffer;
+        buffer      = headerBuffer;
+        print "@protocol " name:;
+        if sortedMethods declareMethods(type,0);
+        print "@end\n";
+        buffer      = saveBuffer;
+        return;
+        }
+	if !filename
+        {
+        cerr "No file name set to write out type: " type.name:;
+        return;
+        }
+	if type.structure
+		{
+		saveBuffer = buffer;
+		buffer = structBuffer;
+		declareStructure(type);
+		buffer = saveBuffer;
+		return;
+		}
+    setRefer();
+	currentType = type;
+	if !(ocStringConverter && stringEncoder)
+		{
+		SymbolType tYPE = types.get("NSString");
+		if tYPE
+			{
+			Instance instance = globalFields["encoder"];
+			if instance
+				{
+				ocStringConverter = tYPE.getMethod("ocString");
+				stringEncoder = instance;
+				}
+			}
+		}
+    /**************************************************************************
+	Write headerBuffer
+    **************************************************************************/
+    buffer  = headerBuffer;
+    forwardClass(type);
+	if isOC
+		{
+		if includeText.length() > 0
+			{
+			print includeText.string();
+			includeText.reset();
+			}
+		if type.comment print comment;
+		print "@interface " name;
+		if parent
+			print " : " parent.name;
+		else	print " : NSObject";
+        if protocols
+            {
+            int flag;
+            protocols.entry = null;
+            print " <";
+            while structType = protocols.next()
+                {
+                if flag print ",";
+                else flag = true;
+                print structType.name;
+                }
+            print ">";
+            }
+		print "\n{\n@public\n";
+		}
+	else {
+		if type.comment print comment "\n";
+        print "class " name;
+        if parent print " : public " parent.name;
+        print "\n{\npublic:\n";
+		}
+	while structType = types.next()
+		if structType.mustDeclare
+			declareStructure(structType);
+	declareHeaders(type);
+    if !isC
+        if isOC print "@end\n";
+        else print "};\n";
+    saveBuffer  = buffer;
+    buffer      = forwardBuffer;
+    while currentNameSpace = mStak.pop()
+        {
+        print "namespace " currentNameSpace " {":;
+        while structType = types.next()
+            if structType.isReferenced && structType.nameSpace
+                && structType.nameSpace eq currentNameSpace
+                {
+                int save = structType.noClassForward;
+                structType.noClassForward = false;
+                flagType(structType);
+                structType.noClassForward = save;
+                }
+        print "}":;
+        }
+	buffer = saveBuffer;
+    if structBuffer.length()
+        {
+        forwardBuffer.append(structBuffer.string());
+        forwardBuffer.append("\n");
+        structBuffer.reset();
+        }
+	forwardBuffer.setFile(dotHname);
+
+    /**************************************************************************
+	Write codeBuffer
+    **************************************************************************/
+	if !codeBuffer
+		codeBuffer = new(codeName);
+    buffer = codeBuffer;
+	if isOC print   "\n@implementation " name "\n";
+    if staticBlock.length()
+		{
+		declare(staticBlock);
+		staticBlock.statements.clear();
+		}
+    declareBody(type);
+	if isOC print "@end\n";
+}
+
+/******************************************************************************
+	Print out the component headers in a format appropriate to a header file
+******************************************************************************/
+void declareHeaders(SymbolType type)
+{
+Symbol		field;
+    checkSort(type);
+    if sortedComponents
+        {
+        sortedComponents.reset();
+        while field = sortedComponents.next()
+            {
+            if isAlias || isVirtual
+                || (isHidden && (field.type == buttonType || field.type.isExternal
+                    || !(field.isItem || field.type.structure))) continue;
+            if field.isItem && (!type.structure || field.isHidden) continue;
+            if field.isItem || type.structure indent();
+            if declare(field,true)
+                {
+                if !(field.isItem && field.parentClass.isEnumerator)
+                    print ";";
+                or sortedComponents.entry.next print ",";
+                print "\n";
+        }   }   }
+	if type.isOC print "}\n";
+    or type.isC print "};\n";
+    if sortedMethods
+        if isC
+            {
+            print "extern \"C\"\n{\n";
+            declareMethods(type,0);
+            print "}\n";
+            }
+        or hasExtern
+            {
+            declareMethods(type,1);
+            print "extern \"C\"\n{\n";
+            declareMethods(type,2);
+            print "}\n";
+            }
+        else declareMethods(type,0);
+}
+
+/******************************************************************************
+	Print out method declarations in a format appropriate to a header file
+******************************************************************************/
+void declareMethods(SymbolType type,int flag)
+{
+Symbol		field;
+    sortedMethods.reset();
+    while field = sortedMethods.next()
+		{
+        // exclude methodName entries
+        if reference || field.isHidden continue;
+        if flag == 1 && field.isExtern continue;
+        or flag == 2 && !field.isExtern continue;
+		if isAlias || isHidden continue;
+		if isVirtual print "virtual ";
+        or isInline  print "inline ";
+		if type.structure indent();
+		writeSignature(field,false);
+		print ";\n";
+		}
+}
+
+/******************************************************************************
+	Print out a structure declaration
+******************************************************************************/
+void declareStructure(SymbolType type)
+{
+Symbol  field;
+	if type.isDeclared || type.isExternal return;
+	type.isDeclared = true;
+    checkSort(type);
+    forwardClass(type);
+    if isBoolean && currentType.isOC
+        {
+        declareHeaders(type);
+        return;
+        }
+    if sortedComponents
+        {
+        sortedComponents.reset();
+        while field = sortedComponents.next()
+            if field.isAlias continue;
+            else flagType(field.type);
+        }
+	if indentCount > 1 indent();
+	if isBoolean || isStruct print "struct ";
+	or isEnumerator print "enum ";
+	else print "union ";
+	if nameLess print "\n";
+	else print type.name "\n";
+	indentCount++;
+	indent();
+	print "{\n";
+	declareHeaders(type);
+	indent();
+	print "};\n";
+    if isBoolean
+        while field = components.next()
+            if field.isButton
+                print "#define",field.name "(button) (button == " field.array ")":;
+	indentCount--;
+}
+
+/*******************************************************************************
+        Write out the tail end of an instance declaration expression
+*******************************************************************************/
+void declareTail(Instance instance,int flag)
+{
+	if express
+		{
+		express.checkExpression(this);
+        if cast write(cast);
+        if resolved && !express
+            write(instance);
+        else {
+            if subject
+                if subject.express declareTail(subject,flag);
+                else {
+                    subject.isDeclaration = true;
+                    declare(subject,flag);
+                    }
+            if object
+                {
+                if verb && verb eq ","
+                    {
+                    object.isDeclaration = true;
+                    if !subject.isComment
+                        if subject.symbol
+                            && ((!subject.isMethod && !subject.symbol.type.structure)
+                                || subject.howDirect()) print " = 0;":;
+                        else print ";":;
+                    write(object);
+                    }
+                or !subject.isComment
+                    {
+                    if verb print ,op,;
+                    write(object);
+                    }
+                else isComment = true;
+                }
+            }
+		}
+	else write(instance);
+}
+
+/*******************************************************************************
+        print out the class declarations in the .h file
+*******************************************************************************/
+void flagType(SymbolType type)
+{
+    if nameSpace && !currentNameSpace
+        addNameSpace(nameSpace);
+    if noClassForward || isAtomic || structure || type.name eq currentType.name
+        return;
+    if type.isOC
+        {
+        print "@class " name ";":;
+        if dotHname eq "Cocoa/Cocoa.h"
+            {
+            noClassForward = true;
+            return;
+            }
+        }
+    else {
+        if nameSpace && currentNameSpace ne nameSpace
+            return;
+        if isTemplate print "template<> ";
+        print "class ";
+        print name ";":;
+        }
+    noClassForward = true;
+}
+
+/*******************************************************************************
+        Write out class forward declarations
+*******************************************************************************/
+void forwardClass(SymbolType type)
+{
+Symbol  argument,field;
+Buffer  saveBuffer = buffer;
+    checkSort(type);
+    buffer = forwardBuffer;
+    if sortedComponents
+        {
+        sortedComponents.reset();
+        while field = sortedComponents.next()
+            if field.isAlias continue;
+            else flagType(field.type);
+        }
+    if sortedMethods
+        {
+        sortedMethods.reset();
+        while field = sortedMethods.next()
+            {
+            if field.isAlias || field.isHidden continue;
+            flagType(field.type);
+            if field.parameters
+                while argument = field.parameters.next()
+                    flagType(argument.type);
+            }
+        }
+    buffer = saveBuffer;
+}
+
+/*******************************************************************************
+        Write out indent
+*******************************************************************************/
+void indent()
+{
+int	i;
+    for ( i = Block.indentCount; i > 0; i-- )
+		print "\t";
+}
+
+/*******************************************************************************
+        Handle indentation for a multi-line comment
+*******************************************************************************/
+void indentComment(Instance instance)
+{
+int length = (int)strlen(prefix);
+char	*atText;
+int	flag;
+    for (atText = prefix; *atText; atText++ )
+	if *atText == '\n'
+	    length += Block.indentCount;
+    buffer.extend(++length);
+    for (atText = prefix; *atText; atText++ )
+		{
+		if flag
+			switch(*atText)
+				{
+				case ' ':
+				case '\t':
+					continue;
+				default:
+					flag = 0;
+				}
+		*buffer.current++ = *atText;
+		if *atText == '\n'
+			{
+			flag++;
+			indent();
+			}
+		}
+    buffer.append("\n");
+}
+
+/*******************************************************************************
+        Add initializations to constructor
+*******************************************************************************/
+void initialize(Symbol method)
+{
+	if !method || !method.block || !isMethod || isInitialized return;
+	isInitialized = true;
+SymbolType	type = parentClass;
+Statement	statement;
+Symbol		symbol;
+Instance	instance;
+	method.block.statements.entry	= null;
+	while instance = method.block.statements.next()
+		{
+		statement = instance.statement;
+		checkStatement(statement);
+		}
+    checkSort(type);
+    if sortedComponents
+        {
+        sortedComponents.reset();
+        while symbol = sortedComponents.prior()
+            {
+            if isStatic || (isHidden && !isItem) || isAlias || symbol.isMethod
+                continue;
+            if isItem && !symbolBitLength && (parentClass.isEnumerator || array)
+                continue;
+            if indirect == 0 && symbol.type.structure continue;
+            if !isInitialized
+                method.block.insert(initialStatement(symbol));
+            else isInitialized = false;
+            }
+        }
+    if sortedMethods
+        {
+        sortedMethods.reset();
+        while symbol = sortedMethods.next()
+            {
+            if isStatic || isHidden || isAlias || sortedMethods.entry.key eq methodName continue;
+            if symbol.reference
+                if !isInitialized method.block.insert(initialStatement(symbol));
+                else isInitialized = false;
+            }
+        }
+}
+
+/*******************************************************************************
+        Generate the initialization statement
+*******************************************************************************/
+Instance initialStatement(Symbol symbol)
+{
+Statement	statement;
+Instance	instance,
+			nullInstance = new("0");
+Expression	expression;
+	nullInstance.type = intType;
+	nullInstance.isConstant = true;
+	instance	= new(symbol);
+	expression	= new(instance,new Instance(nullInstance),"=");
+	statement	= new();
+	statement.add(expression);
+	instance = new(statement);
+	return instance;
+}
+
+/*******************************************************************************
+        Output the instance as a string
+*******************************************************************************/
+Instance makeOCstring(Instance instance)
+{
+Instance string;
+	if instance.isConstant || (instance.express && !instance.express.verb
+		&& instance.express.subject.isConstant)
+		instance.atString = true;
+	or ocStringConverter && stringEncoder
+		{
+		string = new(ocStringConverter);
+		string.addParameter(instance);
+		string.addParameter(stringEncoder);
+		return string;
+		}
+	return instance;
+}
+
+/******************************************************************************
+	Loops thru types and prints include statements if the type has been referenced.
+******************************************************************************/
+void printCode()
+{
+SymbolType	ancestor,
+			type;
+String		includeString,
+            cocoaString = "Cocoa/Cocoa.h";
+Buffer		saveBuffer = buffer;
+SearchTree	tree = new;
+	if !currentType.isOC && includeText.length() > 0
+		{
+		print includeText.string();
+		includeText.reset();
+		}
+	buffer = includeText;
+	if currentType.isOC
+		includeString = "#import ";
+	else includeString = "#include ";
+    /**************************************************************************
+        Force reference to string.h and stdio.h.
+    **************************************************************************/
+	type = getType("notTYPEstring");
+	if !type.dotHname type.dotHname = "string.h";
+	isGlobal		= true;
+	type.setRefer();
+    isLocal         = true;
+	type = getType("notTYPEstdio");
+	if !type.dotHname type.dotHname = "stdio.h";
+	isGlobal		= true;
+	type.setRefer();
+    isLocal         = true;
+	types.entry		= null;
+    checkTypedefs();
+	while type = types.next()
+        {
+        if isAtomic || noDotH
+            {
+            if isReferenced isReferenced = false;
+            continue;
+            }
+		if isReferenced
+			{
+			if !makeOCfile && (isOC || hasOC)
+                {
+				print includeString "<" cocoaString ">":;
+				tree.add(cocoaString);
+                makeOCfile = true;
+                }
+			if dotHname && !tree.find(dotHname) && isLocal
+				{
+				print includeString "<" dotHname ">\n";
+				tree.add(dotHname);
+                isReferenced = false;
+				}
+			}
+        }
+	if makeOCfile
+        {
+        ocRoutines.setRefer();
+        ocStringType.setRefer();
+        }
+	while type = types.next()
+        {
+        if isProtocol continue;
+		if isReferenced && type != currentType
+			{
+			isReferenced = false;
+            if !dotHname dotHname = type.name ".h";
+			if !tree.find(dotHname)
+				{
+				ancestor = type.parent;
+				while ancestor
+					{
+					if ancestor.isReferenced
+						{
+						ancestor.isReferenced = false;
+						if !ancestor.noDotH && ancestor != globalType
+							{
+							print includeString "\"" ancestor.dotHname "\"\n";
+							tree.add(ancestor.dotHname);
+							}
+						}
+					ancestor = ancestor.parent;
+					}
+				print includeString "\"" dotHname "\"\n";
+				tree.add(dotHname);
+				}
+			}
+        }
+	if !tree.find(currentType.dotHname)
+		print includeString "\"" currentType.dotHname "\"\n";
+	if junkBuffer.length() print junkBuffer.string();
+	junkBuffer.reset();
+	buffer = saveBuffer;
+}
+
+/*******************************************************************************
+        Print the fully qualified instance
+*******************************************************************************/
+void printQualified(Instance instance)
+{
+String	qualifiedName;
+int		ocFlag, ocParent, ocMethodRef;
+	if express
+		{
+		if parent
+			{
+			if parent.indirection
+				{
+				print "(";
+				writeIndirect(parent);
+				}
+			printQualified(parent);
+			if parent.indirection print ")";
+			print "->";
+			}
+		write(express);
+		return;
+		}
+	or !symbol
+		{
+		if prefix && parent && parent.getType().isOC
+			{
+			print "[";
+			if parent
+				{
+				printQualified(parent);
+				print " ";
+				}
+			print prefix "]";
+			}
+		or instance.type
+            if instance.type.isOC   print instance.type.name;
+			else print instance.type.name "::";
+		else {
+			instance.error("Expected a symbol");
+			write(instance);
+			}
+		return;
+		}
+	qualifiedName = symbol.name;
+	if !indirection && !noGetter && symbol.getter && !symbol.isGetter && !enclosingMethod.isGetter
+        && !enclosingMethod.isConstructor
+		{
+        Symbol      method = symbol.getter;
+        Instance    getterParent = findGetterOrSetter(method.methodName);
+        Instance    argument;
+        use instance
+        if symbol.isHidden && !symbol.isItem argument = new(symbol.name);
+        // Will not come here for OC properties where getter not set (no need)
+        instance    = new(instance);
+        symbol      = symbol.getter;
+        isMethod    = true;
+        if argument instance.addParameter(argument);
+        if getterParent
+            {
+            parent  = null;
+            parent  = getterParent;
+            }
+        or symbol.parentClass == enclosingMethod.parentClass
+            parent  = null;
+        }
+    checkSymbol();
+	if parent ocParent = parent.instanceOC();
+	if !symbol.isStatic && symbol.isOCfield && isNew && symbol.type.isOC
+        {
+        print "[[" symbol.type.name " alloc] ";
+        ocFlag = true;
+        }
+	if !argumentIsOC && !symbol.isStatic && symbol.isMethod
+		&& symbol.parentClass && symbol.parentClass.isGlobal && !instance.parent
+		print "::";
+    if parent && !(symbol.isItem && symbol.parentClass.isEnumerator)
+		&& !(parent.type && symbol.isStatic)
+		//&& !(parent.symbol && parent.symbol.isHidden)
+		{
+        if symbol.isProper || symbol.isMethod && symbol.isOCfield
+            {
+            ocFlag  = true;
+            print "[";
+            }
+		if parent.indirection
+			{
+			print "(";
+			writeIndirect(parent);
+			}
+		if parent.cast write(parent.cast);
+		if parent.symbol && parent.symbol.getter && !parent.symbol.isGetter
+            && !parent.noGetter
+			printQualified(parent);
+		else printQualified(parent.castAlias());
+		if parent.indirection print ")";
+		if symbol.isOCfield && (symbol.isMethod || symbol.isProper) print " ";
+		or parent.howDirect() print "->";
+		or !parent.type print ".";
+		}
+	if !qualified()
+        if symbol.isOCfield && !symbol.parentClass.isType
+            && !isNew && !symbol.isStatic && !symbol.isVirtual
+            && !symbol.parentClass.isGlobal
+            && ((isMethod && !reference) || symbol.parentClass.proper)
+            {
+            ocFlag = true;
+            print "[self ";
+            }
+        or currentType.isC
+            && (symbol.parentClass == currentType
+                || (symbol.parentClass && symbol.parentClass.hasParent(currentType)))
+            && (!isMethod || (isMethod && reference)) && !symbol.isThis
+            && !symbol.isStatic
+            print "tHIS->";
+	ocMethodRef = isMethod && reference && instanceOC();
+	if printQualified(instance,ocParent,ocMethodRef) ocFlag = true;
+	if isMethod || parameters
+        {
+        if ocFlag && isMethod && parameters print ":";
+        writeParameters(instance);
+        }
+	if ocFlag print "]";
+}
+
+/*******************************************************************************
+        Print the qualified name of a symbol
+*******************************************************************************/
+int printQualified(Instance instance,int ocParent,int ocMethodRef)
+{
+int		ocFlag = true;
+Symbol  symbol = instance.symbol;
+    while source && !isButton symbol = symbol.source;
+	if isStatic && parentClass
+		if parentClass.isOC
+			print "[" parentClass.name " " name;
+		else {
+			print parentClass.name "::" name;
+			ocFlag = false;
+			}
+	else {
+		ocFlag = false;
+		if ocMethodRef print getOCmethodName();
+		else print name;
+        if isMethod && !reference && parentClass && parentClass.addClassNameToMethods
+            print parentClass.name;
+		}
+	if ocFlag
+		if !parameters print "]";
+		else return true;
+	return false;
+}
+
+/*******************************************************************************
+        Output the instance as a string
+*******************************************************************************/
+String toString(Instance instance)
+{
+Buffer	saveBuffer = buffer;
+String	text;
+	buffer = junkBuffer;
+    write(instance);
+	text = buffer.toString();
+	junkBuffer.reset();
+	buffer = saveBuffer;
+    return text;
+}
+
+/*******************************************************************************
+        Write a block
+*******************************************************************************/
+void writeBlock(Block block)
+{
+DoubleLink  line;
+Instance    instance;
+int			isLabel;
+Statement   stating;
+Directive   directive;
+    if isArrayInitializer print "{";
+    or isBlock
+    	{
+    	print "{\n";
+    	if indentCount == 0 indentCount++;
+    	indenting = true;
+    	}
+    else indenting = false;
+    if statements
+		{
+		for line = statements.first
+			{
+			instance = line.value;
+            stating = statement;
+			isLabel = instance.isLabel
+				|| (statement && statement.first && statement.first.isLabel);
+			if isSwitch && !isLabel Block.indentCount++;
+            if !line.next && statementType == RETURN
+                if isMethodBlock && directives && endDirective
+                    {
+                    directive = endDirective;
+                    emitDirective();
+                    endDirective = null;
+                    }
+			write(instance);
+			if isSwitch && !isLabel Block.indentCount--;
+			if isArrayInitializer && line.next print ",";
+			}
+		}
+    if isArrayInitializer print "}";
+    or isBlock
+		{
+        if isMethodBlock && directives && endDirective
+            {
+            directive = endDirective;
+            emitDirective();
+            endDirective = null;
+            }
+		if indentCount == 1 indentCount--;
+		indent();
+		if block.isLambda
+			print "}";
+		else print "}\n";
+		}
+}
+
+/*******************************************************************************
+        Write out the expression
+*******************************************************************************/
+void writeExpression(Expression expression)
+{
+DoubleLink	link;
+	expression.checkExpression(this);
+	if subject && subject.getSubject().isDeclaration && !writingParameters
+		{
+		declare(expression);
+		return;
+		}
+    if hasParens print "(";
+	if subject
+        {
+        if verb && verb.assign subject.noGetter = true;
+        write(subject);
+        }
+    if verb
+		{
+        if subject && verb.assign subject.noGetter = false;
+		if !subject print verb.op;
+		or verb eq "," print verb.op,;
+        or verb.unary print verb.op;
+		else print ,verb.op,;
+		/***********************************************************************
+			Lambda assignment parameters are written here
+		***********************************************************************/
+		if subject && subject.symbol && subject.isLambda
+			{
+			print "^";
+			if subject.symbol.parameters
+				{
+                print "(";
+				for link = subject.symbol.parameters.first
+					{
+					Symbol symbol = link.value;
+					declare(symbol,false);
+					if symbol.isMethod
+						buffer.current-=2;
+					if link.next print ", ";
+					}
+				print ")\n";
+				}
+			else print "\n";
+			indentCount++;
+			indent();
+			}
+		}
+    if object write(object);
+    if hasParens print ")";
+	if verb && verb eq "=" && subject && subject.symbol
+		&& subject.isLambda indentCount--;
+}
+
+/*******************************************************************************
+        Write out the instance
+*******************************************************************************/
+void writeInstance(Instance instance)
+{
+    if isDeclaration && !writingParameters
+		{
+        if indentCount > 1 indent();
+        declare(instance);
+        if !isComment && symbol && ((!isMethod && !symbol.type.structure) || howDirect())
+            print " = 0";
+		return;
+		}
+	if atString print "@";
+    if cast
+		{
+		write(cast);
+		//cast = null;
+		}
+    if isCast || (type && !symbol && !isSelector)
+		{
+		if isCast
+			{
+			if prefix print prefix;
+			print "(";
+			}
+		if isCast && isMethod && symbol
+			print symbol.getSignature(true);
+		else {
+			if type && !isConstant
+				{
+				print type.name;
+				writeIndirect(instance);
+				}
+			if isConstant && (type == stringType || atString)
+				if parent && parent.getType().isOC
+					printQualified(instance);
+				else print "\"" prefix "\"";
+			or !isCast && prefix print prefix;
+			if isMethod && (isLambda || reference)
+				{
+				if isLambda print "(^)(";
+				else print "(*)(";
+				if parameters
+					{
+					Instance argument;
+					instance.parameters.entry = null;
+					while argument = instance.parameters.next()
+						{
+						write(argument);
+						print ",";
+						}
+					buffer.current--;
+					}
+				print ")";
+				}
+			if postfix print postfix;
+			}
+		if isCast print ")";
+		}
+    or isComment && !isLabel && prefix
+		print prefix;
+    or symbol
+		{
+        setRefer();
+		if !isNew writeIndirect(instance);
+		if prefix print prefix;
+		printQualified(instance);
+		if postfix print postfix;
+		}
+    else {
+		if express
+			{
+            if resolved && !express
+                write(instance);
+            else {
+                if prefix print prefix;
+                if indirection writeIndirect(instance);
+                write(express);
+                }
+			}
+		or block
+			write(block);
+		or statement
+			write(statement);
+		or prefix
+            if isSelector
+                {
+                SymbolType type = types.get(prefix);
+                if type && type.isProtocol
+                    print "@protocol(";
+                else print "@selector(";
+                if type type.setRefer();
+                print prefix ")";
+                }
+			else {
+                if isConstant && instance.type == stringType
+                    print "\"" prefix "\"";
+                else print prefix;
+                writeParameters(instance);
+                }
+		if postfix print postfix;
+		}
+}
+
+/*******************************************************************************
+        Write a statement
+*******************************************************************************/
+void writeStatement(Statement statement)
+{
+Directive   directive;
+int         pendingFlag;
+use first
+    if pendingDirective && (!first || !first.block)
+        {
+        directive           = pendingDirective;
+        pendingDirective    = null;
+        pendingFlag         = true;
+        }
+    if !noLoop && enclosingMethod && directives
+        if pointInCode
+            {
+            if !first || (first && !isDeclaration)
+                if startDirective
+                    {
+                    directive       = startDirective;
+                    startDirective  = null;
+                    directives.next();
+                    emitDirective();
+                    directive       = null;
+                    }
+            if !directive && !pendingFlag
+                {
+                if directives.entry
+                    directive = directives.entry.value;
+                else directive   = directives.next();
+                if directive
+                    if atEnd || atStart directive = null;
+                    or isDirected || strncmp(codeMatch,pointInCode.itemStart,strlen(codeMatch)) != 0
+                        directive = null;
+                }
+            if directive
+                if comesBefore || pendingFlag
+                    {
+                    noLoop = true;
+                    emitDirective();
+                    noLoop = false;
+                    directive = null;
+                    }
+            }
+    if indented indent();
+restart:
+    switch(statementType)
+		{
+		case DELETE:
+			print "delete ";
+			write(first);
+			print ";\n";
+			break;
+		case DO:
+			print "do\t";
+			first.indented = false;
+			Block.indentCount++;
+			checkBlock(first);
+			write(first);
+			Block.indentCount--;
+			indent();
+			print "while ";
+			if second.express && second.hasParens && !second.indirection; else print "( ";
+			write(second);
+			if second.express && second.hasParens && !second.indirection; else print " )";
+			print ";\n";
+			break;
+		case FOR:
+			print "for ( ";
+			if first && first.express && first.express.verb
+				write(first);
+			print "; ";
+			if second write(second);
+			print "; ";
+			if third write(third);
+			print " )\n";
+			Block.indentCount++;
+			checkBlock(fourth);
+			write(fourth);
+			Block.indentCount--;
+			break;
+		case IF:
+			print "if ";
+			if first.express && first.hasParens && !first.indirection; else print "( ";
+			write(first);
+			if first.express && first.hasParens && !first.indirection; else print " )";
+			print "\n";
+			Block.indentCount++;
+			checkBlock(second);
+            if directive && within && second.statement && second.statement.first
+                && second.statement.first.block
+                {
+                pendingDirective = directive;
+                directive = null;
+                }
+			if !second.statement indent();
+			write(second);
+			Block.indentCount--;
+			if third
+				{
+				indent();
+				print "else";
+				if !third.isBlockStatement()
+					{
+					if third.statementType == NOTSPECIFIED
+						|| third.statementType == RETURN
+						|| third.statementType == GOTO
+						{
+						third.indented = false;
+						print "\t";
+						}
+					else print "\n";
+					checkBlock(third);
+					write(third);
+					}
+				else {
+					print " ";
+					Block.indentCount++;
+					checkBlock(third);
+					write(third);
+					Block.indentCount--;
+					}
+				}
+			break;
+		case LABEL:
+			write(first);
+			print ":\n";
+			break;
+		case LAMBDA:
+			writeLambda(statement);
+			break;
+		case RETURN:
+			print "return";
+			if first
+				{
+				print " ";
+				write(first);
+				}
+			print ";\n";
+			break;
+		case SWITCH:
+            if statement.noFallThru statement.addBreaks();
+            if switching
+                {
+                convertSwitch();
+                goto restart;
+                }
+			print "switch ";
+			if first.express && first.hasParens && !first.indirection; else print "( ";
+			write(first);
+			if first.express && first.hasParens && !first.indirection; else print " )";
+			print "\n";
+			Block.indentCount++;
+			indent();
+			write(second);
+			Block.indentCount--;
+			break;
+		case WHILE:
+			print "while ";
+			if first.express && first.hasParens && !first.indirection; else print "( ";
+			write(first);
+			if first.express && first.hasParens && !first.indirection; else print " )";
+			print "\n";
+			Block.indentCount++;
+            // The following only relevent when for gets changed to while
+            if !second second = fourth;
+			checkBlock(second);
+			write(second);
+			Block.indentCount--;
+			break;
+		case GOTO:
+			print "goto ";
+			write(first);
+			print ";\n";
+			break;
+		default:
+			if first
+				{
+				if first.isComment indentComment(first);
+				else write(first);
+				if !first.isComment && !first.isLabel
+					&& !(statement.block && statement.block.isArrayInitializer)
+                    && !(first.block && !(first.symbol || first.express || first.statement))
+					print ";\n";
+				}
+			else print ";\n";
+		}
+    if directive
+        {
+        noLoop = true;
+        emitDirective();
+        noLoop = false;
+        }
+}
+
+/*******************************************************************************
+        Write the appropriate indirection markers.
+*******************************************************************************/
+void writeIndirect(Instance instance)
+{
+int i = isDeclaration ? howDirect() : indirection;
+    for ( ; i > 0; i-- )
+		print "*";
+    if reference && !isMethod
+		for ( i = reference; i; i-- )
+			print "&";
+}
+
+/*******************************************************************************
+        Write the front part of a lambda statement
+*******************************************************************************/
+void writeLambda(Statement statement)
+{
+DoubleLink	link;
+Symbol      parameter;
+use first
+use symbol
+    symbol.setRefer();
+    writeParameterType(symbol);
+    print "(^" name ")(";
+    if parameters
+		for link = parameters.first
+			{
+			parameter = link.value;
+            writeParameterType(parameter);
+			if link.next print ", ";
+			}
+    print ") = ^";
+    indentCount++;
+    if parameters
+        {
+        print "(";
+		for link = parameters.first
+			{
+			parameter = link.value;
+            writeParameterType(parameter);
+            print parameter.name;
+			if link.next print ", ";
+			}
+        print ")";
+        }
+    print "\n";
+    indent();
+    write(second);
+    print ";\n";
+    indentCount--;
+}
+
+/*******************************************************************************
+     Write the type part of a parameter
+*******************************************************************************/
+void writeParameterType(Symbol symbol)
+{
+int j;
+    if type == stringType
+        print "char ";
+    or type != nullType
+        if isItem && structType && structType.isBoolean
+            && currentType.isOC
+            print "BOOL ";
+        else print type.name,;
+    if indirect
+        for ( j = indirect - isArray; j > 0; j-- )
+            print "*";
+    else
+    if !type.isDirect && !isConstructor print '*';
+    for (j = reference; j; j--)
+        print '&';
+}
+
+/*******************************************************************************
+        write parameters
+*******************************************************************************/
+void writeParameters(Instance instance)
+{
+DoubleLink  symbolLink, link;
+Symbol		symbol = getSymbol();
+int			isOC;
+    writingParameters = true;
+	if symbol
+		if isMethod
+			{
+			if isNew && type.isOC isOC = true;
+			or parentClass && !parentClass.isGlobal isOC = parentClass.isOC;
+			}
+		else isOC = type.isOC;
+use instance
+	if isMethod && reference && !parameters goto bailOnParameters;
+    if isLambda && assigning goto bailOnParameters;
+	if !instance.parameters
+		{
+		if !isOC && (isNew || isMethod)
+            print "()";
+		goto bailOnParameters;
+		}
+	argumentIsOC = isOC;
+	if isMethod && !isOC
+        print "(";
+	if symbol && symbol.parameters
+		symbolLink = symbol.parameters.first;
+	for link = instance.parameters.first
+		{
+		Symbol		parameterSymbol;
+		SymbolType	argumentType;
+		Instance	argument = value;
+		argumentType = argument.sourceType();
+		if symbolLink parameterSymbol = symbolLink.value;
+		if isOC && instance.isMethod && parameterSymbol
+			if !(parameterSymbol.hasEllipsis && parameterSymbol.type == nullType)
+				if link.prior print parameterSymbol.name ":";
+		if instance.arrayRef print "[";
+		if parameterSymbol && parameterSymbol.type.isOC 
+			&& argumentType == stringType
+			argument = makeOCstring(argument);
+		/***********************************************************************
+			Set cast for void* arguments
+		***********************************************************************/
+		if argument.isVoidPointer() && parameterSymbol
+			&& argumentType != parameterSymbol.type
+			{
+			Instance psym = new(parameterSymbol);
+			argument = argument.checkCast(psym);
+			delete psym;
+			}
+		write(argument);
+		if instance.arrayRef print "]";
+		if !instance.arrayRef && next
+			if !isOC print ",";
+			or instance.isMethod && (!parameterSymbol || parameterSymbol.hasEllipsis)
+				print ",";
+			else print " ";
+		if symbolLink symbolLink = symbolLink.next;
+		}
+	if isMethod && !isOC print ")";
+	argumentIsOC        = false;
+bailOnParameters:
+    writingParameters   = false;
+}
+
+/*******************************************************************************
+        prints out the Objective-C signature of a method
+*******************************************************************************/
+void writeOCsignature( Symbol method )
+{
+int		j;
+DoubleLink	link;
+String		atArray;
+
+    method.setRefer();
+    if !isConstructor
+		{
+		if isStatic
+			print "+ (";
+		else print "- (";
+		if type == stringType
+			print "char";
+		else	print type.name;
+		j	= indirect;
+		if j
+			for ( ; j > 0; j-- )
+			print "*";
+		else
+		if type.isDirect || (type == stringType && isArray)
+			;
+		else	print '*';
+		print ")" name;
+		}
+    else print "- (id)init";
+	if parameters
+		{
+		print ":";
+		for link = parameters.first
+			{
+			Symbol symbol = link.value;
+			j = symbol.indirect;
+			if symbol.isMethod
+				{
+				writeOCsignature(symbol);
+				buffer.current--;
+				}
+			else {
+				if link.prior print " " symbol.name ":";
+				print "(";
+				if symbol.type == stringType
+					print "char";
+				else    print symbol.type.name;
+				if !j && !symbol.type.isDirect
+					print "*";
+				for ( ; j > 0; j-- )
+					print "*";
+				if symbol.isArray
+					for ( atArray = symbol.array; *atArray; atArray++ )
+						if *atArray == '[' print "[]";
+				print ")" symbol.name;
+				}
+			}
+		}
+}
+
+/*******************************************************************************
+        writes the C++ method, if flag not set only the signature is written
+*******************************************************************************/
+void writeSignature( Symbol method,int flag )
+{
+DoubleLink	link;
+int			isString, j;
+    if !isMethod
+		{
+		print name " is not a method\n";
+		return;
+		}
+    method.setRefer();
+	if flag
+		{
+		enclosingMethod = method;
+		mStak.push(method);
+		}
+	if parentClass && parentClass.isOC
+		{
+		if flag print "\n";
+		writeOCsignature(method);
+		if flag
+			{
+			if isConstructor initialize(method);
+			goto writeBody;
+			}
+		return;
+		}
+	isString = type == stringType;
+	if flag && !block return;
+    if flag
+		{
+		print "\n";
+		if comment print comment;
+		}
+    if !isConstructor
+		{
+		if isStatic && !flag print "static ";
+        if isExtern && parentClass.isGlobal print "extern \"C\" ";
+        if type.nameSpace print type.nameSpace "::";
+		if isString
+			print "char ";
+		else	print type.name,;
+		j	= indirect;
+		if j
+			for ( ; j > 0; j-- )
+			print "*";
+		else
+		if type.isDirect || (isString && isArray)
+			;
+		else	print '*';
+		if reference print "(*";
+		or isLambda print "(^";
+		}
+	or flag initialize(method);
+    if flag && !processingGlobalMethods && !parentClass.isC
+        {
+        print parentClass.name;
+        print  "::";
+        }
+    print name;
+    if parentClass && parentClass.addClassNameToMethods && !reference print parentClass.name;
+    if reference || isLambda print ")";
+    print "(";
+    if parameters
+		for link = parameters.first
+			{
+			Symbol symbol = link.value;
+			declare(symbol,flag);
+			if symbol.isMethod && !(reference || isLambda)
+				buffer.current-=2;
+			if link.next print ", ";
+			}
+    print ")";
+writeBody:
+    if flag && block
+		{
+		print "\n";
+        if directives
+            {
+            directives.reset();
+            startDirective  = null;
+            endDirective    = null;
+            Directive   directive = directives.next();
+            while directive
+                {
+                isDirected  = false;
+                if atStart  startDirective = directive;
+                if atEnd    endDirective = directive;
+                directive   = directives.next();
+                }
+            }
+        buffer.setMark();
+		write(block);
+		}
+	if flag enclosingMethod = mStak.pop();
+}
+}

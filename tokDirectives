@@ -1,0 +1,186 @@
+
+/*******************************************************************************
+	Note: methods with directives (including global methods with directives)
+    must be defined in an external spec before the current class is defined.
+    The body of global methods should appear after the current class definition.
+    The order should be:
+        external definitions of all methods w/directives
+        class definition
+        global methods
+*******************************************************************************/
+#globals
+DebugDirectiveTawkAct directives active
+    cout "DebugDirective: add directive for method",directiveMethod.name,"in type:",currentType.name:`codeMatch:;
+#;
+DirectiveTawkNow currentType  before active
+    cout "Processing debug directives for",type:;
+#;
+MacroBitTawkNow if before
+    cout `"MacroBit:",bitpart:;
+#;
+MacroBlockTawkNow for before
+    cout "MacroBlock:",line:;
+#;
+MacroBodyTawkNow "if other.length" within
+    cout "MacroBody: other",other:;
+#;
+MacroBodyTawkNow "if part" within
+    cout "MacroBody: part",part:;
+#;
+MacroBodyTawkNow "if rest" within
+cout "MacroBody: rest",rest:;
+#;
+MethodTypeTawkNow methodType
+    cout "MethodType:",methodType.name:;
+#;
+Statement2TawkNow if before
+    if currentMethod.name eq "interpret" cout "Saw directive statement for",currentMethod.name:;
+#;
+
+/*******************************************************************************
+	Directive
+*******************************************************************************/
+#Directive
+emitDirective starting active
+    if atStart
+        cout    ``"emitDirective: adding directive for method",method.name,"in type:",type.name," at start":;
+    or atEnd
+        cout    ``"emitDirective: adding directive for method",method.name,"in type:",type.name," at end":;
+    or within
+        cout    ``"emitDirective: adding directive for method",method.name,"in type:",type.name," within:"`codeMatch:;
+    else cout   ``"emitDirective: add directive for method",method.name,"in type:",type.name," at:"`codeMatch:;
+#;
+parseDirective starting active
+    if atStart
+        cout "parseDirective: adding directive for method",method.name,"in type:",type.name," at start":;
+    or atEnd
+        cout "parseDirective: adding directive for method",method.name,"in type:",type.name," at end":;
+    or within
+        cout "parseDirective: adding directive for method",method.name,"in type:",type.name," within:"`codeMatch:;
+    else cout "parseDirective: add directive for method",method.name,"in type:",type.name," at:"`codeMatch:;
+    //debug = true;
+#;
+parseDirective ending
+    debug = false;
+#;
+
+/*******************************************************************************
+	FormatC
+*******************************************************************************/
+#FormatC
+printQualified qualifiedName active
+    if enclosingMethod && enclosingMethod.name eq "dumpAttribute" && qualifiedName eq "text"
+        cout getQualifiedName():;
+#;
+
+/*******************************************************************************
+	Instance
+*******************************************************************************/
+#Instance
+setRefer if before
+    cout `"Instance setRefer: " name:;
+#;
+
+/*******************************************************************************
+	InstanceTable
+*******************************************************************************/
+#InstanceTable
+findInstance type
+    if debugging cout `"findSymbol:",name," searching current type",type.name:;
+#;
+findInstance "if field"
+    if debugging cout `"findSymbol:",name,"on stack":;
+#;
+findInstance "if globalFields"
+    if debugging cout `"findSymbol:",name,"in globals":;
+#;
+    
+/*******************************************************************************
+	Statement
+*******************************************************************************/
+#Statement
+convertSwitch "if ifBody" before
+    cout "Is label:",current:;
+#;
+convertSwitch ifBody before
+    cout `"Adding fall thru:",falling:;
+#;
+convertSwitch broke
+    cout `"broke: clearing fallThruStack":;
+#;
+convertSwitch "while falling" before
+    cout "No break so filling fallThruStack":;
+#;
+convertSwitch ifExpress
+    cout `"saw default":;
+#;
+convertSwitch "if !ifBody" before
+    cout `"Adding statement to body":;
+#;
+convertSwitch fallThruStack before
+    cout `"At end has body":;
+#;
+convertSwitch ifBody.insert before
+    cout ``"Transferring from fallThruStack:",falling:;
+#;
+makeIfStatement newBody before
+    cout ``"Making if statement":;
+#;
+makeIfExpression line before 
+    cout ``"Making if expression":;
+#;
+
+/*******************************************************************************
+	Symbol
+*******************************************************************************/
+#Symbol
+setRefer "if source" before active
+    if name eq "debugText" cout `"Symbol setRefer: " name:;
+#;
+
+/*******************************************************************************
+	SymbolType
+*******************************************************************************/
+#SymbolType
+addDescendentTypes addComponentField
+    cout "addDescendentTypes:",symbol.name,symbol.methodName:;
+#;
+addMethod starting
+    if name eq "GroupBody" item = 0;
+#;
+fillComponentFields if
+    if name eq "Details" cout "fillComponentFields:",name,text:;
+#;
+fillComponentFields "component "
+    if name eq "Details" cout `name,"checking type:",type.name`"Symbol",ancestor.symbol.name"":;
+#;
+fillComponentFields ancestor
+    if name eq "Details" cout ``name,"ancestor:",ancestor.symbol.name,"type:",type.name:;
+#;
+fillComponentFields "instance.parent = ancestor"
+    if name eq "Details" cout ```name,"from",type.name,"replacing",text,getQualifiedName():;
+#;
+fillComponentFields componentFields
+    if name eq "Details" cout ```"adding to",name,"from",type.name,text,getQualifiedName():;
+#;
+fillComponentFields "if !instance" before
+    if name eq "Details"
+        if instance cout `"Found in",name,getQualifiedName():;
+        else cout `name,"Adding null instance for",text:;
+#;
+setRefer isReferenced before active
+    if name eq "notTypeGroupDraw" cout "SymbolType setRefer: " name:;
+#;
+
+/*******************************************************************************
+	Tawk
+*******************************************************************************/
+#Tawk
+setCurrentClass starting
+    if t cout "Setting currentClass to",name:;
+    else cout `"Setting currentClass to null":;
+#;
+setCurrentType starting
+    if t cout `"Setting currentType to",name:;
+    else cout `"Setting currentType to null":;
+#;

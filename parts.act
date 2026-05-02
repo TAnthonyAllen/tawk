@@ -1,0 +1,510 @@
+AssumedString!
+.
+PLGitem     lastSwitch;
+SymbolType  switchType;
+Instance	switcher;
+String      word = instance.string();
+Instance    current;
+int         switchDirect;
+    if ReservedWord.find(word)
+		{
+		instance.unString();
+		return false;
+		}
+    instance.unString();
+    if switchStack
+        if lastSwitch = switchStack.top()
+            {
+            switcher        = lastSwitch.value;
+            switchType      = switcher.getType();
+            switchDirect    = switcher.howDirect();
+            if instance.length == 1
+                {
+                if switchType == charType || (switchType == stringType && !switchDirect)
+                    {
+                    word = "'" instance "'";
+                    current = new(charType);
+                    }
+                or switchType == stringType && switchDirect == 1
+                    {
+                    word = instance.toString();
+                    current = new(stringType);
+                    }
+                current.prefix = word;
+                goto bailAssumed;
+                }
+            }
+	current = new(instance.toString());
+    current.indirection = 1; // constant strings are really pointers
+    current.type = SymbolType.stringType;
+bailAssumed:
+    current.isConstant = true;
+    instance.value = current;
+;
+
+Assuming!
+.
+    assuming = true;
+;
+
+Case!
+.
+Instance	label = new("default");
+    isLabel = true;
+    isCase  = true;
+	instance.value = label;
+|.
+PLGitem     lastSwitch;
+SymbolType  labelType, switchType;
+Instance	switcher;
+Instance	label = instance.value;
+int         labelDirect, switchDirect;
+    if switchStack
+        if lastSwitch = switchStack.top()
+            if switcher = lastSwitch.value
+                {
+                switchType      = switcher.getType();
+                switchDirect    = switcher.howDirect();
+                labelDirect     = label.howDirect();
+                labelType       = label.getType();
+                if switchType != labelType
+                    if switchType.isNumber && labelType.isNumber
+                        && labelDirect != switchDirect
+                        label.error("switch/case type mismatch");
+                or switchType == stringType && labelType == charType
+                    && switchDirect != labelDirect
+                    lastSwitch.flag4 = true;
+                }
+    if !isLabel
+        {
+        isLabel = true;
+        isCase  = true;
+        prefix = "case ";
+        }
+|.
+PLGitem     name = instance.get("name");
+String      text = name.toString();
+Instance    label = currentSymbols.instances.get(text);
+Symbol      symbol;
+    if !label
+        {
+        symbol = new(text,voidType);
+        label = new(symbol);
+        label.isLabel = true;
+        currentSymbols.add(label);
+        }
+    if !label.isLabel
+        cerr "ERROR: " name " is not a label\n";
+    instance.value = label;
+;
+
+CaseLabel!
+.
+Instance	label = instance.value;
+    postfix = prefix;
+|.
+PLGitem     item;
+Instance    field;
+Instance    rangeField;
+Instance    label;
+    rangeField = instance.value;
+    if switchStack
+        if item = switchStack.top()
+            field = item.value;
+    if field && rangeField
+        label = new(convertRangeX(field,rangeField));
+    label.isRange = true;
+    field.isRange = true;   // set to flag switch as needing conversion
+    instance.value = label;
+|.
+PLGitem		field = instance.get("field");
+Instance	label = field.value;
+Symbol		symbol = label.getSymbol();
+	if symbol.type == buttonType
+		|| (symbol.structType && symbol.structType.isEnumerator)
+		{
+        label = new("case ");
+		if symbol.type == buttonType
+			postfix     = symbol.array;
+		else postfix    = symbol.name;
+        label.type      = intType;
+        isConstant      = true;
+		}
+    else prefix = "case ";
+    isLabel = true;
+    isCase  = true;
+    instance.value = label;
+    assuming    = false;
+||.
+PLGitem     name = instance.get("name");
+Instance    field = new(name.toString());
+    instance.value = field;
+;
+
+Character!
+.
+Instance    character;
+SymbolType  type = SymbolType.getType("char");
+    character = new(type);
+    character.isConstant = true;
+    character.prefix = instance.toString();
+    instance.value = character;
+;
+
+ClassAttributes!
+KeyTableItem    item = trait.value;
+Symbol	symbol;
+    switch(item.position)
+        {
+        case 1: // C
+            if !currentClass.isC
+                {
+                currentClass.isC   = true;
+                if !currentClass.parent
+                    {
+                    if currentClass.lastOffset > 0
+                        cerr "ERROR: do not specify class as C after variables are declared\n";
+                    symbol				= new("tHIS",currentClass);
+                    symbol.isVirtual	= true;
+                    symbol.isThis       = true;
+                    currentClass.add(symbol);
+                    symbol = symbol.makeAlias("this");
+                    symbol.isThis       = true;
+                    currentClass.add(symbol);
+                    currentClass.lastOffset = 0;
+                    }
+                }
+            break;
+        case 2: // isChar
+            currentClass.isChar		= true;
+            break;
+        case 3: // isNumber
+            currentClass.isNumber	= true;
+            break;
+        case 4: // local
+            currentClass.isLocal	= true;
+            break;
+        case 5: // no.h
+            currentClass.noDotH		= true;
+            break;
+        case 6: // noClassForward
+            currentClass.noClassForward = true;
+            break;
+        case 7: // OC
+            if !currentClass.isOC
+                {
+                currentClass.isOC		= true;
+                currentClass.isVirtuous = true;
+                }
+            break;
+        case 8: // proper
+            currentClass.proper		= true;
+            break;
+        case 9: //protocol
+            currentClass.isProtocol	= true;
+            currentClass.isOC       = true;
+            break;
+        case 10: // type
+            currentClass.isType		= true;
+            currentClass.isDirect	= true;
+            break;
+        case 11: // addClassNameToMethods
+            currentClass.addClassNameToMethods  = true;
+            break;
+        }
+|
+SymbolType  extended = type.value;
+    currentClass.parent = extended;
+|
+PLGitem     type;
+SymbolType  pType;
+    for proto
+        if type = proto.get("type")
+            {
+            pType = type.value;
+            currentClass.addProtocol(pType);
+            }
+|
+    currentClass.nameSpace = nSpace.toString();
+;
+
+ClassName!
+.
+String	text;
+    if temp name.length += temp.length;
+	if name eq "extends" || name eq "external"
+		{
+		name.unString();
+		return false;
+		}
+	else name.unString();
+	if path
+		{
+		path.length += name.length;
+		if dotH path.length += dotH.length;
+		}
+	or dotH
+		{
+		path = new(name);
+		path.length += dotH.length;
+		}
+	else {
+		text = name.string() ".h";
+		path = new(text);
+		name.unString();
+		}
+	name.value = path;
+;
+
+Comment!
+.
+    currentComment = comment;
+;
+
+Constant!
+|||.
+Instance    current = new(trueSymbol);
+    instance.value = current;
+    current.isConstant = true;
+|.
+Instance    current = new(falseSymbol);
+    instance.value = current;
+    current.isConstant = true;
+;
+
+DebugDirective!
+    /***************************************************************************
+         The directive does not get added unless the matching method is found
+         and the directive is marked as active
+    ***************************************************************************/
+    if active
+        {
+        String      text = method.string();
+        if !body && (!locate || (locate.itemStart != 'e' && locate.itemStart != 's'))
+            cerr "Directive for",text,"missing location":;
+        else {
+            Symbol      directiveMethod = currentType.getMethod(text);
+            if !directiveMethod && currentType.isGlobal
+                directiveMethod = findGlobalMethod(text);
+            if directiveMethod
+                {
+                Directive   directive   = new;
+                directive.type          = directiveMethod.parentClass;
+                directive.method        = directiveMethod;
+                if body codeMatch       = body.toString();
+                codeToAdd               = code.toString();
+                if locate
+                    {
+                    switch(*locate.itemStart)
+                        {
+                        case 'b':
+                            comesBefore = true;
+                        case 'e':
+                            atEnd       = true;
+                        case 's':
+                            atStart     = true;
+                        case 'w':
+                            within      = true;
+                        }
+                    }
+                if !directives directives = new;
+                directives += directive;
+                }
+            else cerr "Could not find directive method:",text,"in type:",currentType.name:;
+            }
+        method.unString();
+        }
+;
+
+Directive!
+.
+    currentType  = type.value;
+    for directives
+        if currentType == currentClass || currentType == globalType
+            directives.run();
+;
+
+FileName!
+.
+    filename = name.toString();
+;
+
+MethodName!
+.
+String	word = name.string();
+SymbolType type = SymbolType.find(word);
+    if ReservedWord.find(word) || (type && !type.isGlobal)
+		{
+		name.unString();
+		return false;
+		}
+    name.unString();
+;
+
+Name!
+.
+String	word = name.string();
+SymbolType type = SymbolType.find(word);
+    if ReservedWord.find(word) || type
+		{
+		name.unString();
+		return false;
+		}
+    name.unString();
+;
+
+Number!
+.
+Instance    number;
+SymbolType  type  = SymbolType.doubleType;
+    number = new(instance.toString());
+    number.isConstant = true;
+    number.type = type;
+    instance.value = number;
+|.
+Instance    number;
+SymbolType  type;
+    type = isLong ? SymbolType.longType
+		: SymbolType.intType;
+    number = new(instance.toString());
+    number.isConstant = true;
+    number.type = type;
+	if isLong number.postfix = "LL";
+    instance.value = number;
+;
+
+PoundCommand!
+.
+SymbolType	symbolType;
+PLGitem     end = state;
+PLGitem     selectedField;
+    switch(*state.start)
+        {
+        case 'a':
+            if currentClass
+                currentClass.autoGetSet = !currentClass.autoGetSet;
+            break;
+        case 'd':
+            if *(state.start + 1) == 'E'
+                if list
+                    {
+                    iTEM.testParser.debug = false;
+                    end = list;
+                    }
+                or iTEM.testParser.debug
+                    iTEM.testParser.debug = false;
+                else debugRulePLG = true;
+            else {
+                if type
+                    {
+                    if symbolType = type.value
+                        {
+                        symbolType.dump();
+                        if field symbolType.dumpFields();
+                        }
+                    if field end = field;
+                    else end = type;
+                    }
+                or level
+                    {
+                    currentSymbols.dump();
+                    end = level;
+                    }
+                else {
+                    currentSymbols.dump("Symbol Table");
+                    dumpGlobals();
+                    }
+                }
+            break;
+        case 'i':
+            if currentMethod
+                {
+                currentMethod.isInitialized = true;
+                if currentMethod.isAlias currentMethod.source.isInitialized = true;
+                }
+            break;
+        case 'm':
+            debugging = !debugging;
+            break;
+        case 'r':
+            defaultPrinter = currentSymbols.find("printf");
+            break;
+        case 's':
+            summaryDebug();
+            break;
+        case 't':
+            cout "At trace: " symbolCount,instanceCount:;
+            //debugTest = !debugTest;
+        }
+resetPointer:
+    iTEM.test.current   =
+    plgStart        = end.start + end.length;
+;
+
+Quote!
+.
+Buffer      buffer = tokJunkBuffer;
+Instance    current;
+char		*mark;
+    /**********************************************************************
+	    Check for multi-line strings
+    **********************************************************************/
+    buffer.reset();
+    if !body    current = new("");
+    else {
+        mark    = body.string();
+        while *mark {
+			if *mark == '\n' {
+                buffer += '\\';
+                buffer += 'n'; }
+            else    buffer += *mark;
+            mark++; }
+        current = new(buffer.toString());
+        body.unString(); }
+    isConstant  = true;
+    indirection = 1; // constant strings are really pointers
+    type        = SymbolType.stringType;
+    if string   atString = true;
+    instance.value      = current;
+;
+
+DebugText!
+.
+    cout "DebugText got here",upcoming:;
+;
+
+DebugRule!
+.
+PLGrule	rule;
+String	text = name.string();
+    rule = rules[text];
+    if !rule
+        cerr "Rule not found: " text "\n";
+    else {
+        rule.debug = true;
+        if upcoming
+            {
+            PLGitem body = upcoming.get("body");
+            if body rule.debugText = body.toString();
+            }
+        }
+    name.unString();
+;
+
+Stop!
+.
+	// This is a dummy rule to stick wherever for debugging
+;
+
+SyntaxExtensions!
+|.
+Symbol  symbol;
+use currentClass
+    if aliasStack && aliasStack.length
+        {
+        aliasStack.entry = null;
+        while symbol = aliasStack.next()
+            add(symbol);
+        aliasStack.clear();
+        }
+;

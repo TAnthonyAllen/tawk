@@ -1,0 +1,402 @@
+include includes
+
+/*******************************************************************************
+        The Statement class
+*******************************************************************************/
+class Statement
+{
+PLGitem     pointInCode;
+Block		block;
+Instance	first,
+			second,
+			third,
+			fourth;
+boolean
+            branch
+            debug
+			indented
+            noFallThru
+            switching
+            ;
+enumerator sType {
+			CATCH
+			DELETE
+			DO
+			FINAL
+			FOR
+			IF
+            LABEL
+			LAMBDA
+			RETURN
+			SWITCH
+			WHILE
+			GOTO
+			THROW
+			TRY
+			NOTSPECIFIED
+			} statementType;
+Stak        fallThruStack;
+Stak        phiStack;
+int         lvl;
+
+Statement()
+{
+    statementType   = NOTSPECIFIED;
+    indented        = true;
+}
+
+Statement(sType type)
+{
+    statementType   = type;
+    indented        = true;
+}
+
+/*******************************************************************************
+        Add a block to this statement
+*******************************************************************************/
+void add(Block b)
+{
+Instance i = new(b);
+    indented = false;
+    add(i);
+}
+
+/*******************************************************************************
+        Add an expression to this statement
+*******************************************************************************/
+void add(Expression e)
+{
+Instance i = new(e);
+    add(i);
+}
+
+/*******************************************************************************
+        Add an instance to this statement
+*******************************************************************************/
+void add(Instance i)
+{
+    if !first   first	= i;
+    or !second  second	= i;
+    or !third   third	= i;
+    or !fourth  fourth	= i;
+}
+
+/*******************************************************************************
+        Add a statement to this statement
+*******************************************************************************/
+void add(Statement s)
+{
+Instance i = new(s);
+	s.block = block;
+    add(i);
+}
+
+/*******************************************************************************
+        Add a simple statements (break or continue)
+*******************************************************************************/
+void add(String s)
+{
+Instance i = new(s);
+    i.isComment = false;
+    add(i);
+}
+
+/*******************************************************************************
+        Add breaks to a switch to avoid fall thrus (no fall thru is the default
+        for a switch that has no break statements).
+*******************************************************************************/
+void addBreaks()
+{
+Instance    breakInstance = new("break"),
+            line,
+            instance;
+Block       switchBody = second.block;
+int         branched,sawAction;
+Statement   breakLine = new;
+    // remove type so that break not treated as a string
+    breakInstance.type = null;
+    // A statement line is an instance wrapping a statement
+    breakLine += breakInstance;
+    breakInstance = new(breakLine);
+    while instance = switchBody.statements.next()
+        {
+        line    = statement.first;
+        if !line || !line.isCase sawAction = true;
+        or sawAction
+            {
+            if !branched
+                switchBody.statements.entry.insert(breakInstance);
+            sawAction = false;
+            }
+        branched = statement.branch;
+        }
+}
+
+/*******************************************************************************
+        Runs all fields thru a sanity check
+*******************************************************************************/
+void check()
+{
+	if first    first.check();
+	if second   second.check();
+    if third    third.check();
+    if fourth   fourth.check();
+}
+
+/*******************************************************************************
+        Check if we need to decorate a block w/{}
+*******************************************************************************/
+void checkBlock(Instance i)
+{
+Block       block;
+	if i.block block = i.block;
+	if i.statement && i.statement.first && i.statement.first.block
+		block = i.statement.first.block;
+	if block
+        if block.statements.length > 1
+            block.isBlock = true;
+}
+
+/*******************************************************************************
+        Convert this switch to nested ifs
+*******************************************************************************/
+void convertSwitch()
+{
+Instance    switchExpress,ifExpress,current,falling,instance;
+Block       switchBody = second.block,
+            defaultBody,
+            ifBody;
+int         broke,
+            firstTime = 1;
+    if !fallThruStack fallThruStack = new;
+    else fallThruStack.clear();
+    switchExpress = first;
+    while instance = switchBody.statements.next()
+        if current = statement.first
+            if current.isLabel
+                {
+                if ifBody
+                    {
+                    if firstTime
+                        firstTime = false;
+                    else {
+                        fallThruStack.entry = 0;
+                        while falling = fallThruStack.prior()
+                            {
+                            ifBody.insert(falling);
+                            }
+                        fallThruStack.clear();
+                        }
+                    makeIfStatement(ifExpress,ifBody);
+                    ifExpress = null;
+                    if broke
+                        {
+                        broke = false;
+                        fallThruStack.clear();
+                        }
+                    else {
+                        while falling = ifBody.statements.next()
+                            fallThruStack += falling;
+                        }
+                    ifBody = null;
+                    }
+                if (current.prefix eq "default")
+                    {
+                    ifExpress = null;
+                    }
+                or switchExpress
+                    ifExpress = makeIfExpression(statement,switchExpress,ifExpress);
+                or !current.express && !current.isLabel cerr "Expected an expression",current:;
+                or ifExpress
+                    {
+                    Expression xp = new(ifExpress,current,"||");
+                    ifExpress = new(xp);
+                    }
+                else ifExpress = current;
+                }
+            or current.prefix eq "break"
+                broke = true;
+            else {
+addStatement:   if !ifBody
+                    {
+                    ifBody = new;
+                    ifBody.indenting = true;
+                    if !ifExpress       defaultBody = ifBody;
+                    }
+                ifBody.add(instance);
+                }
+        else goto addStatement;
+    if ifBody
+        {
+        fallThruStack.entry = 0;
+        while falling = fallThruStack.prior()
+            {
+            ifBody.insert(falling);
+            }
+        makeIfStatement(ifExpress,ifBody);
+        }
+    if defaultBody
+        {
+        makeIfStatement(ifExpress = null,defaultBody);
+        }
+    indented = true;
+}
+
+/*******************************************************************************
+        Get the block associated with this statement (if it has one)
+*******************************************************************************/
+Block getBlock()
+{
+	if block return block;
+	if first return first.getBlock();
+	return null;
+}
+
+/*******************************************************************************
+        Build the comparison part of an if statement
+*******************************************************************************/
+Instance makeIfExpression(Statement line,Instance switcher,Instance lastCase)
+{
+Expression	expression;
+Instance	thisCase;
+    line.first.isCase   = false;
+	line.first.isLabel  = false;
+    if line.first.postfix
+        {
+        line.first.prefix   = line.first.postfix;
+        line.first.postfix  = null;
+        }
+	else line.first.prefix   = null;
+    // clean up unwanted parens around switch expression
+    if first.express.hasParens && !first.express.verb
+        first.express.hasParens = false;
+    if line.first.isRange
+        thisCase = line.first;
+    else {
+        SymbolType  switcherType    = switcher.getType();
+        SymbolType  caseType        = line.first.getType();
+        if switcherType == stringType && caseType == charType
+            expression = new(switcher,line.first,"==");
+        else expression = new(switcher,line.first,"eq");
+        thisCase = new(expression);
+        }
+	if lastCase
+		{
+		expression = new(lastCase,thisCase,"||");
+		lastCase = new(expression);
+		}
+	else lastCase = thisCase;
+	return lastCase;
+}
+
+/*******************************************************************************
+        Construct an if statement and append it to the old if statement
+		passed in (used  when converting a switch to nested ifs)
+*******************************************************************************/
+void makeIfStatement(Instance lastCase,Block body)
+{
+Instance instance;
+Statement current, newBody, newIf;
+	newBody = new;
+	newBody.add(body);
+	newBody.indented = true;
+    if !lastCase
+        {
+        current = this;
+        while current.third
+            {
+            instance = current.third;
+            current = statement;
+            }
+        current.add(newBody);
+        return;
+        }
+    if statementType == SWITCH
+        {
+        indented = false;
+        statementType = IF;
+        first = lastCase;
+        second = null;
+        add(newBody);
+        return;
+        }
+    newIf = new(IF);
+    newIf.add(lastCase);
+    newIf.add(newBody);
+    if !third add(newIf);
+    else {
+        current = this;
+        while current.third
+            {
+            instance = current.third;
+            current = statement;
+            }
+        current.add(newIf);
+        }
+}
+
+/******************************************************************************
+	Sets the isUsed flag
+******************************************************************************/
+void setIsUsed()
+{
+    if first    first.setIsUsed();
+    if second   second.setIsUsed();
+    if third    third.setIsUsed();
+    if fourth   fourth.setIsUsed();
+}
+
+/*******************************************************************************
+        Create a string representation of a statement type
+*******************************************************************************/
+String toString(sType t)
+{
+String      text;
+    switch(t)
+        {
+        case CATCH:
+            text = "CATCH";
+        case DELETE:
+            text = "DELETE";
+        case DO:
+            text = "DO";
+        case FINAL:
+            text = "FINAL";
+        case FOR:
+            text = "FOR";
+        case IF:
+            text = "IF";
+        case LABEL:
+            text = "LABEL";
+        case LAMBDA:
+            text = "LAMBDA";
+        case RETURN:
+            text = "RETURN";
+        case SWITCH:
+            text = "SWITCH";
+        case WHILE:
+            text = "WHILE";
+        case GOTO:
+            text = "GOTO";
+        case THROW:
+            text = "THROW";
+        case TRY:
+            text = "TRY";
+        case NOTSPECIFIED:
+            text = "NOTSPECIFIED";
+            }
+    return text;
+}
+
+/*******************************************************************************
+        Create a string representation of this statement best we can
+*******************************************************************************/
+String toString()
+{
+String      text;
+    if first text = toString(statementType) "\n\t\t" first.toString();
+    if third    text = text second third;
+    or second text = text second;
+    return text;
+}
+}

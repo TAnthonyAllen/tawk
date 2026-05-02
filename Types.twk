@@ -1,0 +1,90 @@
+include includes
+
+class Types extends BaseHash
+{
+BaseHash	nameTable;
+int			listLength,
+            typeCount,
+			typeDebug;
+PLGset      typesSet;
+/*******************************************************************************
+	Constructor
+*******************************************************************************/
+Types()
+{
+	nameTable	= new;
+    typesSet    = new;
+    typesSet.name = "typesSet";
+}
+
+/******************************************************************************
+	Add name to the nameTable if not already there and return associated index
+******************************************************************************/
+int add(String name)
+{
+DoubleLink  link = nameTable.find(name);
+    if !link link = nameTable.add(name);
+    return linkOrder;
+}
+
+/*******************************************************************************
+	Look up a type and return it if found.
+*******************************************************************************/
+SymbolType getFromItem(PLGitem name)
+{
+SymbolType type = get(name.string());
+    name.unString();
+    return type;
+}
+
+/*******************************************************************************
+	Returns the index of the name passed in.
+*******************************************************************************/
+int getNameIndex(String name)
+{
+DoubleLink  link = nameTable.find(name);
+    if link return linkOrder;
+    return null;
+}
+
+/*******************************************************************************
+	Factory to return a type if the table contains it, otherwise builds one
+	adds it to the table and returns it.
+*******************************************************************************/
+SymbolType getType(String name)
+{
+SymbolType type = get(name);
+    if !type
+		{
+		type = new(name);
+		put(name,(void*)type);
+        typeIndex = ++typeCount;
+        typesSet.set((int)*name);
+		}
+    return type;
+}
+
+/******************************************************************************
+	Convenience method to reset isFlagged flag used in InstanceTable
+    findInstance() and in FormatC
+******************************************************************************/
+void resetIsFilled()
+{
+SymbolType  type;
+    entry = null;
+    while type = types.next()
+        type.isFilled = false;
+}
+
+/******************************************************************************
+	Convenience method to reset isFlagged flag used in InstanceTable
+    findInstance() and in FormatC
+******************************************************************************/
+void resetIsFlagged()
+{
+SymbolType  type;
+    entry = null;
+    while type = types.next()
+        type.isFlagged = false;
+}
+}

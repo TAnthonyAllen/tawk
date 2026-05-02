@@ -1,0 +1,714 @@
+#autoGetSet
+SymbolType
+                currentClass,
+                currentType,
+                expressType,
+                methodType,
+                newType;
+Symbol
+                currentMethod,
+                lambdaMethod;
+FormatC
+                formatter;
+int
+                componentCount,
+                iterating,
+                stringNumber;
+Block
+                currentBlock;
+Buffer
+                tokJunkBuffer;
+BaseHash
+                includedFiles,
+                macroHash,
+                macroList,
+                missingMethods;
+Instance
+                defaultPrinter,
+                debugInstance,
+                virtualItem;
+InstanceTable
+                currentSymbols;
+Operate
+                commaOp;
+PLGitem
+                currentComment,
+                virtualOp;
+PLGset
+                lambdaSet;
+Stak
+                blockStack,
+                switchStack,
+                virtualStack;
+SymbolType
+                saveStruct,
+                saveType;
+Symbol
+                falseSymbol,
+                nullSymbol,
+                trueSymbol;
+String
+                directivesFile,
+                macroDelimiter;
+boolean
+            assigning
+            assuming
+            constDeclare
+            debugging
+            declaringMethod
+            declaredSomething
+            extending
+            isQualified
+            linkage:3[externDeclare inlineDeclare staticDeclare virtualDeclare]
+            noLoop
+            noShortcuts
+            parsingDirective
+            processingParameters
+            produceCodeFile
+            referring
+            stringing
+			;
+void        *externalENV;
+void        setOperators();
+/*****************************************************************************
+	Constructor
+*****************************************************************************/
+Tawk()
+{
+    // WTF?
+    types		    = new Types();
+    blockStack		= new;
+    virtualStack    = new;
+    tokJunkBuffer   = new("tokJunk",1000);
+    currentSymbols	= new;
+	formatter		= new;
+	lambdaSet		= new;
+	lambdaSet.set((int)'^');
+    includedFiles   = new;
+	missingMethods	= new;
+    mainParser      = this;
+}
+
+/*******************************************************************************
+        Check to see if assignment is an implied conversion
+*******************************************************************************/
+void checkConversion(Expression express)
+{
+SymbolType	subjectType = subject.getType();
+SymbolType	objectType	= object.getType();
+Instance	instance;
+int			subjectDirect = subject.howDirect(),
+			objectDirect = object.howDirect();
+	
+	if subjectType == objectType
+		|| (subject.arrayRef && subjectType.overloads)
+		|| subjectDirect > 1
+		|| objectDirect > 1
+		|| (subjectDirect == objectDirect
+			&& ((subjectType == stringType || subjectType == charType)
+				&& (objectType == charType || objectType == stringType)))
+				return;
+	if subjectType != voidType && objectType != voidType
+		{
+		instance = currentSymbols.getConverter(subjectType,objectType);
+		if instance
+			{
+			if symbol.parameters
+				instance.addParameter(object);
+			else instance.parent = object;
+			object = instance;
+			return;
+			}
+		}
+}
+
+/*****************************************************************************
+	item is a chain of strings. Build and return an instance that
+	concatenates those strings into a single item
+*****************************************************************************/
+Instance concatenate(PLGitem source)
+{
+PLGitem	    item = source;
+Instance    instance,
+			parameter;
+String	    text;
+int			count = 0;
+    if !source.next return (Instance)source.value;
+	/*************************************************************************
+		If all items to be concatenated are literals just glom them
+		together and go home
+	*************************************************************************/
+	for item
+		{
+		parameter = item.value;
+        if parameter {
+            if !parameter.isConstant
+                || !parameter.prefix
+                break;
+            count += (int)strlen(parameter.prefix); }
+        else break;
+		}
+	if !item
+		{
+		text = malloc(count + 1);
+		*text = null;
+		for item = source
+			{
+			parameter = item.value;
+			strcat(text,parameter.prefix);
+			}
+		instance = new(text);
+		instance.isConstant = true;
+		instance.type = stringType;
+		return instance;
+		}
+	count = 0;
+	/*************************************************************************
+		Otherwise generate a concat method to join them
+	*************************************************************************/
+    instance = currentSymbols.find("concat");
+    // Make sure this is a new instance
+    instance = new(instance.symbol);
+    for item = source
+		count++;
+    asprintf(&text,"%d",count);
+    parameter       = new(text);
+    parameter.type  = intType;
+    instance.addParameter(parameter);
+    for item = source
+		{
+		parameter = item.value;
+		instance.addParameter(parameter);
+		}
+    source.next = null;
+	stringRoutines.setRefer();
+    return instance;
+}
+
+/*******************************************************************************
+        Convert a range expression into a valid expression.
+*******************************************************************************/
+Expression convertRangeX(Instance field,Instance rangeField)
+{
+Expression rangeX;
+String      frontVerb,
+            backVerb;
+Instance    front = rangeField.subject,
+            back = rangeField.object;
+    if *rangeField.op == '>'        frontVerb = ">"; else frontVerb = ">=";
+    if *(rangeField.op + 1) == '<'  backVerb = "<"; else backVerb = "<=";
+
+    rangeX = new(field,front,frontVerb);
+    front = new(rangeX);
+
+    rangeX = new(field,back,backVerb);
+    back = new(rangeX);
+
+    rangeX = new(front,back,"&&");
+    return rangeX;
+}
+
+/*******************************************************************************
+        Convert the instance passed in to a string if there is a toString
+        routine that does so.
+*******************************************************************************/
+Instance convertToString(Instance source)
+{
+SymbolType  type;
+Instance    instance;
+use source
+    type = getType();
+    if type == stringType return source;
+    if type.isNumber && !howDirect()
+        {
+        instance = new("toString");
+        instance.addParameter(source);
+        instance.isMethod = true;
+        // have to addParameter because dealing with a new instance
+        if instance = currentSymbols.findMethod(instance)
+            instance.addParameter(source);
+        else cerr "convertToString: failed":;
+        }
+    or !type.isAtomic
+        {
+        Symbol target = type.getMethod("toString()");
+        if target
+            {
+            instance = new(target);
+            instance.parent = source;
+            }
+        }
+    return instance;
+}
+
+/*****************************************************************************
+	Extract the current comment
+*****************************************************************************/
+String extractComment()
+{
+PLGitem	item = currentComment;
+    tokJunkBuffer.reset();
+    for item
+		{
+		tokJunkBuffer.append(item.string());
+		tokJunkBuffer.append("\n");
+		item.unString();
+		}
+    currentComment = null;
+    if tokJunkBuffer.length() return tokJunkBuffer.toString();
+    return null;
+}
+
+/*******************************************************************************
+        Find a qualified initializer matching the method passed in and returns
+        a copy w/no parameters (the parameter will be added in the declaration).
+*******************************************************************************/
+Instance findInitializer(Symbol symbol)
+{
+Symbol      method = symbol.type.initializer;
+Instance    instance;
+    if method
+        if instance = currentSymbols.find(method.methodName)
+            if instance.isMethod && instance.symbol.isInitializer
+                return instance;
+    return null;
+}
+
+/*****************************************************************************
+	Generate a print statement to print the passed in instance
+*****************************************************************************/
+Instance generatePrint(Instance argument)
+{
+Instance	instance;
+String		printMethod;
+SymbolType	poType;
+Symbol		symbol;
+String      text;
+	if defaultPrinter.isMethod
+		poType = defaultPrinter.parentClass;
+	else poType = defaultPrinter.getType();
+	if defaultPrinter.isMethod
+		{
+		/*********************************************************************
+			Use whatever method name is provided and try to match argument type
+		*********************************************************************/
+		instance = new(defaultPrinter.symbol.name);
+		instance.isMethod = true;
+		instance.addParameter(argument);
+        text    = instance.mangle();
+		symbol  = poType.findField(text);
+		}
+	else {
+ 		/*********************************************************************
+			Try to find a method named append that matches the argument type
+		*********************************************************************/
+		instance = new("append");
+		instance.isMethod = true;
+		instance.addParameter(argument);
+        if argument.format
+            {
+            instance.addParameter(argument.format);
+            // The following if it exists is the format width
+            if argument.format.format
+                instance.addParameter(argument.format.format);
+            }
+		instance.parent = defaultPrinter;
+        text    = instance.mangle();
+        symbol  = poType.findField(text);
+		}
+	if !symbol
+		{
+        printMethod = "append(char*)";
+        if symbol = poType.getMethod(printMethod)
+			{
+            instance = convertToString(argument);
+			if !instance
+				{
+				text = "ERROR: Could not find toString method to print " argument.toString();
+				instance = new(text);
+				}
+			else return generatePrint(instance);
+			}
+		else {
+            text = "ERROR: Could not find method to print " argument.toString();
+            instance = new(text);
+			}
+		}
+	else {
+		instance.symbol = symbol;
+		instance.prefix = null;
+        if isDefault setDefaults(this);
+		}
+	return instance;
+}
+
+/*******************************************************************************
+        Return a new Instance from a String making sure the String is not
+        a key word.
+*******************************************************************************/
+Instance getInstance(String text)
+{
+Instance instance = new(text);
+    if ReservedWord
+        if ReservedWord[text]
+            instance.type = null;
+    return instance;
+}
+
+/*******************************************************************************
+        Create an error instance
+*******************************************************************************/
+Instance makeError(String text)
+{
+Instance instance = new();
+	instance.error(text);
+	return instance;
+}
+
+/*****************************************************************************
+	Build an expression out of its parts (recursive)
+*****************************************************************************/
+Expression makeExpress(Instance instance,PLGitem item)
+{
+PLGitem	    expressItem = 0,
+			operate     = 0;
+Expression  expression;
+Instance    primary,
+			secondary;
+SymbolType  type;
+	if !item
+		{
+		expression = new(instance,null,(String)null);
+		return expression;
+		}
+	operate    = item%"operate";
+	expressItem = item%"instance";
+	if item.next
+		{
+		primary = expressItem.value;
+		expression = makeExpress(primary,item.next);
+		secondary = new(expression);
+		}
+	else {
+        secondary = expressItem.value;
+        if secondary.resolved
+            {
+            expression = secondary.express;
+            if !expression expression = new(secondary,null,(String)null);
+            }
+        }
+    /*************************************************************************
+        Resolve []= overloads
+    *************************************************************************/
+    if instance.resolved && instance.parameters && operate eq "="
+        && (type = instance.getType()) && type.isVirtuous
+        {
+        String  text = overloaded("[]=");
+        if text
+            {
+            Symbol  symbol = instance.symbol;
+            instance.symbol = null;
+            instance.prefix = text;
+            instance.addParameter(secondary);
+            text = instance.mangle();
+            if instance.symbol = type.getMethod(text)
+                instance.prefix     = null;
+            else {
+                instance.prefix     = null;
+                instance.symbol     = symbol;
+                instance.parameters.last.remove();
+                }
+            expression = new(instance,null,(String)null);
+            goto bail;
+            }
+        }
+	expression = new(instance,secondary,operate.toString());
+bail:
+	return expression;
+}
+
+/*******************************************************************************
+        Pop off current virtualOp
+*******************************************************************************/
+void popVirtuals()
+{
+    virtualOp       = virtualStack.pop();
+    virtualItem     = virtualStack.pop();
+}
+
+/*****************************************************************************
+	Process a tawk input file
+*****************************************************************************/
+void process(String name)
+{
+String	input;
+    SymbolType.setTypeTable();
+    currentClass    = globalType;
+    falseSymbol		= new("0",SymbolType.intType);
+    nullSymbol		= new("0",SymbolType.nullType);
+    trueSymbol		= new("1",SymbolType.intType);
+    typesSet        = types.typesSet;
+    setTable["typesSet"] = typesSet;
+    setInput(name);
+    run("FileName");
+    if !verbs
+        {
+        setOperators();
+        setComparisons();
+        }
+    input = getStringFromFile(name);
+    if input
+		{
+		setInput(input);
+		parse("Start");
+		}
+}
+
+/*****************************************************************************
+	Process debugging directives
+*****************************************************************************/
+void processDirectives()
+{
+String text = getStringFromFile(directivesFile);
+    if !text cerr "processDirectives: could not get text from",directivesFile:;
+    divertInput(text,"Divert");
+    directivesFile = null;
+}
+
+/*******************************************************************************
+        Process a print target
+*******************************************************************************/
+Instance processPrintTarget(PLGitem target)
+{
+PLGitem     field;
+Instance    printObject = null;
+SymbolType  type;
+int         direct;
+    if target
+        {
+        field = target.get("instance");
+        if !field
+            defaultPrinter = currentSymbols.find("printf");
+        else {
+            printObject = field.value;
+            type = printObject.getType();
+            direct = printObject.howDirect();
+            if type == stringType || type == charType
+                {
+                if direct == 1
+                    {
+                    defaultPrinter = currentSymbols.find("sprintf");
+                    defaultPrinter.addParameter(printObject);
+                    }
+                or direct == 2
+                    {
+                    defaultPrinter = currentSymbols.find("asprintf");
+                    defaultPrinter.addParameter(printObject);
+                    }
+                else defaultPrinter = new("Invalid print command");
+                printObject = new(defaultPrinter);
+                }
+            else {
+                defaultPrinter = printObject;
+                defaultPrinter.isPrintMethod = true;    // Used to flag printObject process
+                }
+            }
+        }
+    else
+    if !defaultPrinter
+        defaultPrinter = currentSymbols.find("printf");
+    if !printObject
+        printObject = new(defaultPrinter);
+    return printObject;
+}
+
+/*******************************************************************************
+        push current virtualOp onto virtuals stack
+*******************************************************************************/
+void pushVirtuals()
+{
+    virtualStack.push(virtualItem);
+    virtualItem = null;
+    virtualStack.push(virtualOp);
+    virtualOp = null;
+}
+
+/*******************************************************************************
+        reset virtualOp
+*******************************************************************************/
+void resetVirtuals()
+{
+    if virtualStack.length
+        {
+        virtualItem = null;
+        virtualOp   = null;
+        virtualStack.clear();
+        }
+}
+
+/*****************************************************************************
+	Initialize CompareOperators
+*****************************************************************************/
+static void setComparisons()
+{
+	if CompareOperators return;
+	CompareOperators = new();
+	CompareOperators.put("lt",(void*)verbs["<"]);
+	CompareOperators.put("le",(void*)verbs["<="]);
+	CompareOperators.put("gt",(void*)verbs[">"]);
+	CompareOperators.put("ge",(void*)verbs[">="]);
+	CompareOperators.put("eq",(void*)verbs["=="]);
+	CompareOperators.put("ne",(void*)verbs["!="]);
+}
+
+/******************************************************************************
+	Current class setter
+******************************************************************************/
+void setCurrentClass(SymbolType t)
+{
+	currentSymbols.presentClass =
+    currentClass = t;
+}
+
+/******************************************************************************
+	Current type setter
+******************************************************************************/
+void setCurrentType(SymbolType t)
+{
+    currentType = t;
+}
+
+/*******************************************************************************
+        Create operators (without verbs)
+*******************************************************************************/
+void setOperators()
+{
+Operate    verb;
+    verbs   = Operators;
+
+    verb        = new("~",0);
+        unary   = true;
+    verb        = new("!",0);
+        unary   = true;
+    verb        = new("++",0);
+        assign  = true;
+        unary   = true;
+    verb        = new("--",0);
+        unary   = true;
+        assign  = true;
+
+    verb        = new("*",1);
+    verb        = new("/",1);
+    verb        = new("%",1);
+
+    verb        = new("+",2);
+        pointing = true;
+    verb        = new("-",2);
+        pointing = true;
+
+    verb        = new(">>",3);
+    verb        = new("<<",3);
+
+    verb        = new("<",4);
+        ltn     = true;
+    verb        = new("lt",4);
+        ltn     = true;
+        call    = true;
+    verb        = new("<=",4);
+        lte     = true;
+    verb        = new("le",4);
+        lte     = true;
+        call    = true;
+    verb        = new(">",4);
+        gtn     = true;
+    verb        = new("gt",4);
+        gtn     = true;
+        call    = true;
+    verb        = new(">=",4);
+        gte     = true;
+    verb        = new("ge",4);
+        gte     = true;
+        call    = true;
+
+    verb        = new("==",5);
+        eql     = true;
+    verb        = new("eq",5);
+        eql     = true;
+        call    = true;
+    verb        = new("!=",5);
+        neq     = true;
+    verb        = new("ne",5);
+        neq     = true;
+        call    = true;
+
+    verb        = new("&",6);
+    verb        = new("^",6);
+    verb        = new("|",6);
+
+    verb        = new("&&",7);
+        conjunction = true;
+    verb        = new("||",7);
+        conjunction = true;
+    verb        = new("?",7);
+        question    = true;
+    verb        = new(":",7);
+        question    = true;
+    
+    verb        = new("=",10);
+        assign  = true;
+    verb        = new("+=",10);
+        assign  = true;
+    verb        = new("-=",10);
+        assign  = true;
+    verb        = new("*=",10);
+        assign  = true;
+    verb        = new("/=",10);
+        assign  = true;
+    verb        = new("%=",10);
+        assign  = true;
+    verb        = new(">>=",10);
+        assign  = true;
+    verb        = new("<<=",10);
+        assign  = true;
+    verb        = new("&=",10);
+        assign  = true;
+    verb        = new("^=",10);
+        assign  = true;
+    verb        = new("|=",10);
+        assign  = true;
+
+    commaOp     = new(",",11);
+    verb        = new("..",11);
+        isRange = true;
+    verb        = new(">.",11);
+        isRange = true;
+    verb        = new(".<",11);
+        isRange = true;
+    verb        = new("><",11);
+        isRange = true;
+    //verbs.dump(false);
+}
+
+/*****************************************************************************
+	Summary debugging data
+*****************************************************************************/
+void summaryDebug()
+{
+SymbolType  type;
+int         t,c,m;
+    cout "Summary of Types":;
+    cout ```"  Name"```"Types"`"Components"``"Methods"``"Fields":;
+    while type = types.next()
+        if !isAtomic && (components || methods)
+            {
+            if componentTypes   t += componentTypes.length;
+            if components       c += components.length;
+            if methods          m += methods.length;
+            cout name#20s`;
+            if componentTypes   cout componentTypes.length#10d`;    else cout "         0"`;
+            if components       cout components.length#10d`;        else cout "         0"`;
+            if methods          cout methods.length#10d`;           else cout "         0":;
+            }
+    cout ```" Total"`t#10d`c#10d`m#10d:;
+    summary(10);
+}

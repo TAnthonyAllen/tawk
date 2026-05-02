@@ -1,0 +1,38 @@
+include includes
+
+/*******************************************************************************
+        This is just a shell class for running tok main - Need to redesign tok
+		so that you can have a source file with no class, just globals
+*******************************************************************************/
+class Tok
+{
+int	dummy;
+static Tape     globalLinkTape;
+static Tawk     tawking;
+
+void run()
+{
+	return;
+}
+}
+
+/*****************************************************************************
+	main program
+*****************************************************************************/
+int main( int argc, char **argv )
+{
+String sourceFile = argv[1];
+    tawking	= new();
+    if argc == 3 directivesFile = argv[2];
+    if sourceFile
+		{
+		tawking.process(sourceFile);
+		cout "Parsed " sourceFile, symbolCount,instanceCount,componentCount "\n";
+		//tawking.summary(5);
+		}
+    else {
+		cerr "No source file provided. Usage: tok sourceFile directivesFile(optional)":;
+		exit(1);
+		}
+    exit(0);
+}

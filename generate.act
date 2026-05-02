@@ -1,0 +1,385 @@
+AliasItem!
+.
+Symbol  symbol = name.value,
+        method  = target.value;
+    if method.type == symbol.type
+        && (!method.parameters || (method.parentClass.isC && method.parameters.length == 1))
+        {
+        method.isGetter = true;
+        method.getter   = symbol;
+        symbol.getter   = method;
+        }
+    or method.parameters
+        && (method.parameters.length == 1 || (method.parentClass.isC && method.parameters.length == 2))
+        {
+        method.isSetter = true;
+        method.setter   = symbol;
+        symbol.setter   = method;
+        }
+    else cerr "Could not set getter or setter for " symbol.name:;
+|.
+	currentClass.constructor = alias.toString();
+||.
+SymbolType	type;
+String		name,
+			targetName;
+PLGitem		body        = value["body"],
+            indirect    = value["indirect"],
+            target      = value["target"],
+            valueType   = value["type"];
+	if !currentClass
+		cerr "ERROR processing aliases: current class is not set\n";
+	else {
+		name = alias.toString();
+		if valueType
+			{
+            SymbolType typeAlias = types.get(name);
+			/*********************************************************************
+				Creates a type alias.
+			*********************************************************************/
+            if indirect
+                {
+                if !typeAlias
+                    {
+                    typeAlias = getType(value.toString());
+                    typeAlias.isType        = true;
+                    typeAlias.isDirect      = true;
+                    typeAlias.isAliasType   = true;
+                    typeAlias.isGlobal      = true;
+                    typeAlias.noDotH        = true;
+                    }
+                or typeAlias.isAliasType
+                    typeAlias.name = value.toString();
+                else cerr "AliasItem: cannot use a standard type as an alias",iTEM:;
+                }
+            else typeAlias = valueType.value;
+            types.put(name,typeAlias);
+			}
+        else {
+            if body
+                {
+                PLGitem arguments = divertInput(body.string(),"AliasParameters");
+                body.unString();
+                body = arguments["body"];
+                }
+            targetName  = target.string();
+            currentClass.makeAlias(name,targetName,body,p);
+            target.unString();
+			}
+		}
+;
+
+CheckMacro!
+.
+PLGrule     rule;
+PLGitem	    item,
+            macro;
+Symbol	    argument,
+            symbol;
+int         count;
+Buffer      buffer = tokJunkBuffer;
+    if !macroList return false;
+    symbol = macroList[statement];
+    if !symbol return false;
+    if braced
+        {
+        braced  =
+        item    = braced.valueItem;
+        for item count++;
+        if symbol.parameters
+            {
+            if !count || count != symbol.parameters.length
+                return false;
+            }
+        or count return false;
+        symbol.parameters.entry = null;
+        for item = braced
+            {
+            argument    = symbol.parameters.next();
+            argument.commentItem = item["part"];
+            }
+        }
+    buffer.reset();
+    macro = symbol.commentItem;
+    for macro
+        if argument = macro.value
+            {
+            if item = argument.commentItem
+                print(buffer) item;
+            else print "No value supplied for " argument.name:;
+            }
+        else {
+            print macro.string();
+            macro.unString();
+            }
+    //cout "CheckMacro action: " buffer:;
+	/*************************************************************************
+		Need to convert tokJunkBuffer to string because it might get reset in
+        the middle of the diversion.
+	*************************************************************************/
+    if buffer.length()
+        {
+        Statement   line = new();
+        line.pointInCode = iTEM;
+        Block       saveBlock = currentBlock;
+        currentBlock = new;
+        rule = rules["MacroBlock"];
+        if item = divertInput(buffer.toString(),rule)
+            {
+            Instance instance = currentBlock.first.value;
+            line.add(currentBlock);
+            statement.value = line;
+            if instance && instance.statement   instance.statement.indented = true;
+            }
+        currentBlock = saveBlock;
+        }
+#resetPRINT
+;
+
+CheckMacroParameters!
+.
+PLGitem body = braced["body"];
+    if body
+        {
+        PLGitem list = divertInput(body.string(),"MacroArgumentList");
+        body.unString();
+        braced.valueItem = list["argument"];
+        }
+
+;
+
+ConditionLabel!
+.
+	Conditions.add(label.string(),(void*)text.toString());
+;
+
+Extender!
+.
+Symbol      method;
+String      text        = name.toString();
+    method = currentClass.findField(text);
+    if method method.extendType();
+    else cerr "Overload could not find extender method:",iTEM:;
+    name.unString();
+;
+
+Field!
+.
+Symbol  symbol;
+    if currentClass.components
+        {
+        symbol = currentClass.components[name.string()];
+        name.unString();
+        }
+    if symbol name.value = symbol;
+    else return false;
+;
+
+InitializerItem!
+.
+SymbolType  type        = types.get(field);
+String      text        = function.string();
+String      signature   = text "(char*)";
+Symbol      method      = currentClass[signature];
+    if type
+        if method
+            {
+            type.hasInitializer     = true;
+            type.initializer        = method;
+            method.isInitializer    = true;
+            }
+        else cerr "InitializerItem rule could not find initialer method:",signature:;
+    else {
+        Symbol virtualField = currentClass[field];
+        if !virtualField
+            if method
+                {
+                virtualField = new(field.toString(),method.type);
+                virtualField.isHidden   = true;
+                virtualField.getter     = method;
+                currentClass += virtualField;
+                }
+            else cerr "InitializerItem rule could not find getter method:", signature:;
+        else cerr "InitializerItem rule: virtual field",field,"already exists":;
+        }
+    function.unString();
+;
+
+OverLoadItem!
+.
+PLGitem     operand = operate.get("operand");
+String      text = name.toString();
+    assigning = false;
+    if !operand operand = operate.get("comparator");
+    if !currentClass
+        cerr "Overload specification must be within class:",iTEM:;
+    else currentClass.overload(operand.toString(),text);
+    name.unString();
+|.
+String	text = name.toString();
+	if currentClass
+		if assign currentClass.overload("[]=",text);
+		else currentClass.overload("[]",text);
+	else cerr "Overload specification must be within class\n";
+	currentClass.isVirtuous = true;
+|.
+String	text = name.toString();
+	if currentClass
+		currentClass.overload(operate.toString(),text);
+	else cerr "Overload specification must be within class\n";
+|.
+Operate verb = new(newOp.toString());
+String	text = name.toString();
+	if currentClass
+		currentClass.overload(op,text);
+	else cerr "Overload specification must be within class\n";
+|.
+String	text = name.toString();
+	if currentClass
+		currentClass.overload("()",text);
+	else cerr "Overload specification must be within class\n";
+;
+
+TargetMethod!
+.
+Symbol  symbol;
+PLGitem name = target%"name";
+    if currentClass.methods
+        {
+        symbol = currentClass.methods[name.string()];
+        name.unString();
+        }
+    if symbol target.value = symbol;
+    else return false;
+;
+
+/*****************************************************************************
+	Macro actions
+*****************************************************************************/
+MacroBit!
+.
+Symbol  symbol;
+    if symbol = macroHash[bitpart]
+        iTEM.value = symbol;
+    else return false;
+;
+
+MacroBlock!
+.
+Statement   statement;
+PLGitem	    item;
+int         indentFlag;
+    for line
+		{
+		item = line.get("statement");
+		if !item continue;
+		statement = item.value;
+        if !indentFlag
+            {
+            statement.indented = false;
+            indentFlag  = true;
+            }
+		if statement
+			currentBlock.add(statement);
+		}
+;
+
+MacroBody!
+.
+PLGitem     body,
+            last,
+            other,
+            part,
+            rest;
+    for parts
+        {
+        if body && !last last = body;
+        // Not sure why we cannot say here: if other = parts["other"]
+        if other = parts.firstComponent
+            {
+            if other.length
+                {
+                if !body body   = other;
+                if !last last   = body;
+                else {
+                    last.next   = other;
+                    last        = last.next;
+                    }
+                }
+            if part = other.valueItem
+                {
+                if !body body   = part;
+                if !last last   = body;
+                else {
+                    last.next   = part;
+                    last        = last.next;
+                    }
+                other.valueItem = null;
+                }
+            }
+        or rest = parts%"rest"
+            {
+            if !body body = rest;
+            if !last last = body;
+            else {
+                last.next   = rest;
+                last        = last.next;
+                }
+            }
+        }
+    currentMethod.commentItem = body;
+;
+
+MacroDelimit!
+.
+    macroDelimiter = delimiter.toString();
+;
+
+MacroDefine!
+.
+Symbol  argument,
+        symbol;
+Buffer  buffer = tokJunkBuffer;
+    symbol  = new(name.string(),voidType);
+    buffer.reset();
+    print(buffer) symbol.name;
+    if !macroHash macroHash = new;
+    else macroHash.clear();
+    if parameters
+        {
+        PLGitem item = parameters;
+        isMethod = true;
+        print "(";
+        for item
+            {
+            PLGitem element = item.get("element");
+            argument = new(element.string());
+            argument.isAlias = true;
+            symbol += argument;
+            print argument.name;
+            if item.next print ",";
+            macroHash[argument.name] = (void*)argument;
+            }
+        print ")";
+        }
+    #resetPRINT
+    methodName  = buffer.toString();
+    isHidden    = true;
+    // currentMethod is reused here temporarily then reset
+    argument        = currentMethod;
+    currentMethod   = symbol;
+    if parameters
+        divertInput(body.string(),getRule("MacroBody"));
+    else {
+        symbol.commentItem  = body;
+        body.value          = null;
+        }
+    currentMethod           = argument;
+    if !macroList macroList = new;
+    macroList[symbol.name]  = (void*)symbol;
+;
+
+MacroName!
+.
+    if !macroList || !macroList[name] return false;
+;

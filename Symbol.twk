@@ -1,0 +1,615 @@
+include includes
+
+/*******************************************************************************
+        The Symbol class defines a declared symbol (when a symbol is referenced,
+		that is captured in the Instance class).
+*******************************************************************************/
+class Symbol
+{
+#autoGetSet
+String      name,
+            methodName;
+SymbolType
+			parentClass,
+			structType,
+			type;
+Symbol
+            getter,
+            setter,
+			source;
+Block		block;			// body of method, if this is a method
+DoubleLinkList
+            directives,
+			parameters;		// If isMethod, parameters is list of symbols defining method parameters
+boolean
+			hasEllipsis
+			indirect:4
+			isAlias
+			isArray:4
+            isAssigned
+            isButton
+            isConst
+			isConstructor
+            isDefault
+            isExtern
+			isExtension
+			isGetter
+			isHidden
+			isInitialized
+            isInitializer
+            isInline
+			isItem
+			isLambda
+			isMethod
+            isOCfield
+			isOutlet
+            isProper
+			isSetter
+			isStatic
+            isThis
+			isVirtual
+            referred
+			reference:4
+            utilized
+			;
+String
+			array;
+union
+    String  comment;
+    PLGitem commentItem;
+    ;
+short       symbolBitLength,
+            symbolBitOffset,
+            symbolIndex,
+            symbolOffset;
+Instance    format;
+static int	symbolCount;
+
+Symbol(String n)
+{
+    name		= n;
+    indirect	= 1;
+    symbolCount++;
+    symbolIndex = types.add(name);
+}
+
+Symbol( String n,SymbolType t )
+{
+    name		= n;
+    type		= t;
+    indirect	= type && type.isDirect ? 0 : 1;
+    symbolCount++;
+    symbolIndex = types.add(name);
+}
+
+Symbol( String n,String t )
+{
+    name	= n;
+    type	= SymbolType.find(t);
+    if !type
+		print "Symbol constructor could not find type " t " while creating " n "\n";
+    indirect	= type && type.isDirect ? 0 : 1;
+    symbolCount++;
+    symbolIndex = types.add(name);
+}
+
+/*******************************************************************************
+        Copy constructor (shallow copy).
+*******************************************************************************/
+Symbol(Symbol src)
+{
+#initNOT
+    *this       = *src;
+    symbolCount++;
+}
+
+/*******************************************************************************
+        Add a parameter.
+*******************************************************************************/
+void addParameter(Symbol arg)
+{
+    if !isMethod
+        cerr "Symbol addParameter: " name " is not a method":;
+    else {
+        if !parameters parameters = new;
+        parameters.add((void*)arg);
+        if parentClass && arg.type.isType parentClass.hasTypedef = true;
+        }
+}
+
+/*******************************************************************************
+        Make sure parameter names and types are consistent upon redeclaration
+*******************************************************************************/
+void checkParameters(PLGitem parameter)
+{
+DoubleLink  link;
+PLGitem     atItem,item;
+Symbol      argument,symbolParameter;
+    if parameters
+        {
+        link = parameters.first;
+        if parentClass.isC && link
+            link = link.next;
+        }
+    for atItem = parameter
+        {
+        item = atItem.get("type");
+        for item = item.value
+            {
+            argument = item.value;
+            if link
+                {
+                symbolParameter = link.value;
+                if !(symbolParameter.hasEllipsis && symbolParameter.type == nullType)
+                    link.value = argument;
+                link = link.next;
+                }
+            }
+        }
+}
+
+/*******************************************************************************
+        Simple version used for display in debugging.
+*******************************************************************************/
+String displayName()
+{
+String		text;
+	if isAlias && source text = source.displayName();
+    else text = isMethod ? gitMethodName() : name;
+	return text;
+}
+
+/*******************************************************************************
+        Debug print alias method name showing defaults.
+*******************************************************************************/
+void dumpDefaultName()
+{
+Symbol  arg;
+    cout gitMethodName(),name "( ";
+    while arg = parameters.next()
+        if arg.isDefault cout arg.name "=" arg.comment ",";
+        or arg.type.comment
+            cout arg.type.comment,arg.name ",";
+        else cout arg.type.name,arg.name ",";
+    cout ")":;
+}
+
+/*******************************************************************************
+        Returns the name of a method taking into account external C methods.
+*******************************************************************************/
+String externalMethodName()
+{
+String		text;
+    if isMethod && parentClass && parentClass.isC
+        text = name parentClass.name;
+    else text = name;
+	return text;
+}
+
+/*******************************************************************************
+        Treat this method as an extension of the class of its first parameter
+        (which must have an indirection of 1).
+*******************************************************************************/
+void extendType()
+{
+BaseHash	extenderMethods;
+Symbol		alias,
+			argument,
+			extender;
+	if !isMethod || !parameters
+		return;
+    extender = parameters.first.value;
+    // For now, cannot extend simple types like int or char or String
+	if extender.type.isAtomic
+        || (extender.type.structure && !extender.type.isType)
+        {
+        //cerr "Symbol extendType: cannot extend simple types like int or char or String.":;
+        return;
+        }
+    if extender.indirect > 1
+        {
+        cerr "Symbol extendType: first parameter of an extender must be a pointer.":;
+    	return;
+        }
+    if !extender.type.methods
+        extender.type.methods = new;
+    extenderMethods = extender.type.methods;
+    alias = makeAlias(name);
+    alias.isExtension = true;
+    if alias.parameters && alias.parameters.length <= 1
+        alias.parameters = null;
+    else {
+        DoubleLinkList  list = new;
+        DoubleLink	    item = alias.parameters.first.next;
+        for item
+            list.add(item.value);
+        alias.parameters = list;
+        }
+    alias.methodName = null;
+    alias.gitMethodName();
+    extenderMethods.entry = null;
+    while argument = extenderMethods.next(name)
+    	if argument.methodName eq alias.methodName
+    		{
+    		extenderMethods.entry = null;
+    		return;
+    		}
+    extender.type.addMethod(alias);
+    extender.type.checkGetterSetter(alias);
+}
+
+/*******************************************************************************
+        get methodName using Objective-C naming convention
+*******************************************************************************/
+String getOCmethodName()
+{
+int			length;
+DoubleLink  link;
+Symbol	    symbol;
+String		methodName;
+
+	if isAlias && source return source.getOCmethodName();
+    if !parameters
+		return name;
+    else {
+		length	= (int)strlen(name);
+		for link = parameters.first
+			{
+			symbol = link.value;
+			if symbol.type == nullType break;
+			if link.prior length += (int)strlen(symbol.name);
+			length++;
+			}
+		methodName	= (String)malloc(++length);
+		strcpy(methodName, name);
+		for link = parameters.first
+			{
+			symbol = link.value;
+			if symbol.type == nullType break;
+			if link.prior strcat(methodName,symbol.name);
+			strcat(methodName,":");
+			}
+		}
+	return methodName;
+}
+
+/*******************************************************************************
+		Like mangle but it includes the type and does not include the
+		method name (used when a method is a parameter). If cppFlag set,
+		writes it as a C++ signature.
+*******************************************************************************/
+String getSignature()
+{
+	return getSignature(0);
+}
+
+String getSignature(int cppFlag)
+{
+DoubleLink  link;
+Symbol	    symbol;
+int			i;
+String		signature,
+			result;
+
+	if isAlias && source return source.getSignature(cppFlag);	
+	if !isMethod && (isLambda || reference) return "";
+	signature	= alloca(1000);
+	*signature	= '\0';
+	strcat(signature,type.name);
+    if !type.isDirect strcat(signature,"*");
+	if isLambda || (reference && (isMethod || cppFlag))
+		if cppFlag
+			if isLambda strcat(signature,"(^)");
+			else strcat(signature,"(*)");
+		or isLambda strcat(signature,"^");
+		else strcat(signature,"&");
+	strcat(signature,"(");
+	if parameters
+		for link = parameters.first
+			{
+			symbol = link.value;
+				if symbol.reference || symbol.isLambda
+				strcat(signature,symbol.getSignature(cppFlag));
+			else {
+				strcat(signature,symbol.type.name);
+				for ( i = 0; i < symbol.indirect; i++ )
+					strcat(signature,"*");
+				}
+			if link.next strcat(signature,",");
+			}
+	strcat(signature,")");
+	result = calloc(1 + (int)strlen(signature),sizeof(char));
+	strcat(result,signature);
+	return result;
+}
+
+/*******************************************************************************
+        methodName getter.
+*******************************************************************************/
+String gitMethodName()
+{
+    if !isMethod
+		{
+		String error = name " is not a method";
+		return error;
+		}
+    if !methodName mangle();
+    return methodName;
+}
+
+/*******************************************************************************
+        insert a parameter if this is a method. This is an unnecessary wrapper
+        to make it easier to track parameter maintenance while debugging
+*******************************************************************************/
+void insertParameter(Symbol arg)
+{
+    if !isMethod
+        cerr "insertParameter: " name " is not a method":;
+    else {
+        if !parameters addParameter(arg);
+        else parameters.insert((void*)arg);
+        }
+}
+
+/*******************************************************************************
+        Make and return an alias of this symbol.
+*******************************************************************************/
+Symbol makeAlias(String aliasName)
+{
+Symbol      alias;
+    alias = new(this);
+    if !isAlias
+        {
+        alias.isAlias       = true;
+        alias.source        = this;
+        }
+    if alias.name ne aliasName
+        {
+        alias.name  = aliasName;
+        if isMethod
+            alias.methodName = null;
+        }
+    alias.symbolIndex = types.add(aliasName);
+    return alias;
+}
+
+/******************************************************************************
+    Makes a setter for Objective-C properties
+******************************************************************************/
+Symbol makeSetter()
+{
+String  first;
+String  target;
+Symbol  parameter = new(this),
+        method;
+use parentClass
+    parameter.parentClass = null;
+    print(&first) name;
+    if name < 'A' || name > 'Z' { *first -= 32; }
+    print(&target) "set" first;
+    method = new(target,voidType);
+    method.isMethod = true;
+    method.addParameter(parameter);
+    first = method.gitMethodName();
+    if !methods || !methods[first]
+        {
+        if isAlias
+            {
+            method.isAlias = true;
+            method.source = source.setter;
+            }
+        addMethod(method);
+        return method;
+        }
+    else {
+        delete method;
+        delete parameter;
+        }
+    return null;
+}
+
+/*******************************************************************************
+        mangle creates the methodName by which methods are found. It appends
+        the parameter types to the name. Note that it ignores the return type.
+*******************************************************************************/
+void mangle()
+{
+int			length, i, flag;
+DoubleLink  link;
+Symbol	    symbol;
+
+    if !parameters
+		methodName = name "()";
+    else {
+		length	= (int)strlen(name) + 2;
+		link = parameters.first;
+        if parentClass && parentClass.isC && isAlias
+            link = link.next;
+		for link
+			{
+			symbol = link.value;
+            if symbol.isDefault continue;
+			if symbol.isLambda || (symbol.reference && symbol.isMethod)
+				{
+				length++;
+				length += (int)strlen(symbol.getSignature());
+				}
+			else {
+				length	+= (int)strlen(symbol.type.name) + symbol.indirect;
+				//if symbol.reference length++;
+			}
+			if link.next length++;
+			}
+		methodName	= (String)malloc(++length);
+		strcpy(methodName, name);
+		strcat(methodName,"(");
+		link = parameters.first;
+        if parentClass && parentClass.isC && isAlias
+            {
+            link = link.next;
+            flag = true;
+            }
+		for link
+			{
+			symbol = link.value;
+            if symbol.isDefault
+                {
+                flag    = true;
+                continue;
+                }
+			if !flag && link.prior strcat(methodName,",");
+            flag = false;
+			if symbol.isLambda || (symbol.reference && symbol.isMethod)
+				strcat(methodName,symbol.getSignature());
+			else {
+				strcat(methodName,symbol.type.name);
+				for ( i = 0; i < symbol.indirect; i++ )
+					strcat(methodName,"*");
+				//if symbol.reference strcat(methodName,"&");
+				}
+			}
+		strcat(methodName,")");
+		}
+}
+
+/*******************************************************************************
+        Return true if this method matches signature of method instance passed
+        in. Does a fuzzy match to allow for null parameters or ellipsis.
+        Assumes the names match already checks.
+*******************************************************************************/
+int matchMethod(Instance target)
+{
+DoubleLink	link, targetLink;
+Symbol		arg;
+Instance	targetArg;
+SymbolType	targetType;
+int			flag;
+	if !target || !isMethod
+		|| (parameters && !target.parameters)
+		|| (target.parameters && !parameters)
+		return false;
+	if !parameters && !target.parameters return true;
+	link		= parameters.first;
+	targetLink	= target.parameters.first;
+	for link
+		{
+		if !targetLink break;
+		arg			= link.value;
+		if arg.type == nullType return true; // match on ellipsis
+		targetArg	= targetLink.value;
+		targetType	= targetArg.getType();
+		if targetType != arg.type flag = 2;
+		if !arg.type.matches(targetType)
+			{
+			if arg.type == voidType && arg.indirect == 1 || targetArg.isVoidPointer()
+				goto keepChecking;
+			or targetType != nullType
+				if arg.type == idType
+					&& (targetType.isOC || targetType == stringType)
+					goto keepChecking;
+				or targetType == idType && arg.type.isOC
+					goto keepChecking;
+			break;
+			}
+keepChecking:
+		targetLink = targetLink.next;
+		}
+	if !link && !targetLink
+		if !flag return true;
+		else return flag;
+	return false;
+}
+
+/*******************************************************************************
+    Search parentClass and return its first component with a matching type
+*******************************************************************************/
+Symbol matchType(SymbolType match)
+{
+Symbol	    matched;
+use parentClass
+    if parentClass && components
+        {
+        components.entry = null;
+        while matched = components.next()
+            if matched.type == match
+                return matched;
+        }
+    return null;
+}
+
+/*******************************************************************************
+        Push the method parameters onto the symbol table passed in
+*******************************************************************************/
+void pushParameters(InstanceTable table)
+{
+DoubleLink  link;
+Symbol	    symbol;
+Instance	instance;
+	if !parameters return;
+	for link = parameters.first
+		{
+		symbol	= link.value;
+		instance = new(symbol);
+        if symbol.isLambda symbol.isAssigned = true;
+		table.add(instance);
+		}
+}
+
+/*****************************************************************************
+	Set indirection and reference levels
+*****************************************************************************/
+void setIndirection(PLGitem direct)
+{
+int		i,
+        saveIndirect = indirect;
+char	*atChar = direct.start;
+	indirect = 0;
+	reference = 0;
+	for ( i = direct.length; i; i--, atChar++ )
+		if *atChar == '*' indirect++;
+		or *atChar == '&' reference++;
+		or *atChar == '^' isLambda = true;
+    // The following maintains the normal indirection that the above code would wipe out
+    if reference && saveIndirect && !indirect
+        indirect = 1;
+}
+
+/******************************************************************************
+	Sets the isReferenced flag for its type and its qualifiers, if any
+******************************************************************************/
+void setRefer()
+{
+    if referred return;
+    referred = true;
+    if isAlias && source && source.referred return;
+	if source && !source.referred source.setRefer();
+    if !type.isReferenced   type.setRefer();
+    if parentClass && !parentClass.isReferenced parentClass.setRefer();
+    if isMethod && parameters
+        {
+        Symbol argument;
+        while argument = parameters.next()
+            if argument.isReferenced    argument.referred = true;
+            else    argument.setRefer();
+        }
+}
+
+/******************************************************************************
+	Checks if the symbol type can be cast to the type passed in. void types
+	are matches either way (since tok casts voids automagically).
+******************************************************************************/
+int typeMatch(SymbolType tYPE)
+{
+SymbolType myType;
+	if tYPE == voidType return true;
+	for myType = type on parent
+		if myType.structure break;
+		or myType == tYPE || myType == voidType
+			return true;
+	for myType = tYPE on parent
+		if myType.structure break;
+		or myType == type || myType == voidType
+			return true;
+	return false;
+}
+}

@@ -1,0 +1,135 @@
+include includes
+
+/*******************************************************************************
+        A Block contains a list of statements
+*******************************************************************************/
+class Block
+{
+Symbol              blockMethod;
+DoubleLinkList	    statements;
+int					modified,
+                    width;			// Used in formatting declarations
+boolean
+					hasBreak
+					indenting
+					isArrayInitializer
+					isBlock
+					isLambda
+                    isMethodBlock
+					isSwitch
+					;
+static int			indentCount;
+
+Block()
+{
+    statements	= new;
+}
+
+Block(int i)
+{
+    statements	= new;
+	if i == 1
+		isBlock = true;
+	if i == 2
+		isArrayInitializer = true;
+}
+
+/*******************************************************************************
+        add an instance (to the statement list)
+*******************************************************************************/
+void add(Instance i)
+{
+Instance	instance = i;
+    if !instance return;
+    if i.statement
+		i.statement.block = this;
+    else {
+    	Statement line = new;
+    	line.add(i);
+    	line.block = this;
+    	instance = new(line);
+    	}
+    statements.add((void*)instance);
+}
+
+/*******************************************************************************
+        add a statement
+*******************************************************************************/
+void add(Statement s)
+{
+Instance i = new(s);
+    s.block = this;
+    add(i);
+}
+
+/*******************************************************************************
+        add a comment (as a statement)
+*******************************************************************************/
+void add(String s)
+{
+Instance i = new(s);
+Statement statement = new();
+    statement.block = this;
+    statement.add(i);
+    add(statement);
+}
+
+/*******************************************************************************
+        Runs all statements thru a sanity check
+*******************************************************************************/
+void check()
+{
+Instance    instance;
+int         i;
+    statements.reset();
+    while instance = statements.next()
+        {
+        instance.check();
+        i++;
+        }
+}
+
+/*******************************************************************************
+        insert an instance at the beginning of the statement list
+*******************************************************************************/
+void insert(Instance i)
+{
+    if i.statement
+		i.statement.block = this;
+    else i.error("Expected a statement");
+    statements.insert((void*)i);
+}
+
+/*******************************************************************************
+        get the width in tabs to indent field names being declared
+*******************************************************************************/
+int getWidth()
+{
+Instance	instance;
+SymbolType	type;
+int			length;
+	if !width && statements.length
+		{
+		while instance = statements.next()
+			{
+			instance = instance.getSubject();
+			if !instance.isDeclaration break;
+			type = instance.getType();
+			length = (int)strlen(type.name) + 1;
+			if length > width width = length;
+			}
+		width = width/4 + 1;
+		}
+	return width;
+}
+
+/*******************************************************************************
+        Return the number of statements added to this block
+*******************************************************************************/
+int length()
+{
+    if statements
+		return statements.length;
+    return 0;
+}
+}

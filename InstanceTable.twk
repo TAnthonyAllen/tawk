@@ -1,0 +1,404 @@
+include includes
+
+class InstanceTable
+{
+long            count;
+int             debug,
+				scope;
+Stak			scopeStack;
+DoubleLinkList  instances;
+Instance        foundAncestor,
+                nullInstance;
+SymbolType      presentClass;
+BaseHash        globalFields;
+
+InstanceTable()
+{
+	scopeStack	    = new;
+    globalFields    = new(1000);
+	instances	    = new;
+    instances.hasKeys = true;
+    nullInstance    = new;
+}
+
+/******************************************************************************
+	In order to handle function pointers, method names are added into
+	the variable name space (may want to maintain a separate namespace??)
+******************************************************************************/
+void add(Instance instance)
+{
+Symbol		symbol;
+	symbol = instance.getSymbol();
+    if !symbol
+		{
+		instance.error("InstanceTable.add expected a symbol");
+		return;
+		}
+    if debug cout "InstanceTable: adding",symbol.name:;
+	types += symbol.name;
+	if symbol.isMethod && symbol.parameters
+		instances.push(symbol.gitMethodName(),(void*)instance);
+	instances.push(symbol.name,(void*)instance);
+	count++;
+}
+
+/******************************************************************************
+	Creates a new symbol and adds it to the table
+******************************************************************************/
+Instance add( String name,SymbolType type )
+{
+Symbol	    symbol;
+Instance    instance;
+    symbol = new(name,type);
+    if debug cout "InstanceTable: adding new",symbol.name:;
+    instance = new(symbol);
+    add(instance);
+    return instance;
+}
+
+/******************************************************************************
+	Add instance to globalFields list.
+******************************************************************************/
+void addGlobalField(String text,Symbol symbol)
+{
+Instance    instance = new(symbol);
+    globalFields[text] = instance;
+    if symbol.isMethod && methodName globalFields[methodName] = instance;
+}
+
+/******************************************************************************
+	Simple dump of only whats in the table (no components)
+******************************************************************************/
+void dump()
+{
+Instance	instance;
+Symbol		symbol;
+	print "Simple dump\n";
+    instances.reset();
+    while instance = instances.next()
+		{
+		symbol = instance.symbol;
+		if symbol.isMethod
+			{
+			print "\t" symbol.type.name,entry.key,;
+			print symbol.gitMethodName(),instance.instanceIndex:;
+			}
+		else {
+			print "\t" symbol.type.name;
+			printQualifiedName(instance);
+			print ,instance.instanceIndex:;
+			}
+		}
+	print "End\n\n";
+}
+
+/******************************************************************************
+	Dump global list
+******************************************************************************/
+void dumpGlobals()
+{
+Instance	instance;
+Symbol		symbol;
+SymbolType  global;
+    print "Global Types":;
+	globalList.entry = null;
+	while global = globalList.next()
+		print `global.name:;
+    print "Global Field List":;
+    globalFields.reset();
+    while instance = globalFields.next()
+        {
+        symbol = instance.symbol;
+        if symbol.isMethod
+            {
+            print "\t" symbol.type.name,globalFields.entry.key,;
+            print symbol.gitMethodName(),instance.instanceIndex:;
+            }
+        else {
+            print "\t" symbol.type.name " ";
+            printQualifiedName(instance);
+            print ,instance.instanceIndex:;
+            }
+        }
+	cout "End Global Field List":;
+}
+
+/******************************************************************************
+	Debugging routine
+******************************************************************************/
+void dump(String text)
+{
+Instance	instance;
+Symbol		symbol;
+    print text:;
+	if presentClass presentClass.dump();
+    instances.reset();
+	print "Instances on stack":;
+    while instance = instances.prior()
+		{
+		symbol = instance.symbol;
+		if symbol.isMethod
+			{
+			print "\t" symbol.type.name,entry.key,;
+			print symbol.gitMethodName(),instance.instanceIndex:;
+			}
+		else {
+			print "\t" symbol.type.name " ";
+			printQualifiedName(instance);
+			print ,instance.instanceIndex:;
+			}
+		}
+}
+
+/******************************************************************************
+	Find the named instance.
+******************************************************************************/
+Instance find(String name)
+{
+Instance	copy,
+            instance = instances.get(name);
+    //cout "InstanceTable Finding " name:;
+	if !instance instance = findInstance(name);
+    if instance
+            {
+            copy            = new(instance);
+            instance        = copy;
+            instance.isDeclaration = false;
+            if foundAncestor && instance != foundAncestor
+                instance.parent = foundAncestor;
+           }
+    foundAncestor = null;
+    return instance;
+}
+
+/******************************************************************************
+	Find the first global method matching the name passed in.
+    Note: because of the way external .h declarations are handled, there can be
+    multiple global types.
+******************************************************************************/
+Symbol findGlobalMethod(String name)
+{
+Instance instance = globalFields[name];
+    if instance && symbol && isMethod return symbol;
+    return null;
+}
+
+/******************************************************************************
+	Return a new method instance matching the source passed in
+******************************************************************************/
+Instance findMethod(Instance source)
+{
+Instance	copy,
+            instance;
+String      name = source.symbol && source.symbol.isMethod
+                ? source.symbol.methodName : source.mangle();
+use source
+    /**********************************************************************
+        In case what we are looking up is a constructor?
+    **********************************************************************/
+    if prefix && isMethod
+        if type = types.get(prefix)
+            return instance = type.findMethodInstance(source);
+    if instance = findInstance(name)
+        {
+        copy    = new(instance);
+        copy.reference = 0;
+        if foundAncestor && instance != foundAncestor
+            copy.parent = foundAncestor;
+        instance            = copy;
+        }
+    foundAncestor = null;
+    return instance;
+}
+
+#searchForField-
+if field && (symbol = field.getSymbol())
+    {
+    if symbol.isStatic return field;
+    currentLevel = field.level;
+    if foundAncestor currentLevel++;
+    if !lowest || currentLevel < lowest
+        {
+        lowest  = field.level;
+        last    = field;
+        lastParent  = foundAncestor;
+        if foundAncestor lowest++;
+        }
+    }-
+/******************************************************************************
+	Search thru current scope for matching symbol
+******************************************************************************/
+Instance findInstance(String name)
+{
+Instance	field,
+            last,
+            lastParent,
+            instance;
+SymbolType	type;
+Symbol      symbol;
+int         currentLevel,
+            lowest;
+    foundAncestor = null;
+    resetIsFlagged();
+    /**********************************************************************
+        Look in the current stack.
+    **********************************************************************/
+    if field = instances[name]
+        {
+        foundAncestor = null;
+        return field;
+        }
+    instances.reset();
+    while instance = instances.prior()
+        {
+        if instance.isMethod
+            if name eq instance.symbol.methodName
+                return instance;
+            else continue;
+        if instance.howDirect() > 1 continue;
+        type = instance.getType();
+        if type == presentClass || type.isFlagged || type.isAtomic continue;
+        type.isFlagged = true;
+        foundAncestor = instance;
+        field = type.findFieldInstance(name);
+        searchForField;
+        }
+    /**********************************************************************
+        Look in the current type and its components.
+    **********************************************************************/
+    type        = presentClass;
+    foundAncestor = null;
+    field = type.findFieldInstance(name);
+    searchForField;
+    /**********************************************************************
+        Look in globals. Only descends if we have not found anything yet
+    **********************************************************************/
+    if globalFields
+        {
+        if field = globalFields[name]
+            {
+            foundAncestor = null;
+            return field;
+            }
+         if !last
+            {
+            globalFields.reset();
+            while instance = globalFields.prior()
+                {
+                if instance.isMethod || instance.howDirect() != 1 continue;
+                type = instance.getType();
+                if type.isFlagged || type.isAtomic continue;
+                type.isFlagged = true;
+                foundAncestor = instance;
+                field = type.findFieldInstance(name);
+                searchForField;
+                }
+            }
+       }
+    foundAncestor = lastParent;
+    return last;
+}
+
+/******************************************************************************
+	Simple search thru current scope for a matching symbol. Does not descend.
+******************************************************************************/
+Symbol findSymbol(String name)
+{
+Instance	field;
+Symbol      symbol;
+    /**********************************************************************
+        Look in the current stack.
+    **********************************************************************/
+    if field = instances[name]
+        if field.symbol return symbol;
+    /**********************************************************************
+        Look in the current type and its components.
+    **********************************************************************/
+    symbol = presentClass.findField(name);
+        if symbol return symbol;
+    /**********************************************************************
+        Look in globals.
+    **********************************************************************/
+    if globalFields
+        if field = globalFields[name]
+            if field.symbol return symbol;
+    return null;
+}
+
+/******************************************************************************
+	Return a method instance that converts object of type source to an object of
+	type target (if there is such a method)
+******************************************************************************/
+Instance getConverter(SymbolType target,SymbolType source)
+{
+Instance	result,instance;
+Symbol		found;
+SymbolType	type;
+	found = source.getConverter(target,source);
+	if found goto foundIt;
+	found = target.getConverter(target,source);
+	if found goto foundIt;
+	found = presentClass.getConverter(target,source);
+	if found goto foundIt;
+	globalList.entry = null;
+	while type = globalList.next()
+		{
+		found = type.getConverter(target,source);
+		if found goto foundIt;
+		}
+    instances.reset();
+	while instance = instances.prior()
+		{
+		if instance.isMethod continue;
+		type = instance.getType();
+		if type && !type.isAtomic
+			if found = type.getConverter(target,source)
+				{
+				result = new(found);
+				result.parent = instance;
+				}
+		}
+	return result;
+foundIt:
+	result = new(found);
+	return result;
+}
+
+/******************************************************************************
+	Pop the scopeStack stack
+******************************************************************************/
+void pop(String text)
+{
+long	dump	= count,
+        i;
+Instance instance;
+    count   = (long)scopeStack.pop();
+    //cout "Popping " text,"from " dump " to " count,scope "\n";
+    for ( i = dump; i > count; i-- )
+		instance = instances.pop();
+	scope--;
+}
+
+/*******************************************************************************
+        Print the fully qualified name of the instance for debugging
+*******************************************************************************/
+void printQualifiedName(Instance instance)
+{
+	if parent
+		{
+		printQualifiedName(parent);
+		print ".";
+		}
+	print displayName();
+}
+
+/******************************************************************************
+	Push the scopeStack stack
+******************************************************************************/
+void push(String text)
+{
+	scope++;
+    //cout "Pushing " text,count,scope "\n";
+    scopeStack.push((void*)count);
+}
+}

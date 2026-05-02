@@ -1,0 +1,395 @@
+AllowShortcuts!
+.
+    if !assigning || noShortcuts return false;
+;
+
+CastExpression!
+.
+Instance instance = type.value;
+    if rest
+		{
+		if !instance.isMethod
+			instance.error("Cast Expression method reference expected");
+		instance.parameters = rest.value;
+		}
+	instance.isCast = true;
+	if direct instance.prefix = direct.string();
+	currentType = null;
+	if direct type.value = instance.setIndirectItem(direct);
+;
+
+CastTail!
+.
+DoubleLinkList list = new;
+Instance    instance;
+PLGitem	    cast, item;
+    for item = rest
+		{
+		cast = item.get("type");
+		instance = cast.value;
+		list.add((void*)instance);
+		}
+    rest.value = list;
+;
+
+CastType!
+.
+SymbolType  symbolType = type.value;
+Instance    instance = new(symbolType);
+char		*atDirect;
+	if direct
+		for (atDirect = direct.start + direct.length - 1;
+			atDirect >= direct.start; atDirect--)
+			if *atDirect == '*' indirection++;
+			or *atDirect == '^' currentClass.hasLambda = isLambda = true;
+			or *atDirect == '&' reference = true;
+	if !symbolType.isDirect && !indirection indirection++;
+    if reference || isLambda isMethod = true;
+    if array
+		instance.postfix = array.toString();
+    type.value = instance;
+;
+
+ConditionWord!
+PLGitem         item, text;
+KeyTableItem    conditionItem;
+Instance        condition;
+String          conditionText;
+    if conditionItem = list.value
+        if conditionText = conditionItem.value
+            if item = divertInput(conditionText,"Expression")
+                {
+                text = item.get("instance");
+                if text
+                    list.value = text.value;
+                else {
+                    condition = new();
+                    condition.error("Failed parse of condition list");
+                    list.value = condition;
+                    }
+                return;
+                }
+    cerr "Could not parse Condition:",list:;
+;
+
+Expression!
+.
+Expression  expression;
+Instance    primary;
+    primary = instance.value;
+	if express
+		{
+		expression = makeExpress(primary,express);
+		primary = new(expression);
+		}
+	if !primary.express
+		{
+		expression = new();
+		subject = primary;
+		primary = new(expression);
+		}
+    instance.value = primary;
+	currentType = null;
+;
+
+ExpressList!
+.
+Instance    left = null, right;
+Expression  express;
+PLGitem	    item, part;
+    for item = list
+		{
+		part = item.get("instance");
+		right = part.value;
+		if left
+			{
+			express = new(left,right,",");
+			left = new(express);
+			}
+		else left = right;
+		}
+    list.value  = left;
+    noShortcuts = false;
+;
+
+ExpressPart!
+.
+Expression  expression;
+Instance    secondary,primary;
+PLGitem		item,
+            operand,
+            operate,
+            stringPart;
+SymbolType	type, secondaryType;
+    primary = instance.value;
+	type = primary.getType();
+    expressType = null;
+	if express
+		{
+		if operate	= express["operate"]
+			{
+			operand	= operate%"operand";
+			if !operand operand = operate%"comparator";
+			}
+		item	= express.get("instance");
+		if item
+            {
+            secondary = item.value;
+            if secondary.isRange
+                {
+                expression = convertRangeX(primary,secondary);
+                primary = new(expression);
+                }
+            else {
+                secondaryType = secondary.getType();
+                if !operand && secondary && secondary.express
+                    && secondary.verb eq ":"
+                    {
+                    expression = new(primary,secondary,"?");
+                    primary = new(expression);
+                    }
+                or operand && operand eq "+=" && type == stringType
+                    && secondaryType == stringType && primary.howDirect() == 1
+                    {
+                    operand.setString("=");
+                    //plgStart = item.start;
+                    stringing   = true;
+                    if stringPart = parse("Strings")
+                        {
+                        item.next       = stringPart;
+                        instance.next   = item;
+                        }
+                    else instance.next  = item;
+                    secondary = concatenate(instance);
+                    expression = new(primary,secondary,"=");
+                    primary = new(expression);
+                    }
+                }
+            }
+		}
+	if !expression && (primary.isVirtuous() || operand)
+		{
+		expression = makeExpress(primary,express);
+		primary = new(expression);
+		}
+    if unaryOp
+        {
+        if unaryOp eq "&" && !unaryOp.next
+            primary.reference = true;
+        else {
+            expression = new((Instance)null,primary,unaryOp.toString());
+            primary = new(expression);
+            }
+        }
+    primary         = primary.checkOverload();
+    if primary.symbol && primary.symbol.isDefault
+        primary.setDefaults(p);
+    instance.value  = primary;
+    currentType     = null;
+    popVirtuals();
+;
+
+ExpressType!
+.
+    expressType = currentType;
+;
+
+OperationTail!
+.
+PLGitem	    item, operand;
+SymbolType  type;
+Expression	expression;
+Instance	subject, trueValue;
+String      flag,
+            save = plgStart;
+	operand     = operate.get("operand");
+	if operand
+		{
+        if stringing && expressType == stringType && !stringOP.foundIn(operand)
+            return false;
+		if operand.start == '=' && operand.length == 1
+			flag = operand.start + 1;
+		}
+	or operand = operate.get("comparator")
+        flag = operand.start + 3;
+	if question
+		{
+		subject		= instance.value;
+		trueValue	= question.value;
+		expression	= new(subject,trueValue,"?");
+		subject		= new(expression);
+		instance.value = subject;
+        flag        = null;
+		}
+	else subject = instance.value;
+	if subject.parent && subject.isConstant
+		instance.value	= (void*)subject;
+    expressType =
+    type        = subject.getType();
+	if flag
+		if type == stringType && subject.howDirect() == 1
+			{
+            plgStart    = flag;
+            stringing   = true;
+            if item = parse("Strings")
+                {
+				subject = concatenate(item["item"]);
+				instance.value = subject;
+				}
+            else plgStart   = save;
+            stringing       = false;
+			}
+    ((Tawk)iTEM.testParser).assigning   = false;
+|.
+PLGitem	question = instance.get("question");
+	instance.value = question.value;
+;
+
+Operator!
+.
+KeyTableItem    operatorItem = operand.value;
+Operate         verb = operatorItem.value;
+    if overload return true;
+    if isRange return false;
+    if assigning && operand.start == ',' return false;
+    if !verb || verb.conjunction || verb.question return false;
+    if virtualItem
+        {
+        SymbolType  type = virtualItem.getType();
+        if isVirtuous
+            if overloaded(verb.op) || (virtualItem.arrayRef && operand.start == '='
+                && operand.length == 1 && overloaded("[]="))
+                virtualOp = operand;
+        }
+    if assign && saveType
+        {
+        newType = saveType;
+        if expressType == stringType && !assuming
+            assigning = true;
+        }
+|.
+	if !compareFollow.contains(*(comparator.start + 2))
+		return false;
+;
+
+Question!
+.
+PLGitem	    falseItem, trueItem;
+Expression	expression;
+Instance	trueValue, falseValue;
+	falseItem	= falseExp.get("instance");
+	trueItem	= trueExp.get("instance");
+	trueValue	= trueItem.value;
+	falseValue	= falseItem.value;
+	expression	= new(trueValue,falseValue,":");
+	trueValue	= new(expression);
+	question.value = trueValue;
+;
+
+RangeExpression!
+.
+PLGitem     item;
+Instance    front = instance.value,
+            tail;
+Expression  rangeX;
+    item = back%"instance";
+    tail = item.value;
+    item = back%"operate";
+    rangeX  = new(front,tail,item.string());
+    front   = new(rangeX);
+    front.isRange   = true;
+    instance.value  = front;
+;
+
+RangeField!
+.
+Instance    rangeField = currentSymbols.instances.get(instance.string());
+    instance.unString();
+    if rangeField && rangeField.isRange && rangeField.express && rangeField.object
+        instance.value = rangeField.object;
+    else return false;
+;
+
+SaveVirtuals!
+.
+    pushVirtuals();
+;
+
+StringExpression!
+|.
+Instance    item = instance.value,
+            target;
+SymbolType  type = item.getType();
+    target = item.getSubject();
+    if type != stringType
+        {
+        target = convertToString(item);
+        if !target return false;
+        instance.value = target;
+        }
+    or !(target.isConstant || item.howDirect() == 1)
+        return false;
+    or item.express && item.verb && !(item.pointing || item.assign)
+        return false;
+;
+
+Strings!
+.
+PLGitem     instance;
+    for item
+        {
+        instance = item["instance"];
+        item.value = instance.value;
+        }
+;
+
+UnaryOperator!
+|.
+	if operate.next return false;
+;
+
+UnaryExpression!
+.
+Instance	subject;
+Expression	expression;
+PLGitem	list = instance.get("list");
+	instance.run();
+	subject = list.value;
+    if operate
+		{
+		expression = new((Instance)null,subject,operate.toString());
+		subject = new(expression);
+		}
+	instance.value = subject;
+    currentType = null;
+|.
+Expression  expression;
+PLGitem	    item;
+Instance    castInstance, subject;
+SymbolType  virtualType;
+    subject = instance.value;
+    if operate
+		if operate eq "&" && !operate.next
+			subject.reference = true;
+		else {
+			expression = new((Instance)null,subject,operate.toString());
+			subject = new(expression);
+			}
+    if cast
+		{
+		item	= cast.get("type");
+		castInstance = item.value;
+        if !subject.express
+            {
+			expression = new((Instance)null,subject,(String)null);
+			subject = new(expression);
+			}
+        else subject = new(subject);
+        subject.cast = castInstance;
+		}
+    virtualType = subject.getType();
+    if virtualType.overloads
+        virtualItem = subject;
+	instance.value = subject;
+    currentType = virtualType;
+;

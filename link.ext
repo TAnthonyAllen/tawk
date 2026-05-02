@@ -1,0 +1,12 @@
+
+/*****************************************************************************
+	The following defines a typedef alias used in DoubleLink and DoubleLinkList
+    The alias can be redefined (overwritten in effect) to change the type
+    of the value stored in DoubleLink
+*****************************************************************************/
+external
+{
+    alias
+        Avoid        void*
+        ;
+}

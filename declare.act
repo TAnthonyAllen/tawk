@@ -1,0 +1,569 @@
+ArrayInitializer!
+.
+PLGitem	    item;
+Instance    entry;
+Block	    block = new(2);
+    for item = instance
+		{
+		entry = item.value;
+		block.add(entry);
+		}
+    entry = new(block);
+    instance.value = entry;
+;
+
+ButtonArray!
+Symbol	symbol;
+int		i = 1;
+String	text;
+	for button
+		{
+		text = button.toString();
+		symbol = currentClass.getLocal(text);
+		if !symbol
+			{
+			symbol		= new(text,buttonType);
+			isHidden	= true;
+			isItem		= true;
+			array		= toString(i++);
+			currentClass.add(symbol);
+			}
+		or symbol.type != buttonType
+			cerr "Expected a button " text "\n";
+		button.value = symbol;
+		}
+;
+
+DeclareItem!
+PLGitem parameters = item.get("head");
+Instance    methodD, methodI;
+Expression  xpress;
+	item.run();
+    methodD = parameters.value;
+    methodD.isDeclaration = true;
+    if methodD.symbol
+        {
+        if !currentBlock    methodD.symbol.parentClass = currentClass;
+        if currentMethod && currentMethod == methodD.symbol  currentMethod = null;
+        }
+    if instance
+        {
+        methodI = instance.value;
+        xpress  = new(methodD,methodI,"=");
+        methodD = new(xpress);
+        }
+    item.value = methodD;
+|
+String      text;
+Symbol      symbol;
+PLGitem     name        = item.get("name"),
+            parameter   = argument.get("instance");
+Instance    instance    = new(currentType.name),
+            part        = parameter.value;
+    /**********************************************************************
+        converting constructor
+    **********************************************************************/
+    instance.addParameter(part);
+    text = instance.mangle();
+    if symbol = currentType.getMethod(text)
+        {
+		symbol = new(name.toString(),currentType);
+        symbol.indirect = 0;
+        symbol.isConstructor = true;
+        instance.symbol = symbol;
+        instance.prefix = null;
+        instance.isMethod = true;
+        }
+    else instance.error("Could not find converting constructor");
+    item.value = instance;
+|
+PLGitem	    direct = item.get("direct"),
+			name	= item.get("name"),
+			array	= item.get("array"),
+			bits	= item.get("bits");
+Symbol	    symbol;
+Instance    instance, assigned;
+Expression  express;
+String		text = name.toString();
+	if !currentBlock
+		symbol = currentClass.getLocal(text);
+	if currentBlock || !symbol
+		{
+		symbol = new(text,currentType);
+		if direct
+			symbol.setIndirection(direct);
+		if array
+			{
+			symbol.indirect += (long)array.value;
+			symbol.isArray = (unsigned int)array.amount;
+			tokJunkBuffer.reset();
+			for array
+				array.copyTo(tokJunkBuffer);
+			symbol.array = tokJunkBuffer.toString();
+			}
+		or bits
+			symbol.array = bits.toString();
+		}
+    instance = new(symbol);
+    instance.isDeclaration = true;
+	instance.block = currentBlock;
+    if !direct && !currentType.isDirect
+		symbol.indirect = 1;
+    if assign
+		{
+		PLGitem	assignItem = assign.get("instance");
+		assigned = assignItem.value;
+		express = new(instance,assigned,"=");
+		instance = new(express);
+        instance.isRange = assigned.isRange;
+		}
+    item.value = instance;
+;
+
+DeclareType!
+.
+    currentType = type.value;
+	newType		=
+	methodType	= currentType;
+;
+
+Declaration!
+Instance    staticCopy,
+            instance;
+Symbol	    symbol;
+PLGitem	entry, item;
+    currentType = type.value;
+	newType		=
+	methodType	= currentType;
+	for item = modify
+        if item.start == 'c' constDeclare     = true;
+        or item.start == 'i' inlineDeclare    = true;
+		or item.start == 's' staticDeclare    = true;
+        or item.start == 'v' virtualDeclare   = true;
+        else externDeclare = true;
+	for entry = declare
+		{
+		entry.run();
+		item = entry.get("item");
+		instance = item.value;
+		instance.isDeclaration = true;
+		entry.value = instance;
+		symbol = instance.getSymbol();
+		if outlet symbol.isOutlet = true;
+		if staticDeclare
+			{
+			symbol.isStatic = true;
+			if instance.express
+				{
+				Statement statement = new();
+                statement.pointInCode = iTEM;
+				statement.add(instance);
+				staticBlock.add(statement);
+				symbol.isInitialized = true;
+				}
+            if symbol.isMethod addGlobalField(symbol.methodName,symbol);
+            addGlobalField(symbol.name,symbol);
+			}
+        if constDeclare     symbol.isConst      = true;
+        if inlineDeclare    symbol.isInline     = true;
+		if staticDeclare    symbol.isStatic     = true;
+		if virtualDeclare   symbol.isVirtual    = true;
+        if externDeclare
+            {
+            symbol.isExtern         = true;
+            currentClass.hasExtern  = true;
+            }
+		}
+    currentType = null;
+    if modify
+        {
+        constDeclare    = false;
+        linkage         = false;
+        }
+|
+PLGitem	field = declare.get("body");
+PLGitem kind = declare.get("kind");
+SymbolType structureType;
+Instance instance = null;
+    declare.run();
+	if kind structureType = kind.value;
+	if !currentClass.isExternal && structureType && structureType.isType
+		cerr "WARNING typedef ignored: must be declared external\n";
+	declare.next = field;
+	for field
+		{
+		instance = field.value;
+		if instance
+			instance.isDeclaration = true;
+		}
+;
+
+InitExpression!
+.
+Instance	subject;
+PLGitem	    last,item;
+SymbolType  type;
+
+	subject = instance.value;
+	type = subject.getType();
+	if type == stringType && subject.howDirect() == 1
+		{
+        last = instance;
+		while true
+			{
+			item = parse("StringExpression");
+			if item
+				{
+				PLGitem expressItem = item.get("instance");
+				Instance secondary = expressItem.value;
+				type = secondary.getType();
+				if type == stringType
+                    {
+					last.next = expressItem;
+                    last = last.next;
+                    }
+				else break;
+				}
+			else break;
+			}
+		if instance.next
+			{
+			subject = concatenate(instance);
+			instance.value = subject;
+			}
+		}
+;
+
+Initializer!
+.
+PLGitem	list = instance.get("list");
+	instance.value = list.value;
+;
+
+ItemHead!
+.
+PLGitem	item;
+double  i;
+	if array
+		{
+		for item = array
+			i++;
+		array.amount = i;
+		}
+;
+
+LambdaName!
+.
+Instance	instance;
+String		text;
+    if !currentClass.hasLambda return false;
+    text = name.string();
+	if !SymbolType.find(text)
+		{
+		instance = currentSymbols.find(text);
+		name.unString();
+		if instance && symbol && isLambda
+			{
+			// Create a copy of instance w/o isDeclaration set
+			instance = new(symbol);
+			name.value = instance;
+			lambdaMethod = symbol;
+			}
+		else return false;
+		}
+	else {
+		name.unString();
+		return false;
+		}
+;
+
+SetObject!
+.
+	currentType = null;
+;
+
+Structure!
+Symbol		symbol;
+Instance	instance, current;
+SymbolType	structureType;
+PLGitem		item = body.get("label"),
+			field = body.get("field"),
+			entry = body.get("entry");
+String		error;
+    currentType = null;
+	newType		=
+	methodType	= null;
+	if !item && kind eq "typedef"
+		{
+		PLGitem name = entry.get("name");
+		structureType = SymbolType.find(name.string());
+		if structureType && !structureType.isType
+			{
+			error = "typedef " name.string() " conflicts with existing class name\n";
+			instance = makeError(error);
+			}
+		else {
+			if !structureType
+				{
+				structureType           = getType(name.toString());
+				structureType.isType    = true;
+                structureType.isAtomic	= true;
+				}
+			instance = new(structureType);
+			}
+		name.unString();
+		if currentClass.noDotH structureType.noDotH = true;
+		else structureType.dotHname = currentClass.dotHname;
+		goto finish;
+		}
+	processingParameters = true;
+	body.run();
+	processingParameters = false;
+	structureType = currentType;
+	structureType.noDotH = true;
+	if !currentClass currentClass = currentType;
+	if !item
+		{
+		String name = head(structureType.name,"Type");
+		symbol = currentClass.getLocal(name);
+		if !symbol
+			{
+			symbol = new(name,structureType);
+			currentClass.add(symbol);
+			isHidden = true;
+			//	Note here, isHidden has to be set after adding
+			}
+		instance = new(symbol);
+		}
+	else {
+		instance = item.value;
+		structureType = instance.type;
+		if field body.next = field;
+		or !currentClass.isExternal
+            structureType.mustDeclare = true;
+		}
+	if (kind eq "boolean")
+        {
+		structureType.isBoolean = true;
+        structureType.isNumber = true;
+        }
+	or (kind eq "enumerator")
+        {
+		structureType.isEnumerator  = true;
+        structureType.isNumber      = true;
+        globalList += (void*)structureType;
+        }
+	or (kind eq "struct")
+		structureType.isStruct      = true;
+	or (kind eq "typedef")
+		structureType.isType        = true;
+	else structureType.isUnion      = true;
+	if isBoolean || isEnumerator
+		for item = entry
+			{
+			current = item.value;
+			symbol = current.symbol;
+			if isEnumerator
+                {
+				symbol.type         = nullType;
+                currentSymbols.addGlobalField(symbol.name,symbol);
+                }
+			or isBoolean
+				if !array array     = ":1";
+			}
+finish:
+    structureType.isExternal    = false;
+	structureType.isDirect      = true;
+    if currentClass != globalType
+        structureType.parent    = currentClass;
+	kind.value = structureType;
+	body.value = instance;
+	currentType = null;
+;
+
+StructureBody!
+Instance    current;
+SymbolType  saveClass = currentClass;
+PLGitem	    item,
+			name;
+
+	item = label.get("type");
+	if !item.value
+		{
+		label.run();
+		item = label.get("type");
+		}
+	currentClass = (SymbolType)item.value;
+    for item = entry
+		{
+		item.run();
+		name = item.get("name");
+		if name item.value = name.value;
+		}
+	currentType = currentClass;
+	currentType.isDirect = true;
+	for field
+		{
+		field.run();
+		item = field.get("item");
+		current = item.value;
+		field.value = current;
+		}
+	current = new(currentClass);
+	currentClass = saveClass;
+	label.value = current;
+|
+Symbol		symbol;
+PLGitem		name = entry.find("name"),
+			item;
+    saveStruct = currentClass;
+	if currentClass
+		{
+		symbol = currentClass.getLocal(name.string());
+		name.unString();
+		}
+	if symbol currentClass = structType;
+	else {
+		String typeName = currentClass.name "Struct" toString(stringNumber++) "Type";
+		currentClass = getType(typeName);
+		}
+	if currentClass currentClass.nameLess = true;
+    for item = entry
+		{
+		item.run();
+		name = item.get("name");
+		if name item.value = name.value;
+		}
+	currentType = currentClass;
+	currentClass = saveStruct;
+    saveStruct  = null;
+;
+
+StructureItem!
+PLGitem		declare = item.get("declare");
+PLGitem		entry;
+Instance	instance;
+Symbol      aliasSymbol;
+	item.run();
+	for entry = declare
+		{
+		instance = entry.value;
+		if instance
+			{
+			currentClass.add(symbol);
+			symbol.structType = currentClass;
+            if saveStruct
+                {
+                aliasSymbol = new(symbol);
+                aliasSymbol.isHidden = true;
+                aliasSymbol.isItem   = true;
+                saveStruct.add(aliasSymbol);
+                }
+			}
+		}
+|
+String		text = name.toString();
+Symbol	    aliasSymbol,symbol;
+Instance    instance;
+SymbolType	symbolType;
+	symbolType = SymbolType.getType("unsigned int");
+	symbol = currentClass.getLocal(text);
+	if !symbol
+		{
+		symbol = new(text,symbolType);
+		symbol.structType = currentClass;
+        if bits
+            {
+            PLGitem length  = bits["length"];
+            symbol.array    = bits.toString();
+            symbolBitLength = atoi(length.string());
+            length.unString();
+            }
+        else symbolBitLength = 1;
+        symbol.isItem = true;
+		currentClass.add(symbol);
+        // saveStruct, if set, is the class containing the structure
+        if saveStruct
+            {
+            aliasSymbol = new(symbol);
+            aliasSymbol.isHidden = true;
+            aliasSymbol.isItem   = true;
+            saveStruct.add(aliasSymbol);
+            }
+		}
+    else {
+        if bits
+            symbol.array = bits.toString();
+        symbol.isItem = true;
+        }
+    instance = new(symbol);
+    name.value = instance;
+	if buttons
+		{
+		PLGitem	button;
+		buttons.run();
+		button = buttons.get("button");
+		for button
+			{
+            // for button items symbol.source is set to the button container symbol
+			symbol          = button.value;
+            symbol.isButton = true;
+			symbol.source   = instance.symbol;
+            if saveStruct
+                {
+                aliasSymbol = new(symbol);
+                saveStruct.add(aliasSymbol);
+                }
+			}
+		}
+;
+
+StructureType!
+|
+SymbolType  symbolType;
+String	    name = type.string();
+    symbolType = SymbolType.find(name);
+    type.unString();
+    if !symbolType
+		symbolType =  SymbolType.getType(type.toString());
+	type.value = symbolType;
+;
+
+TypeName!
+.
+SymbolType  symbolType;
+    symbolType = SymbolType.find(type.string());
+    type.unString();
+    if symbolType
+        {
+        type.value = symbolType;
+        return true;
+        }
+    return false;
+;
+
+Type!
+.
+SymbolType  symbolType;
+String	    name;
+    if !noSign && !temp
+        symbolType = type.value;
+    else {
+        if temp type.length += temp.length;
+        name = type.string();
+        if noSign name = "unsigned " name;
+        symbolType = SymbolType.find(name);
+        type.unString();
+        }
+    if !symbolType return false;
+    if hasConst type.flag4 = true;
+    type.value = symbolType;
+    currentType = symbolType;
+;
+
+TypeList!
+.
+Instance	item = new(currentType);
+	instance.value = item;
+	currentType = null;
+;

@@ -1,0 +1,16 @@
+/*****************************************************************************
+	The following defines the alias used for the type of value stored
+    in DoubleLink
+*****************************************************************************/
+external
+{
+    alias
+        Avoid       void*
+        ;
+}
+include /Users/anthony/Dropbox/data/InProcess/Include/OCframe
+include /Users/anthony/Dropbox/data/InProcess/Include/globals
+include /Users/anthony/Dropbox/data/InProcess/Include/maps
+include /Users/anthony/Dropbox/data/InProcess/Include/frame
+include /Users/anthony/Dropbox/data/InProcess/Include/plg.ext
+include /Users/anthony/Dropbox/data/InProcess/Include/tok.ext

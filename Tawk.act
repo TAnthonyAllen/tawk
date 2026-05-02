@@ -1,0 +1,1719 @@
+Block!
+.
+Statement   statement;
+PLGitem	    item;
+Block	    block;
+Directive   directive;
+use currentMethod
+	block = start.value;
+    for line
+		{
+		item = line.get("statement");
+		if !item continue;
+		statement = item.value;
+		if statement
+			block.add(statement);
+		}
+	if declaringMethod && currentMethod
+        {
+        declaringMethod = false;
+        if directives
+            {
+            noLoop = true;
+            directives.reset();
+            while directive = directives.next()
+                if !codeMatch parseDirective();
+            noLoop = false;
+            }
+        }
+    currentBlock = blockStack.pop();
+    currentSymbols.pop("Block end");
+;
+
+BlockStart!
+.
+	if declaredSomething
+        declaredSomething = false;
+    currentSymbols.push("Block start");
+    currentType = null;
+	if declaringMethod && currentMethod
+        {
+        if !currentBlock
+            currentMethod.pushParameters(currentSymbols);
+        or lambdaMethod
+            lambdaMethod.pushParameters(currentSymbols);
+        }
+    lambdaMethod = null;
+    if currentBlock
+		blockStack.push(currentBlock);
+    currentBlock = new(1);
+    iTEM.value = currentBlock;
+    currentBlock.blockMethod = currentMethod;
+
+    // virtualStack can get out of whack when an expression fails
+    // so it gets cleaned up here if needed
+    resetVirtuals();
+;
+
+Body!
+|.
+Instance    method;
+    body = body.get("method");
+    method = body.value;
+	if extending && method && symbol
+		symbol.extendType();
+|.
+PLGitem declare = body.get("declare");
+Instance    instance;
+Symbol	    symbol;
+	if !currentClass return false;
+    body.run();
+    for declare
+		{
+		instance = declare.value;
+		if instance && instance.isError && instance.postfix
+			cerr instance.postfix;
+		if !instance || instance.statement || instance.isError continue;
+		if instance.type
+			continue;
+		symbol = instance.getSymbol();
+        //cout "Body: declaring " symbol.name:;
+		if symbol.isMethod && !symbol.isLambda && !symbol.reference
+			{
+            if extending && parameters extendType();
+			if !currentClass.getMethod(methodName)
+				currentClass.addMethod(symbol);
+            currentMethod = null;
+			}
+		or !currentClass.getLocal(symbol.name) currentClass.add(symbol);
+		}
+;
+
+ClassBlockStart!
+.
+	if currentClass != globalType
+		currentSymbols.push(currentClass.name);
+	if !currentClass.isExternal
+        declaredSomething = false;
+;
+
+ClassBlock!
+.
+	if currentClass != globalType
+		currentSymbols.pop("end class");
+    currentClass.classOK = true;
+    declaredSomething = true;
+    //cout "Processed class block for " currentClass.name:;
+;
+
+ClassHeading!
+.
+SymbolType  parent = null;
+String	    className;
+PLGitem		item, name, path, type;
+Symbol		symbol;
+	extending	= false;
+    referring   = true;
+    currentBlock = null;
+	name = nom.get("name");
+	path = name.value;
+	className       = name.toString();
+	currentClass    = SymbolType.getType(className);
+	for item = attributes
+		{
+		if !type type = item["type"];
+		item.run();
+		}
+	if type parent = type.value;
+	if parent
+		{
+		currentClass.parent = parent;
+		if parent.isOC currentClass.isOC = true;
+		}
+    if currentComment
+		currentClass.comment = extractComment();
+	if currentClass.isOC
+		{
+		nameSet.set((int)':');
+		if currentClass.parent
+			{
+			symbol					= new("super",currentClass.parent);
+			symbol.isVirtual		= true;
+			currentClass.add(symbol);
+			}
+		}
+	if !currentClass.noDotH && !currentClass.isAtomic && !currentClass.dotHname
+        && !currentClass.isProtocol
+		currentClass.dotHname = path.toString();
+	currentClass.isExternal = false;
+    if directivesFile processDirectives();
+|.
+PLGitem	type = structure.get("body");
+PLGitem kind = structure.get("kind");
+PLGitem field;
+Instance instance = null;
+	extending = false;
+    if kind eq "typedef" || kind eq "struct"
+        return false;
+    field = type.next;
+    structure.run();
+    instance = type.value;
+    currentClass = instance.getType();
+    currentClass.noDotH = true;
+	currentType = null;
+	if externalRef currentClass.isExternal = true;
+	else currentClass.isExternal = false;
+	for field
+		{
+		instance = field.value;
+		if instance
+			{
+			instance.isDeclaration = true;
+			if symbol symbol.parentClass = globalType;
+			}
+		}
+|.
+SymbolType  parent = null;
+String	    className, dotHfile;
+PLGitem		entry, item, name, dotH, path, temp, type;
+Symbol		symbol;
+    currentBlock = null;
+	extending = false;
+    if !nom
+		{
+		currentClass = globalType;
+		extending = true;
+		}
+    else
+	for entry = nom
+		{
+		name = entry.get("name");
+        temp = entry.get("temp");
+		path = name.value;
+		dotH = entry.get("dotH");
+		className = name.toString();
+		if dotH
+			{
+			dotHfile = path.toString();
+            if !nom.next
+                {
+                // rename the class since it is not really a class, just the name of a file
+                className               = "notType" className;
+                currentClass            = SymbolType.getType(className);
+                currentClass.isGlobal   = true;
+                currentClass.isExternal = true;
+                globalList += (void*)currentClass;
+                extending = true;
+                }
+            else continue;
+			}
+		else currentClass = SymbolType.getType(className);
+        if temp currentClass.isTemplate = true;
+		for item = attributes
+			item.run();
+		if type parent = type.value;
+		currentClass.isExternal = true;
+		if parent
+			{
+			currentClass.parent = parent;
+			if parent.isOC currentClass.isOC = true;
+			}
+		if !currentClass.noDotH && !currentClass.isAtomic && !currentClass.dotHname
+			currentClass.dotHname = path.toString();
+		if currentClass.isOC
+			{
+			nameSet.set((int)':');
+			if currentClass.parent
+				{
+				symbol					= new("super",currentClass.parent);
+				symbol.isVirtual		= true;
+				currentClass.add(symbol);
+				}
+			}
+		entry.value = currentClass;
+		}
+	if nom && nom.next && dotHfile
+		{
+		for entry = nom
+			{
+            if !entry.value continue;
+			currentClass = (SymbolType)entry.value;
+			currentClass.dotHname = dotHfile;
+			}
+		currentClass = (SymbolType)nom.value;
+		}
+    if kind
+        if kind.start == 't'
+            {
+            currentClass.isDirect   = true;
+            currentClass.isType     = true;
+            }
+        else {
+            currentClass.isDirect   = true;
+            currentClass.isStruct   = true;
+            }
+;
+
+Else!
+|.
+PLGitem		action		= statement["action"];
+PLGitem	    instance	= statement["instance"];
+PLGitem		item		= action["statement"];
+PLGitem		otherwise	= statement["otherwise"];
+Instance    express		= instance.value;
+Statement   line		= item.value;
+Statement   ifStatement = new(IF);
+use currentMethod
+    ifStatement.add(express);
+    pointInCode     = iTEM;
+    if currentMethod && directives && !noLoop
+        {
+        Directive   directive;
+        directives.reset();
+        while directive = directives.next()
+            if isDirected || !codeMatch continue;
+            or !strncmp(codeMatch,pointInCode.itemStart,strlen(codeMatch))
+                {
+                noLoop = true;
+                parseDirective();
+                noLoop = false;
+                break;
+                }
+        }
+	line.indented   = true;
+    if line ifStatement.add(line);
+    if otherwise
+		{
+		item = otherwise.get("statement");
+		line = item.value;
+		if line ifStatement.add(line);
+		}
+    statement.value = ifStatement;
+;
+
+Extends!
+.
+	if currentClass.isOC
+		nameSet.reset((int)':');
+    types.resetIsFlagged();
+    formatter.declareClass(currentClass);
+    currentClass    = globalType;
+;
+
+FieldBody!
+PLGitem	    item;
+PLGitem     name = part["name"];
+PLGitem     body = part["body"];
+String		text = name.toString();
+Symbol	    symbol;
+double		isArray;
+Instance    current = new(text),
+			parameter,
+			instance;
+Expression  expression;
+    if body
+		{
+		item = body["array"];
+		if item
+			isArray = item.amount;
+		else {
+			item = body["expression"];
+            current.isMethod = true;
+			}
+		for item
+			{
+			parameter = item.get("instance").value;
+			current.addParameter(parameter);
+			}
+		if !instance && current.isMethod
+			if currentType
+				instance = currentType.findMethodInstance(current);
+			else  instance = currentSymbols.findMethod(current);
+		}
+	if !instance
+		{
+        if isQualified
+            {
+            resetIsFlagged();
+            instance = currentType.findFieldInstance(current.prefix);
+            if !instance && currentType.isOC
+                symbol = ocSymbols[text];
+            }
+        or instance = currentSymbols.find(current.prefix)
+            if instance.isMethod && !body
+                instance.noBody = true;
+            or current.isMethod instance.isMethod = true;
+		if symbol
+			{
+			current.symbol      = symbol;
+            current.isMethod    = symbol.isMethod;
+			current.prefix      = null;
+			instance            = current;
+			}
+		}
+    if text == '@'
+        {
+        instance = current;
+        instance.prefix++;
+        instance.type = selectorType;
+        instance.isSelector = true;
+        instance.isConstant = true;
+        }
+    or instance
+        {
+        if isLambda && body && !instance.isAssigned
+            {
+            if isQualified current = new(instance);
+            else {
+                delete current;
+                current = instance;
+                }
+            current.error("lambda not assigned");
+            }
+        or !isArray && instance != current && !instance.reference
+            && !current.parameters
+            {
+            if isQualified current = new(instance);
+            else {
+                delete current;
+                current = instance;
+                }
+            current.parameters = null;
+            current.arrayRef = null;
+            }
+        else {
+            if instance != current
+                {
+                if instance.isCopy
+                    {
+                    if current.isMethod || instance.reference
+                        {
+                        // The following needed when () is overloaded
+                        if current.isMethod && !instance.isMethod
+                            instance.isMethod = true;
+                        }
+                    instance.parameters = current.parameters;
+                    delete current;
+                    current = instance;
+                    }
+                else {
+                    current.symbol          = instance.symbol;
+                    current.parent          = instance.parent;
+                    current.isMethod        = instance.isMethod;
+                    current.prefix          = null;
+                    current.type            = null;
+                    current.isConstant      = null;
+                    current.indirection		= null;
+                    current.reference		= null;
+                    current.isDeclaration	= false;
+                    current.checked         = false;
+                    current.resolved        = false;
+                    }
+                }
+            current.arrayRef = (unsigned int)isArray;
+            }
+        }
+	or current.isMethod
+		{
+		if instance = missingMethods.get(current.prefix)
+			{
+			current.symbol = instance.symbol;
+			current.parent = instance.parent;
+            current.prefix = null;
+			}
+		else {
+            current.prefix = current.mangle();
+			missingMethods.put(current.prefix,current);
+			current.symbol = new(text,SymbolType.nullType);
+			current.symbol.isMethod = true;
+			current.methodName = current.prefix;
+            current.prefix = null;
+			}
+		}
+	or current.type == stringType && !current.isMethod
+		&& ((currentClass && currentClass.isVirtuous)
+			|| (currentType && currentType.isVirtuous)
+            || virtualOp || assuming)
+		{
+        /***********************************************************************
+            We bail here so Qualified will fail because name value does not get
+            set, letting AssumedString convert field to a string constant
+        ***********************************************************************/
+        return;
+		}
+	or !current.isVirtuous()
+		if *plgStart != ':'
+			{
+			text = "FieldBody: could not find " current.prefix;
+			current = makeError(text);
+			}
+		else current.type = nullType;
+	if current.isMethod && !current.parameters && !body
+		current.reference = true;
+    if prefix
+        {
+        expression = new((Instance)null,current,prefix.string());
+        prefix.unString();
+        }
+    if expression current = new(expression);
+    name.value = current;
+|
+PLGitem item;
+    name.run();
+    item = name.get("instance");
+    name.value = item.value;
+|.
+PLGitem	    item = name.get("instance");
+Instance    current = item.value;
+Expression  express;
+    if !current.express || current.cast
+		{
+		express = new(current,(Instance)null,(String)null);
+		current = new(express);
+		}
+    current.express.hasParens = true;
+    name.value = current;
+;
+
+FieldExpression!
+.
+Instance    castInstance, subject;
+PLGitem	    item = instance["field"];
+Instance    current = item.value;
+	if direct
+        current = current.setIndirectItem(direct);
+    if cast
+		{
+		direct	= cast.get("direct");
+		item	= cast.get("type");
+		castInstance = item.value;
+		if direct castInstance = castInstance.setIndirectItem(direct);
+		subject = new(current);
+		subject.cast = castInstance;
+		current = subject;
+		}
+    instance.value = current;
+;
+
+Fielding!
+.
+String		text = name.toString();
+Symbol      symbol = currentSymbols.findField(text);
+    if symbol && !currentType currentType = symbol.type;
+;
+
+ForOption!
+.
+Statement statement = new(FOR);
+Instance express = null;
+PLGitem	item;
+    statement.pointInCode = iTEM;
+    if initial
+		{
+		item = initial.get("list");
+		express = item.value;
+		statement.first = express;
+		}
+	if condition
+		{
+		item = condition.get("instance");
+		express = item.value;
+        express.isCondition = true;
+		statement.second = express;
+		}
+    if increment
+		{
+		item = increment.get("list");
+		express = item.value;
+		statement.third = express;
+		}
+    instance.value = statement;
+    noShortcuts = false;
+|.
+Instance    initial, target, iterator = null;
+SymbolType  type, objectType;
+Symbol	    symbol, objectIterator;
+String	    error;
+Statement   statement = new(FOR);
+Expression  express = null;
+    statement.pointInCode = iTEM;
+    initial = instance.value;
+	target = initial.express.subject;
+    if !target target = makeError("expression has no subject");
+    or !target.symbol target = makeError("invalid subject");
+    else {
+		type = target.getType();
+		if name
+			{
+			symbol = type.getLocal(name.string());
+			name.unString();
+			}
+		or initial.howDirect() == 2
+			{
+			/***************************************************************
+				Build double indirection loop
+			***************************************************************/
+			target = new(target);
+			iterator = new(target);
+			express = new(iterator,target,"&&");
+			iterator = new(target);
+			target.indirection = 1;
+			iterator.postfix = "++";
+			target = new(express);
+			goto endForOption;
+			}
+		else symbol = type.getLocal("next");
+		if !symbol
+            {
+            if initial.express.object
+                if objectType = initial.express.object.getType()
+                    if objectType != type && (objectIterator = objectType.getLocal("next()"))
+                        {
+                        iterator = new(objectIterator);
+                        if type != objectType
+                            {
+                            iterator.cast = new(type);
+                            iterator.cast.isCast = true;
+                            iterator.cast.indirection = 1;
+                            }
+                        iterator.parent = initial.express.object;
+                        express = new(target,iterator,"=");
+                        initial = new(express);
+                        target  = null;
+                        iterator = null;
+                        statementType = WHILE;
+                        }
+			or initial.howDirect() == 1 && type == stringType
+				{
+				iterator = new(target);
+				target.indirection = 1;
+				iterator.postfix = "++";
+				}
+			else {
+				error = target.symbol.name " has no iterator";
+				target = makeError(error);
+				}
+            }
+		or !target.symbol.typeMatch(symbol.type)
+			{
+			error = "type of " symbol.name " does not match type of " target.symbol.name;
+			target = makeError(error);
+			}
+		else {
+			iterator = new(symbol);
+			if type != symbol.type
+				{
+				iterator.cast = new(type);
+				iterator.cast.isCast = true;
+				iterator.cast.indirection = 1;
+				}
+			iterator.parent = target;
+			express = new(target,iterator,"=");
+			iterator = new(express);
+			}
+		}
+endForOption:
+    statement.first = initial;
+    statement.second = target;
+    statement.third = iterator;
+    instance.value = statement;
+;
+
+Include!
+.
+    includeText.append(include.string());
+	includeText.append("\n");
+    include.unString();
+|.
+    includeText.append(include.string());
+    include.unString();
+|.
+String sourceFile = include.toString();
+String text = getStringFromFile(sourceFile);
+    if !text cerr "Include: could not get text from",sourceFile:;
+    or !includedFiles[sourceFile]
+        {
+        includedFiles += sourceFile;
+        //cout "including file: " sourceFile:;
+        divertInput(text,"Divert");
+        //cout `"Done with " start:;
+        }
+    else cerr "Include: source file already loaded, now ignored:",sourceFile:;
+;
+
+Inheritance!
+|||.
+	if error
+	    {
+	    print() "ERROR Inheritance: at ==>" error.string() "\n";
+	    error.unString();
+	    }
+	else print "ERROR: no idea where\n";
+	extending = false;
+;
+
+InstanceTail!
+.
+PLGitem	item;
+double  i = 0;
+	for item = array
+		i++;
+	array.amount = i;
+    noShortcuts = false;
+;
+
+Iterating!
+.
+    iterating++;
+;
+
+Lambda!
+.
+PLGitem		item	= function.get("name");
+Instance    lambda	= item.value,
+			lambdaBody;
+Expression	express;
+Block		block;
+    lambda.isAssigned = true;
+    lambda.assigning = true;
+	item			= body.get("start");
+	block			= item.value;
+	block.isLambda	= true;
+	lambdaBody		= new(block);
+	express			= new(lambda,lambdaBody,"=");
+	lambda			= new(express);
+	function.value	= lambda;
+|.
+Instance	instance,
+			bodyInstance;
+PLGitem	    item;
+Statement	line;
+Block		block;
+	item	= function.find("head");
+	instance = item.value;
+    if !instance.isLambda return false;
+	instance.isDeclaration = true;
+    instance.isAssigned = true;
+	currentSymbols.add(instance);
+	line	= new(LAMBDA);
+    line.pointInCode = iTEM;
+	line.add(instance);
+	item	= body.get("start");
+	block	= item.value;
+    currentClass.hasLambda = true;
+	block.isLambda	= true;
+	bodyInstance = new(block);
+    line.add(bodyInstance);     // replaces prior commented out line
+	instance = new(line);
+    function.value = instance;
+;
+
+Line!
+.
+Instance    instance = target.get("instance").value;
+    level = 1;
+    currentSymbols.add(instance);
+||.
+String      text;
+Instance    label;
+PLGitem     item;
+Symbol      symbol;
+    for item = name
+        {
+        text = name.string();
+        label = currentSymbols.instances.get(text);
+        if !label
+            {
+            symbol = new(name.toString(),voidType);
+            label = new(symbol);
+            label.isLabel = true;
+            currentSymbols.add(label);
+            }
+        name.unString();
+        if !label.isLabel
+            cerr "ERROR: label " name " already in scope\n";
+        }
+
+;
+
+LineByLine!
+.
+Statement   statement;
+PLGitem     entry,method;
+    for entry = line
+        if method = entry.get("statement")
+            {
+            statement = method.value;
+            if statement
+                currentMethod.block.add(statement);
+            }
+;
+
+Method!
+.
+PLGitem	    body = block.get("start"),
+			head = method.find("head");
+Instance    instance;
+    method.value = head.value;
+    instance = method.value;
+    checkSymbol();
+    symbol.block = body.value;
+    symbol.block.isMethodBlock = true;
+    if currentComment
+		symbol.comment = extractComment();
+	missingMethods.remove(instance.methodName);
+	if directives cout `methodName,"has directives":;
+    else cout `methodName:;
+    currentMethod   = null;
+    produceCodeFile = true;
+    /***************************************************************************
+        external methods declared in the current file get added to internalType
+        so they get declared in the Start rule. The parentClass of the method
+        is reset to globalType (internalType is not for public consumption).
+    ***************************************************************************/
+    if symbol.parentClass && symbol.parentClass.isExternal && symbol.parentClass.isGlobal
+        {
+        SymbolType.internalType.addMethod(symbol);
+        symbol.parentClass = globalType;
+        }
+;
+
+MethodHead!
+Symbol	    symbol,
+			argument;
+Instance	instance;
+PLGitem	    item, atItem,
+			ellipsis = head.get("ellipsis"),
+			parameter = head.get("parameter");
+String		name, methodName;
+int			i, construct,
+			lambda = direct && lambdaSet.foundIn(direct);
+    if function
+		name = function.toString();
+	or lambda
+		name = "lambda";
+    else {
+		name = methodType.name;
+		construct = true;
+		}
+    if lambda currentClass.hasLambda = true;
+	methodName = alloca(1000);
+	strcpy(methodName, name);
+	strcat(methodName,"(");
+    for atItem = parameter
+		{
+		item = atItem.get("type");
+		for item = item.value
+			{
+			symbol = item.value;
+			if symbol.isLambda || (symbol.reference && symbol.isMethod)
+				strcat(methodName,symbol.getSignature());
+			else {
+				strcat(methodName,symbol.type.name);
+				for ( i = 0; i < symbol.indirect; i++ )
+					strcat(methodName,"*");
+				//if symbol.reference strcat(methodName,"&");
+				}
+			if item.next strcat(methodName,",");
+			}
+		if atItem.next strcat(methodName,",");
+		or ellipsis symbol.hasEllipsis = true;
+		}
+	if ellipsis strcat(methodName,",null");
+	strcat(methodName,")");
+	symbol = null;
+	if currentClass
+        if currentClass.isGlobal
+            symbol = findGlobalMethod(methodName);
+        else symbol = currentClass.getMethod(methodName);
+	/***************************************************************************
+		If symbol then method was probably declared external and need to make
+		sure the parameter names match up.
+	***************************************************************************/
+	if symbol
+		{
+        while symbol.source symbol = symbol.source;
+		if !(currentClass.isGlobal && symbol.parentClass.isGlobal)
+            && symbol.parentClass != currentClass
+            goto newSymbol;
+		if symbol.type != methodType
+			cerr "Warning: multiple types for " methodName:;
+        symbol.checkParameters(parameter);
+		}
+	else {
+newSymbol:
+		symbol = new(name,methodType);
+		symbol.isMethod = true;
+        if constDeclare     symbol.isConst      = true;
+        if inlineDeclare    symbol.isInline     = true;
+		if staticDeclare    symbol.isStatic     = true;
+		if virtualDeclare   symbol.isVirtual    = true;
+        if externDeclare
+            {
+            symbol.isExtern = true;
+            currentClass.hasExtern = true;
+            }
+		if direct symbol.setIndirection(direct);
+		for atItem = parameter
+			{
+			item = atItem.get("type");
+			for item = item.value
+				{
+				argument = item.value;
+				symbol.addParameter(argument);
+				}
+			}
+		if ellipsis
+			{
+			Symbol lips = new("...",SymbolType.nullType);
+			lips.hasEllipsis = true;
+			lips.indirect = 0;
+			lips.isDirect = true;
+			symbol.addParameter(lips);
+			symbol.hasEllipsis = true;
+			}
+		symbol.mangle();
+		if currentClass && !currentMethod && !processingParameters
+            && !lambda && !symbol.reference
+			currentClass.addMethod(symbol);
+		}
+	symbol.isConstructor = construct;
+	instance = new(symbol);
+    head.value = instance;
+	if !currentMethod && !processingParameters && !symbol.reference
+        currentMethod = symbol;
+    if instance.isLambda lambdaMethod = symbol;
+;
+
+MethodType!
+	methodType	= type.value;
+.
+Instance	instance;
+PLGitem		head, item;
+    // follow is not used but apparently it has to be there. Figure out why.
+	methodType	= type.value;
+	for item = modify
+        if item.start == 'c' constDeclare     = true;
+        or item.start == 'i' inlineDeclare    = true;
+		or item.start == 's' staticDeclare    = true;
+        or item.start == 'v' virtualDeclare   = true;
+        else externDeclare = true;
+    methodHead.run();
+    head = methodHead["head"];
+    instance = head.value;
+    if modify
+        {
+        constDeclare    = false;
+        linkage         = false;
+        }
+    declaringMethod     = true;
+;
+
+New!
+    /**********************************************************************
+	    Need to check that parameters are of the right types
+	    If type is not provided, it gets set in the expression that
+	    invokes the new statement.
+    **********************************************************************/
+SymbolType  symbolType;
+Symbol	    symbol = null;
+Expression  express;
+PLGitem	    item = null;
+Instance    current = null,
+			parameter = null;
+String		allocator;
+int         skipConstructor;
+
+    if type symbolType = type.value;
+    else symbolType = newType;
+    if !symbolType
+		symbolType = SymbolType.nullType;
+    if symbolType == SymbolType.nullType
+		current = new("No type found");
+	if symbolType.constructor
+        {
+        if currentMethod && symbolType.constructor eq currentMethod.name
+            {
+            //currentMethod.isConstructor = true;
+            skipConstructor =
+            currentMethod.isInitialized = true;
+            }
+        if !skipConstructor
+            allocator = symbolType.constructor;
+        }
+	if !allocator allocator = symbolType.name;
+    if body
+		{
+		item = body["array"];
+		if item
+			{
+			symbol = new("new",symbolType);
+			current = new(symbol);
+			current.isArray = (unsigned int)item.amount;
+			}
+		else {
+			if symbolType.isOC
+				{
+				current = new("init");
+				current.type	= symbolType;
+				}
+			else current	= new(allocator);
+			current.isMethod = true;
+			item = body["expression"];
+			}
+		}
+	or symbolType.isOC
+		{
+		current			= new("init");
+		current.isMethod = true;
+		current.type	= symbolType;
+		}
+	else {
+		current = new(allocator);
+		current.isMethod = true;
+		}
+    for item
+		{
+		parameter = item.get("instance").value;
+		current.addParameter(parameter);
+		}
+    if symbol && initial
+		{
+		parameter = initial.value;
+		express = new(current,parameter,"=");
+		current = new(express);
+		}
+	if !symbol
+		{
+		if symbolType.constructor && !skipConstructor
+			{
+            parameter = currentSymbols.findMethod(current);
+            if parameter
+                {
+                symbol = parameter.symbol;
+                current.parent = parameter.parent;
+                }
+            else {
+                skipConstructor = true;
+                symbol = symbolType.findMethod(current);
+                }
+			}
+		else symbol = symbolType.findMethod(current);
+		if !symbol
+			if !symbolType.isOC symbol = new(symbolType.name,symbolType);
+			else {
+				symbol = symbolType.getLocal("init");
+				if !symbol
+					{
+					symbol = new("init",symbolType);
+					symbol.isMethod     = true;
+                    symbol.isOCfield    = true;
+					symbol.parentClass  = symbolType;
+					}
+				}
+		if !current
+			current = new(symbol);
+		else current.symbol = symbol;
+        current.type    = null;
+		current.prefix  = null;
+		if !symbolType.isOC
+			if symbolType.constructor && !skipConstructor
+                current.type = symbolType;
+            else current.prefix = "new ";
+		}
+    if !symbolType.constructor current.isNew = true;
+    current.isConstant = false;
+    instance.value = current;
+;
+
+NoShortcuts!
+.
+    noShortcuts = true;
+;
+
+Parameter!
+.
+Symbol	    symbol;
+PLGitem		last,
+            name;
+	methodType	= type.value;
+	if !item
+		{
+		symbol = new("",methodType);
+		name = new("no field specified");
+		name.value = symbol;
+		}
+	else
+	for item
+		{
+		item.run();
+        if !last last = name = item["name"];
+        or last.next = item["name"]
+            last = last.next;
+        symbol  = last.value;
+        if type.flag4 symbol.isConst = true;
+		}
+	type.value = name;
+;
+
+ParameterItem!
+PLGitem	    head = name.get("head");
+Instance	instance;
+	processingParameters = true;
+	name.run();
+	instance = head.value;
+    name.value = instance.symbol;
+	processingParameters = false;
+|
+Symbol	    symbol;
+	symbol = new(name.toString(),currentType);
+	if direct
+		symbol.setIndirection(direct);
+    if array
+		{
+		symbol.array = array.toString();
+		for array
+			{
+			symbol.indirect++;
+			symbol.isArray++;
+			}
+		}
+    name.value = symbol;
+|
+Symbol	    symbol;
+	symbol = new("",currentType);
+	symbol.array = name.toString();
+	for name
+		{
+		symbol.indirect++;
+		symbol.isArray++;
+		}
+    name.value = symbol;
+	name.next = null;
+|
+Symbol	    symbol;
+	symbol = new("",currentType);
+	symbol.setIndirection(name);
+	name.value = symbol;
+;
+
+Print!
+.
+PLGitem		item, argument;
+Instance	method;
+SymbolType  type;
+Block		block = null;
+Statement	statement;
+Instance	converter,
+            format,
+            savePrinter = defaultPrinter,
+			text;
+    if item = start.get("printer")
+        if output   method = processPrintTarget(output);
+        else        method = item.value;
+    else {
+        item   = start.get("stdPrint");
+        method  = item.value;
+        }
+	if !method.isPrintMethod
+		{
+		tokJunkBuffer.reset();
+		for argument = arguments
+			{
+            format  = null;
+			item    = argument.get("instance");
+			text    = item.value;
+			format = getFormat();
+			type    = text.getType();
+			if text.express && !text.express.verb && !text.cast
+				text = getSubject();
+			if text.isConstant && !text.isMethod
+				tokJunkBuffer.append(text.prefix);
+			or type != stringType && howDirect() <= 1 && type.getMethod("toString")
+				tokJunkBuffer.append("%s");
+			or format
+				tokJunkBuffer.append(format.prefix);
+			else {
+				text.error("No toString method");
+				tokJunkBuffer.append("%s");
+				}
+			}
+		text            = new(tokJunkBuffer.toString());
+        text.type       = stringType;
+        text.isConstant = true;
+        text.indirection = 1;
+		method.addParameter(text);
+		for argument = arguments
+			{
+			item = argument.get("instance");
+			text = item.value;
+			type = text.getType();
+			if text.express && !text.express.verb && !text.cast
+                text = text.getSubject();
+            if text.isConstant && !text.isMethod continue;
+			if type != stringType && howDirect() <= 1
+				{
+				Symbol toString = type.getMethod("toString");
+				if toString
+					{
+					converter = new(toString);
+					converter.parent = text;
+					text = converter;
+					}
+				}
+			method.addParameter(text);
+			}
+		}
+	else {
+		//		Print using the print target object's print methods
+		//		Need to add a string concatenation loop
+		if arguments.next block = new();
+		for argument = arguments
+			{
+			item = argument.get("instance");
+			text = item.value;
+			method = generatePrint(text);
+			if block
+				{
+				statement = new();
+                statement.pointInCode = iTEM;
+				statement.add(method);
+				block.add(statement);
+				}
+			}
+		if block method = new(block);
+		}
+	start.value = method;
+    if output defaultPrinter = savePrinter;
+;
+
+PrintCommand!
+.
+    printer.value = processPrintTarget(target);
+|.
+Instance	newPrinter = currentSymbols.find("printf");
+	stdPrint.value = newPrinter;
+|.
+Instance	target = currentSymbols.find("stderr");
+Instance	newPrinter = currentSymbols.find("fprintf");
+	newPrinter.addParameter(target);
+	stdPrint.value = newPrinter;
+;
+
+PrintItem!
+|.
+Instance    item = instance.value;
+    if format
+        {
+        PLGitem     width = format["width"];
+        if format.length > 1
+            { *format.start = '%'; }
+        item.format = new(format.toString());
+        item.format.type    = stringType;
+        item.format.indirection = 1;
+        item.format.isConstant  = true;
+        if width
+            {
+            item.format.format = new(width.toString());
+            item.format.format.type = intType;
+            item.format.format.isConstant = true;
+            }
+        }
+;
+
+PrintShortcut!
+.
+Instance item;
+	if *instance.start == ','
+		item	= new(" ");
+    or *instance.start == '`'
+        item    = new("\\t");
+	else item	= new("\\n");
+    item.isConstant = true;
+    item.type = SymbolType.stringType;
+	item.indirection = 1;
+    instance.value = item;
+;
+
+Qualified!
+.
+PLGitem	    item,
+			tail,
+			name = field.find("name");
+Instance    parent,
+			child;
+    isQualified = false;
+	if type
+		{
+		currentType = type.value;
+		child = new(currentType);
+		}
+	if child isQualified = true;
+    field.run();
+    parent = name.value;
+	/*************************************************************************
+		If field is an assumed string, parent will be none so we bail
+	*************************************************************************/
+    if !parent return false;
+	// The following inserts the parent class reference
+	if child parent = parent.copyAndSetParent(child);
+	currentType = parent.getType();
+	if rest isQualified = true;
+	/*************************************************************************
+		If this is a qualifier (has following .) or if there is not symbol
+		(unknown field) resolve virtue here
+	*************************************************************************/
+	if rest && currentType && currentType.isVirtuous && parent.arrayRef && !parent.resolved
+		{
+		parent = parent.checkOverload();
+        if parent.resolved
+            {
+            currentType = parent.getType();
+            // Not sure why I do the following
+            if parent.reference && currentType.isOC
+                parent.reference = false;
+            }
+		}
+    for item = rest
+		{
+		tail = item.get("field");
+		tail.run();
+		name = tail.find("name");
+		if child = name.value
+            {
+            if !child.symbol
+                if currentType.isOC;
+                or currentType.isVirtuous
+                    {
+                    String text = child.prefix " is not a valid symbol";
+                    child.error(text);
+                    }
+            child = child.copyAndSetParent(parent);
+            }
+		parent = child;
+		if !parent break;
+		currentType = parent.getType();
+		}
+	saveType = currentType;
+	currentType = null;
+    if !parent return false;
+    if postfix
+        {
+        Expression expression = new(parent,(Instance)null,postfix.string());
+        postfix.unString();
+        parent = new(expression);
+        }
+	/*************************************************************************
+		Default parameters handled here because here we know the method parent
+        if there is one.
+	*************************************************************************/
+    if parent.symbol && parent.isDefault && parent.isMethod
+        parent.setDefaults(p);
+    field.value = parent;
+	isQualified = false;
+;
+
+QualifyStart!
+.
+Symbol	symbol;
+Instance instance;
+    if currentClass.isC
+        return false;
+    symbol = new("this",currentClass);
+    instance = new(symbol);
+	name.value = instance;
+;
+
+ResetType!
+.
+	currentType = null;
+;
+
+SecondaryExpression!
+.
+Instance    current = new(nullSymbol);
+    instance.value = current;
+    current.isConstant = true;
+|.
+String		text;
+	if pointer
+        {
+		text = instance.string() "(" currentType.name pointer.string() ")";
+        pointer.unString();
+        }
+	else text = instance.string() "(" currentType.name ")";
+Instance    current = new(text);
+	current.type        = SymbolType.intType;
+	current.isConstant  = true;
+	current.isMethod    = true;     // so will not screw up as a print argument
+    instance.value      = current;
+    instance.unString();
+    currentType.setRefer();
+;
+
+Start!
+.
+DoubleLink	link;
+Instance	instance;
+SymbolType	type;
+Buffer		saveBuffer;
+String		codefile;
+    types.resetIsFlagged();
+	currentClass = formatter.currentType;
+	if !currentClass || !currentClass.classOK {
+		cerr "ERROR outputting class":;
+		return false; }
+	tokJunkBuffer.reset();
+	saveBuffer = formatter.buffer;
+	formatter.buffer = headerBuffer;
+    forwardClass(internalType);
+    formatter.buffer.setMark();
+    processingGlobalMethods     = true;
+	declareHeaders(internalType);
+    if internalType.descendentTypes
+        while type = internalType.descendentTypes.next()
+            if !type.isDeclared && !type.isExternal declareStructure(type);
+	if missingMethods.length > 0   {
+        if !errorBuffer errorBuffer = new("errors");
+		print(errorBuffer) "/*"`"Warning: the following methods were referenced but not declared":;
+		missingMethods.entry = null;
+		while link = missingMethods.nextLink() {
+			instance = link.value;
+			print `link.key:; }
+		print "*/":; }
+	formatter.buffer = saveBuffer;
+	declareBody(internalType);
+    processingGlobalMethods     = false;
+	formatter.printCode();
+	if errorBuffer {
+		formatter.buffer.append(errorBuffer.string());
+		errorBuffer.reset(); }
+    #resetPRINT
+	if currentClass.isOC || makeOCfile
+		codefile = filename ".mm";
+	else codefile = filename ".C";
+	buffer = includeText;
+	if formatter.currentType
+        if produceCodeFile || formatter.currentType.hasMethods
+            formatter.buffer.setFile(codefile);
+        else cout "Code file not produced for",formatter.currentType.name,"because no methods specified":;
+	while type = types.next()
+		if codeBuffer {
+            formatter.buffer.append(codeBuffer.string());
+            codeBuffer = null; }
+    referring   = false;
+	formatter.close();
+;
+
+Statement!
+|.
+Statement   line = statement.value;
+use currentMethod
+    if line
+        {
+        if !pointInCode pointInCode = iTEM;
+        line.setIsUsed();
+        if currentMethod && directives && !noLoop
+            {
+            Directive   directive;
+            directives.reset();
+            while directive = directives.next()
+                if isDirected || !codeMatch continue;
+                or !strncmp(codeMatch,pointInCode.itemStart,strlen(codeMatch))
+                    {
+                    noLoop              = true;
+                    parsingDirective    = true;
+                    parseDirective();
+                    parsingDirective    = false;
+                    noLoop              = false;
+                    break;
+                    }
+            }
+        }
+;
+
+StatementBody!
+.
+Statement   line = new();
+PLGitem		comment = statement.get("comment");
+Instance    instance;
+	if comment
+		instance = new(comment.toString());
+	else instance = new(statement.toString());
+    instance.isComment = true;
+    line.add(instance);
+    statement.value = line;
+|.
+PLGitem	item = statement.get("start");
+Block	block = item.value;
+Statement   line = new();
+    line.add(block);							// Block
+    statement.value = line;
+|.
+PLGitem		action		= statement["action"];
+PLGitem	    instance	= statement["instance"];
+PLGitem		item		= action["statement"];
+PLGitem		otherwise	= statement["otherwise"];
+Instance    express		= instance.value;
+Statement   ifStatement = new(IF);
+Statement   line		= item.value;               // if
+    ifStatement.add(express);
+    express.isCondition = true;
+	line.indented = true;
+    if line ifStatement.add(line);
+    if otherwise
+		{
+		item = otherwise.get("statement");
+		line = item.value;
+		if line ifStatement.add(line);
+		}
+    ifStatement.pointInCode = iTEM;
+    statement.value = ifStatement;
+|.
+Instance    returnValue;
+Statement   line = new(RETURN);						// return
+    if instance
+		{
+		returnValue = instance.value;
+		line.add(returnValue);
+		}
+    line.branch = true;
+    statement.value = line;
+|.
+Statement   forStatement = instance.value,
+			body;
+    body = statement.value;
+	body.indented = true;
+    forStatement.fourth = new Instance(body);       // for
+    forStatement.pointInCode = iTEM;
+    statement.value = forStatement;
+    iterating--;
+|.
+PLGitem	item = statement.get("start");
+Statement   line = new();
+Instance    instance = item.value;
+    line.add(instance);                             // Print
+    if instance.block indented = false;
+    statement.value = line;
+|.
+Statement   wile = new(WHILE);
+Instance    test = instance.value;
+Statement   body = statement.value;                 // while
+    wile.add(test);
+    test.isCondition    = true;
+	body.indented       = true;
+    wile.add(body);
+    wile.pointInCode = iTEM;
+    statement.value = wile;
+    iterating--;
+|.
+PLGitem	    item = statement.get("instance");
+Instance    instance = item.value;
+Statement   line = new(LABEL);
+    line.add(instance);							// label or case
+	if !instance.prefix
+		line.indented = false;
+    statement.value = line;
+|.
+Instance    instance = new("break");
+Statement   line = new();
+PLGitem     lastSwitch;
+    line.add(instance);                         // break
+    line.branch = true;
+    statement.value = line;
+// if break is in a switch case, set switch fall thru status
+    if switchStack lastSwitch = switchStack.top();
+    if lastSwitch && iterating == lastSwitch.length
+        lastSwitch.flag1 = true;
+|.
+Instance    instance = new("continue");
+Statement   line = new();
+    line.add(instance);                             // continue
+    line.branch = true;
+    statement.value = line;
+|.
+Instance    instance;
+Statement   line = new(GOTO);						// goto
+    instance = field.value;
+    if direct instance = instance.setIndirectItem(direct);
+    line.add(instance);
+    line.branch = true;
+    statement.value = line;
+|.
+Statement   switchStatement = new(SWITCH);
+PLGitem	    item    = block.get("start");
+Block	    body    = item.value;
+Instance    trigger = statement.value;
+SymbolType  type;                                   // switch
+    body.isSwitch = true;
+    if trigger
+        {
+        type = trigger.getType();
+        switchStatement.add(trigger);
+        }
+    switchStatement.add(body);
+    if !trigger
+        {
+        // jiggery pokery to put body in right place w/no switch parameter
+        switchStatement.second  = switchStatement.first;
+        switchStatement.first   = null;
+        }
+    switchStatement.indented    = true;
+    switchStatement.noFallThru  = !statement.flag1;
+    statement.value = switchStatement;
+    if !trigger || trigger.isRange
+        || (!type.isNumber && !(type == stringType && trigger.howDirect() != 1))
+        switchStatement.switching = true;
+    switchStack.pop();
+||.
+Statement line = new();							// ;
+    statement.value = line;
+|.
+Statement	line = new(DELETE);					// delete
+PLGitem	    item = instance["field"];
+Instance    current = item.value;
+	if array postfix = "[]";
+    line.add(current);
+    statement.value = line;
+|.
+Statement   doStatement = new(DO);
+Instance    test = instance.value;
+Statement   body = statement.value;             // do
+    doStatement.add(body);
+    doStatement.add(test);
+    doStatement.pointInCode = iTEM;
+    test.isCondition    = true;
+    statement.value     = doStatement;
+    iterating--;
+|.
+Statement   line = new();						// throw
+Instance    instance;
+	instance = new("Saw a throw expression");
+    instance.isComment = true;
+    line.add(instance);
+    statement.value = line;
+|.
+Statement   line = new();						// try
+Instance    instance;
+	instance = new("Saw a try expression");
+    instance.isComment = true;
+    line.add(instance);
+    statement.value = line;
+|.
+PLGitem		declare = statement.get("declare");
+PLGitem		entry;
+Statement   line;
+Instance    stacked,
+            instance;
+Expression	express = null;
+    statement.run();                                // declaration
+    virtualStack.clear();
+	for entry = declare
+		{
+		instance = entry.value;
+		if !instance || instance.type continue;
+		if instance.symbol && symbol.type.hasInitializer && entry["initialize"]
+            {
+            Expression  initialize;
+            /*************************************************************
+                The instance being declared does not have an initializing
+                expression but its class has an initializer method
+                (specified as an initializer in an external type declaration).
+                Add the call to the initializer here.
+            *************************************************************/
+            Instance assigned    = findInitializer(symbol);
+            if assigned
+                {
+                Instance argument       = new(instance.symbol.name);
+                argument.isConstant     = true;
+                argument.indirection    = 1;
+                argument.type           = stringType;
+                assigned.addParameter(argument);
+                if assigned.isDefault assigned.setDefaults(p);
+                initialize  = new(instance,assigned,"=");
+                instance    = new(initialize);
+                }
+            }
+		if instance.symbol
+            {
+            virtualStack    += instance;
+            instance.isLocal = true;
+            }
+		or instance.express
+            if instance.isRange
+                virtualStack += instance;
+            else {
+                Instance temp   = instance.express.subject;
+                virtualStack    += temp;
+                temp.isLocal    = true;
+                }
+		if express
+			{
+			express.verb = commaOp;
+			express.object = instance;
+			if instance.symbol
+				instance.isDeclaration = false;
+			if instance.express
+				instance.subject.isDeclaration = false;
+			instance = new(express);
+			}
+		if entry.next
+			{
+			express = new();
+			express.subject = instance;
+			}
+		}
+    if virtualStack.length
+        {
+        virtualStack.entry = null;
+        while stacked = virtualStack.next()
+            currentSymbols.add(stacked);
+        virtualStack.clear();
+        }
+    if !instance.isRange
+        {
+        instance.isDeclaration = true;
+        line = new;
+        line.add(instance);
+        line.indented = false;
+        statement.value = line;
+        }
+|.
+PLGitem	item = statement.get("instance");
+Statement   line = new();
+Instance    instance = item.value;
+    line.add(instance);							// expression
+    statement.value = line;
+|.
+PLGitem		item = statement.get("function");
+Statement	line;								// Lambda
+Instance	lambda = item.value;
+	if lambda.statement
+		statement.value = lambda.statement;
+	else {
+		line = new;
+		statement.value = line;
+		line.add(lambda);
+		}
+;
+
+Switch!
+.
+    // overriding statement length (not otherwise used).
+    statement.length    = iterating;
+    if name statement.value     = name.value;
+    if !switchStack switchStack = new;
+    switchStack += statement;
+;
+
+Target!
+.
+Instance instance = field.value;
+    if isError return false;
+    if isConstant type = null;
+|.
+PLGitem     name = field.get("name");
+Instance    instance = new(name.toString());
+    instance.type   = null;
+    field.value     = instance;
+;

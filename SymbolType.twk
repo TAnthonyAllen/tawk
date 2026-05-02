@@ -1,0 +1,1186 @@
+include includes
+
+/******************************************************************************
+	The SymbolType defines a tawk class
+******************************************************************************/
+class SymbolType
+{
+#autoGetSet
+String		name,
+			comment,
+			constructor,
+			dotHname,
+			nameSpace;
+boolean
+            addClassNameToMethods
+			autoGetSet
+            classOK
+            composed
+            debug
+            hasDescendentTypes
+            hasExtern
+            hasInitializer
+            hasLambda
+            hasMethods
+			hasOC
+            hasTypedef
+            isAliasType
+			isAtomic
+            isC
+			isChar
+			isDeclared
+			isDirect
+			isExternal
+            isFilled
+            isFlagged
+			isGlobal
+			isLocal
+			isNumber
+			isOC
+			isReferenced
+            isTemplate
+			isVirtuous
+			mustDeclare
+			nameLess
+            noClassForward
+			noDotH
+            noSign
+			proper
+			structure:4[isBoolean isEnumerator isProtocol isType isStruct isUnion]
+            typesFilled
+			;
+BaseHash	components,
+            componentFields,
+            methods;
+DoubleLinkList
+            componentTypes,
+            descendentTypes,
+			overloads,
+            protocols,
+            sortedComponents,
+            sortedMethods;
+Buffer		codeBuffer;
+Symbol      initializer;        // specified as an overload
+SymbolType	parent;
+int			lastBitOffset,
+            lastOffset,
+            levelMax,
+			symbolMapped,
+            typeIndex,
+            typeSize;
+Instance    format;
+Stak        aliasStack;
+static Types		types;
+static SymbolType	buttonType;
+static SymbolType   charType;
+static SymbolType   doubleType;
+static SymbolType   floatType;
+static SymbolType   globalType;
+static SymbolType   idType;
+static SymbolType   internalType;
+static SymbolType   intType;
+static SymbolType   longType;
+static SymbolType   nullType;
+static SymbolType	ocRoutines;
+static SymbolType   ocStringType;
+static SymbolType   pointerType;
+static SymbolType	selectorType;
+static SymbolType   shortType;
+static SymbolType	stringRoutines;
+static SymbolType   stringType;
+static SymbolType   voidType;
+static BaseHash     ocSymbols;
+static DoubleLinkList	globalList;
+/******************************************************************************
+	Constructor
+******************************************************************************/
+SymbolType( String n )
+{
+	name			= n;
+    levelMax        = 4;
+    componentFields = new;
+}
+
+/******************************************************************************
+	Copy constructor (used for typedefs)
+******************************************************************************/
+SymbolType(SymbolType type)
+{
+	*this = *type;
+}
+
+/******************************************************************************
+	Add a symbol to this type
+******************************************************************************/
+void add(Symbol item)
+{
+Symbol      previous = getLocal(item.name);
+use item
+    if item.type.isType         hasTypedef  = true;
+    if !hasOC && item.type.isOC hasOC       = true;
+	if previous
+        if previous.parentClass != this
+            previous = null;
+        else {
+            if previous.isMethod && item.isMethod
+                && previous.methodName eq item.methodName
+                return;
+            if !previous.isMethod && !item.isMethod
+                return;
+            }
+	parentClass = this;
+    if isGlobal addGlobalField(item.name,item);
+    if !isType
+        {
+        isProper    = proper;
+        isOCfield   = isOC;
+        }
+    if isMethod
+		{
+		addMethod( item );
+		if !reference return;
+		}
+    if !components
+        components      = new;
+    //cout "Adding " item.name,item.displayName() " to " name "\n";
+	components[item.name] = item;
+    addComponentType(item);
+    if isProper makeSetter();
+    if !isAlias
+        {
+        symbolOffset = lastOffset;
+        if !isItem
+            if !indirect lastOffset += type.typeSize;
+            else lastOffset += pointerType.typeSize;
+        or !source
+            {
+            int wordLength = longType.typeSize << 3;
+            if symbolBitLength lastBitOffset += symbolBitLength;
+            symbolBitOffset = lastBitOffset;
+            if lastBitOffset >= wordLength
+                {
+                if lastBitOffset > wordLength
+                    cerr "WARNING:",item.name " field overlaps word boundary":;
+                lastOffset += longType.typeSize;
+                lastBitOffset = 0;
+                }
+            //cout "SymbolType.add: class",name,item.name,symbolOffset,symbolBitOffset:;
+            }
+        if isOC
+            {
+            if !ocSymbols ocSymbols = new;
+            ocSymbols[item.name] = (void*)item;
+            }
+        }
+}
+
+/******************************************************************************
+	Create a new symbol and add it to this type
+******************************************************************************/
+Symbol add( String item,String t )
+{
+SymbolType  type = types.getType(t);
+    return add(item,type);
+}
+
+/******************************************************************************
+	Create a new symbol and add it to this type
+******************************************************************************/
+Symbol add( String item,SymbolType type )
+{
+Symbol	symbol;
+    if components && (symbol = components[item]) return symbol;
+    if methods && (symbol = methods[item]) return symbol;
+    symbol = new(item,type);
+    add(symbol);
+    return symbol;
+}
+
+/******************************************************************************
+	Add the symbol passed in to the componentFields list.
+******************************************************************************/
+void addComponentField(String text,Symbol item)
+{
+    if componentFields[text] return;
+    else {
+        Instance instance = new(item);
+        componentFields[text] = instance;
+        componentCount++;
+        }
+}
+
+/******************************************************************************
+	Add the symbol passed in to the componentTypes list if appropriate. It
+    gets added as an instance because we need to consider the hierarchy when
+    adding descendent types
+******************************************************************************/
+void addComponentType(Symbol item)
+{
+SymbolType  type = item.type;
+Instance    instance = new(item);
+    if !componentTypes  componentTypes  = new;
+    componentFields.put(item.name,instance);
+    if item.isAlias || isAtomic || item.isStatic || isUnion || item.indirect > 1
+        || type.isAtomic || item.typeMatch(this) || item.isMethod || type.nameLess
+        return;
+    componentTypes.put(type.name,instance);
+}
+
+/******************************************************************************
+	Adds descendent types to componentTypes
+******************************************************************************/
+void addAncestorTypes()
+{
+Instance    descendent,
+            matched;
+Instance    instance;
+SymbolType  ancestorType = parent,
+            type;
+    // It may end up not true but setting hasDescendentTypes will prevent re-entry here
+    hasDescendentTypes = true;
+    while ancestorType
+        {
+        Symbol symbol;
+        if ancestorType.components
+            {
+            ancestorType.components.reset();
+            while symbol = ancestorType.components.next()
+                addComponentType(symbol);
+            }
+        if ancestorType.methods
+            {
+            ancestorType.methods.reset();
+            while symbol = ancestorType.methods.next()
+                {
+                addComponentField(symbol.name,symbol);
+                addComponentField(symbol.methodName,symbol);
+                }
+            }
+        ancestorType = ancestorType.parent;
+        }
+    if !componentTypes return;
+    componentTypes.reset();
+    while instance = componentTypes.next()
+        {
+        type = instance.getType();
+        if type == this || type.isAtomic || !type.componentTypes || type.nameLess
+            continue;
+        if type.structure && type.structure < 5 continue;
+        if !type.hasDescendentTypes type.addAncestorTypes();
+        type.componentTypes.reset();
+        while descendent = type.componentTypes.next()
+            {
+            ancestorType = descendent.getType();
+            if ancestorType == this continue;
+            matched = componentTypes[ancestorType.name];
+            if !matched || matched.level > instance.level + descendent.level
+                {
+                instance    = new(instance);
+                descendent  = new(descendent);
+                descendent.setParent(instance);
+                if !matched
+                    componentTypes[ancestorType.name] = (void*)descendent;
+                else componentTypes.put(ancestorType.name,(void*)descendent);
+                }
+            }
+        }
+}
+
+/******************************************************************************
+	Add a method to this type method list.
+******************************************************************************/
+void addMethod( Symbol method )
+{
+Symbol      item,tHIS;
+use method
+    if !method.reference hasMethods = true;
+    if !methods methods = new;
+	checkGetterSetter(method);
+    parentClass = this;
+    if !isType
+        isOCfield   = isOC;
+    isMethod	= true;
+    //cout "Adding method " method.name,method.displayName(),methodName " to " name "\n";
+    if isOC
+        {
+        if !ocSymbols ocSymbols = new;
+        ocSymbols[method.name] = (void*)method;
+        }
+    if method.type.isType           hasTypedef  = true;
+    if !hasOC && method.type.isOC   hasOC       = true;
+    /**************************************************************************
+        Check parameters for OC types
+    **************************************************************************/
+    if !hasOC && parameters
+        while item=parameters.next()
+            if item.type.isOC hasOC = true;
+    methods.push(method.name,method);
+    addComponentField(method.name,method);
+    if isGlobal addGlobalField(method.name,method);
+    if isC && !reference && !isAlias
+        {
+        /**********************************************************************
+            Insert tHIS parameter.
+        **********************************************************************/
+        if tHIS = getLocal("tHIS")
+            if parameters insertParameter(tHIS);
+            else addParameter(tHIS);
+        else cerr "addMethod: could not find tHIS\n";
+        //cout `"Adding C method: " method.name " isC":;
+        }
+    if !isAlias && (reference || isLambda)
+        {
+        symbolOffset = lastOffset;
+        if !isItem
+            lastOffset += pointerType.typeSize;
+        }
+    if !methodName gitMethodName();
+    methods.put(methodName,method);
+    addComponentField(methodName,method);
+    if isGlobal addGlobalField(methodName,method);
+    //cout "Adding method: " method.name,methodName:;
+    if isOC && parameters && !isAlias
+        {
+        String ocName   = getOCmethodName();
+        //cout `"Adding OC method: " ocName " isOC":;
+        methods.put(ocName,method);
+        if isGlobal addGlobalField(ocName,method);
+        }
+}
+
+/******************************************************************************
+	Add a protocol to this type (if type is OC).
+******************************************************************************/
+void addProtocol(SymbolType p)
+{
+    if !isOC cerr "Can only specify protocol for objective-C class\n";
+    else {
+        if !protocols
+            {
+            protocols = new;
+            protocols.hasKeys = true;
+            }
+        if !p.isProtocol cerr "AddProtocol: " p.name " is not a protocol\n";
+        or !protocols[p.name]
+            {
+            protocols[p.name] = (void*)p;
+            if !isExternal p.setRefer();
+            }
+        }
+}
+
+/******************************************************************************
+	Check if method is a setter or getter
+******************************************************************************/
+void checkGetterSetter(Symbol method)
+{
+char	first;
+String	text;
+String  target;
+Symbol  symbol;
+	if !method || method.isSetter || method.isGetter || (!isOC && !autoGetSet) return;
+	if (int)strlen(method.name) <= 3 return;
+	if !strncmp(method.name,"get",3) || !strncmp(method.name,"set",3)
+		{
+		text = method.name + 3;
+        if components
+            {
+            symbol = components[text];
+            if !symbol
+                {
+                first = *text;
+                if first < 'A' || first > 'Z' return;
+                else *text += 32;
+                print(&target) text;
+                *text = first;
+                symbol = findAliasTarget(target);
+                }
+            }
+        if symbol
+            if method.name == 'g' && (method.parameters == null || isC && method.parameters.length == 1)
+                && !(method.type == voidType && method.indirect == 0)
+                {
+                if type == method.type
+                    {
+                    getter = method;
+                    method.isGetter = true;
+                    method.getter   = symbol;
+                    }
+                }
+            or method.name == 's' && method.parameters
+                && (method.parameters.length == 1 || (isC && method.parameters.length == 2))
+                && method.type == voidType
+                {
+                setter = method;
+                method.isSetter = true;
+                method.setter   = symbol;
+                }
+        }
+}
+
+/******************************************************************************
+	Debugging routine to list out the components and methods of this type
+******************************************************************************/
+void dump()
+{
+Symbol		symbol;
+DoubleLink  link;
+    print() name "\n";
+	cout name " Component map\n";
+    if !components
+		print `"has no components\n";
+    else {
+        /**********************************************************************
+            Move the bottom comment marker to comment out/uncomment next 4 lines
+        **********************************************************************/
+		print `"Components\n";
+		components.resetIterator();
+		while symbol = components.next()
+            dumpSymbol(symbol);
+		}
+	if methods
+		{
+		print `"Methods\n";
+		methods.resetIterator();
+		while link = methods.nextLink()
+			{
+            symbol = link.value;
+            // No need to display duplicate entry
+            if link.key eq methodName continue;
+            if isOCfield && !isAlias && link.key ne getOCmethodName() continue;
+            if isAlias
+                print ``link.key, methodName, source.methodName;
+            else print ``link.key, methodName;
+            if isExtension print " extension ";
+            if isAlias print " alias";
+            print ,symbolIndex:;
+			}
+		}
+	if componentTypes
+		{
+        Instance    instance;
+		print `"ComponentTypes":;
+		componentTypes.resetIterator();
+		while instance = componentTypes.next()
+            {
+            symbol = instance.symbol;
+            print ``symbol.type.name#-15s,symbol.displayName(),symbolIndex:;
+            }
+		}
+    if overloads && overloads.length
+        {
+        String name;
+        overloads.reset();
+        cout `"Overload Table":;
+        while name = overloads.next()
+            cout ``overloads.entry.key,name:;
+        }
+}
+
+/******************************************************************************
+	Debugging routine to list out components
+******************************************************************************/
+void dumpFields()
+{
+Instance    instance;
+DoubleLink  link;
+    if componentFields
+        {
+        print "Type: " name " Component Fields":;
+        componentFields.resetIterator();
+        while link = componentFields.nextLink()
+            if instance = link.value
+                cout `getQualifiedName():;
+        }
+    else cout `"No component fields":;
+}
+
+/******************************************************************************
+	Debugging symbol print
+******************************************************************************/
+void dumpSymbol(Symbol symbol)
+{
+    print ``symbol.name;
+    if symbol.isMethod print ,methodName;
+    if isExtension print " extension ";
+    if isHidden print " hidden";
+    if isAlias print " alias";
+    if getter print " has getter";
+    if setter print " has setter";
+    print :;
+}
+
+/******************************************************************************
+	Creates and fills componentFields with instances matching the name passed in
+******************************************************************************/
+Instance fillComponentFields(String text)
+{
+SymbolType  type;
+Instance    ancestor,
+            component,
+            instance;
+    isFilled = true;
+    if !hasDescendentTypes addAncestorTypes();
+    if instance = componentFields[text]
+        if instance != nullInstance return instance;
+        else return null;
+    if componentTypes
+        {
+        componentTypes.resetIterator();
+        /**********************************************************************
+            Add descendent fields to componentFields. Only want to keep the
+            lowest level field that matches text.
+        **********************************************************************/
+        while ancestor = componentTypes.prior()
+            {
+            type        = ancestor.getType();
+            component   = type.componentFields[text];
+            if !component && !type.isFilled
+                component = type.fillComponentFields(text);
+            if component && component != nullInstance
+                {
+                ancestor = new(ancestor);
+                if instance
+                    {
+                    if component.level + ancestor.level < instance.level
+                        {
+                        instance.symbol = component.symbol;
+                        instance.parent = null;
+                        if component.parent instance.parent = component.parent;
+                        instance.parent = ancestor;
+                        }
+                    }
+                else {
+                    instance    = new(component);
+                    instance.parent         = ancestor;
+                    instance.isDeclaration  = false;
+                    componentFields[text]   = instance;
+                    componentCount++;
+                    }
+                if instance.level == 2 break;
+                }
+            }
+        }
+    if !instance
+        componentFields[text] = nullInstance;
+    return instance;
+}
+
+/******************************************************************************
+	Looks up the parameter name in types and returns what it finds.
+******************************************************************************/
+static SymbolType find(String n)
+{
+    if !types setTypeTable();
+    return (SymbolType)types.get(n);
+}
+
+/******************************************************************************
+	Search components for the first field matching the name passed in.
+    This only searches thru components it does not descend each component.
+******************************************************************************/
+Symbol findAliasTarget(String text)
+{
+Symbol      target,symbol;
+    if !isAtomic
+        {
+        resetIsFlagged();
+        isFlagged = true;
+        if components
+            {
+            if target = components.get(text) goto endFind;
+            components.reset();
+            while symbol = components.next()
+                if symbol.type.isFlagged continue;
+                else {
+                    SymbolType  type = symbol.type;
+                    type.isFlagged = true;
+                    if type.components
+                        if target = type.components.get(text) goto endFind;
+                    }
+            }
+        }
+endFind:
+    resetIsFlagged();
+    return target;
+}
+
+/******************************************************************************
+	Search components and methods for a field matching the name passed in
+******************************************************************************/
+Symbol findField(String text)
+{
+Symbol      symbol;
+    if !isAtomic
+        {
+        if components
+            symbol = components[text];
+        if !symbol && methods
+            symbol = methods[text];
+        }
+    return symbol;
+}
+
+/******************************************************************************
+	Search component fields for a field matching the name passed in and return
+    its containing instance
+******************************************************************************/
+Instance findFieldInstance(String text)
+{
+Instance instance;
+    resetIsFilled();
+    if !isAtomic
+        instance = fillComponentFields(text);
+    return instance;
+}
+
+/******************************************************************************
+	Search methods for a method matching the instance passed in and
+    return the symbol found. This only looks at own methods
+******************************************************************************/
+Symbol findMethod(Instance source)
+{
+Symbol      method;
+String      text;
+    if !isAtomic && source
+        {
+        if text = source.mangle()
+            if method   = findField(text)
+                if method.isMethod return method;
+        if source.prefix
+            if method = findField(source.prefix)
+                if method.isMethod
+                    {
+                    methods.resetIterator();
+                    while method = methods.next(source.prefix)
+                        if method.isMethod && method.matchMethod(source)
+                            return method;
+                    }
+        }
+    return null;
+}
+
+/******************************************************************************
+	Search components for a method matching the instance passed in and
+    return the instance found
+******************************************************************************/
+Instance findMethodInstance(Instance source)
+{
+String      text;
+Instance    field;
+    if !isAtomic && source
+        {
+        if text = source.mangle()
+            {
+            if field = findFieldInstance(text)
+                if field.isMethod return field;
+            }
+        or source.prefix
+            if field = findFieldInstance(source.prefix)
+                if field.isMethod return field;
+        }
+    return field;
+}
+
+/******************************************************************************
+	Search components for a field matching the item passed in
+******************************************************************************/
+Symbol get(PLGitem item)
+{
+Symbol symbol = getLocal(item.string());
+    item.unString();
+    return symbol;
+}
+
+/******************************************************************************
+	Returns true if autoGetSet true here or in ancestors
+******************************************************************************/
+unsigned int getAutoGetSet()
+{
+SymbolType type = this;
+	if autoGetSet || proper || isOC return true;
+	while type = type.parent
+		if type.autoGetSet || type.proper return true;
+	return false;
+}
+
+/******************************************************************************
+	Return a method that converts object of type source to an object of
+	type target (if there is such a method)
+******************************************************************************/
+Symbol getConverter(SymbolType target,SymbolType source)
+{
+Symbol		argument,
+			symbol;
+	//cout "Checking " name " to convert " target.name " from " source.name "\n";
+    if methods
+        {
+        methods.resetIterator();
+        while symbol = methods.next()
+            {
+            if type != target || symbol.indirect > 1 continue;
+            if parameters && parameters.length == 1
+                {
+                argument = parameters.first.value;
+                if argument && argument.type == source
+                    && ((argument.indirect == 1 && !source.isAtomic)
+                        || (argument.indirect == 0 && source.isAtomic))
+                    break;
+                }
+            or source == this && !parameters break;
+            }
+        }
+	return symbol;
+}
+
+/******************************************************************************
+	Like findField but only considers symbols that belong directly to this type
+	or parent type and embedded structures.
+******************************************************************************/
+Symbol getLocal(String name)
+{
+Symbol		part,symbol;
+    if components
+        {
+        symbol = components.get(name);
+        if !symbol && methods symbol = methods.get(name);
+        if !symbol
+            {
+            components.resetIterator();
+            while part = components.prior()
+                {
+                if part.isHidden && part.type != this && !part.type.isAtomic
+                    && !part.isItem && !part.isMethod
+                    symbol = part.type.getLocal(name);
+                if symbol break;
+                }
+            }
+        }
+    if !symbol && parent && !structure
+        return parent.getLocal(name);
+	return symbol;
+}
+
+/******************************************************************************
+	Like getLocal but only looks at methods. Does not look in embedded structures.
+******************************************************************************/
+Symbol getMethod(String name)
+{
+Symbol      current = null;
+    if methods current = methods[name];
+    if !current && parent current = parent.getMethod(name);
+	return current;
+}
+
+/******************************************************************************
+	Factory that returns a type. If the type exists in types, returns it,
+    otherwise creates a new type, adds it to types then returns it.
+******************************************************************************/
+static SymbolType getType(String n)
+{
+    if !types setTypeTable();
+    return types.getType(n);
+}
+
+/*******************************************************************************
+        Process alias default parameters
+*******************************************************************************/
+Symbol handleAliasParameters(Symbol symbol,String aliasName,PLGitem body,Tawk tok)
+{
+Symbol      arg,
+            symbolArg,
+            aliasSymbol;
+PLGitem     atBody,
+            parameter,
+            replacedBy;
+    if !aliasStack aliasStack = new;
+    /***************************************************************************
+        Make sure the cuffs and collars match
+    ***************************************************************************/
+    if !symbol.parameters || (symbol.isExtension && symbol.parameters.length == 1)
+        return aliasSymbol;
+    symbol.parameters.entry = null;
+    if symbol.isExtension symbol.parameters.next();
+    atBody = body;
+    parameter   = atBody["parameter"];
+    replacedBy  = atBody["replacedBy"];
+    while symbolArg = symbol.parameters.next()
+        {
+        if symbolArg.isThis continue;
+        if !replacedBy
+            {
+            if atBody = atBody.next
+                {
+                parameter   = atBody["parameter"];
+                replacedBy  = atBody["replacedBy"];
+                }
+            }
+        or parameter eq symbolArg.name
+            if atBody  = atBody.next
+                {
+                parameter   = atBody["parameter"];
+                replacedBy  = atBody["replacedBy"];
+                }
+        if !atBody break;
+        }
+    /***************************************************************************
+        If there is a body part left at this point, no match
+    ***************************************************************************/
+    if atBody return aliasSymbol;
+
+    if aliasSymbol = symbol.makeAlias(aliasName)
+        {
+        isDefault   = true;
+        parameters  = new;
+        symbol.parameters.entry = null;
+        /***********************************************************************
+            If not specified otherwise, default parameters replace
+            parameters in the order they are encountered. Alternatively,
+            a default parameter can specify which parameter it is replacing.
+            Parameters that do not specify a replacement are substituted
+            left to right.
+        ***********************************************************************/
+        for atBody = body
+            {
+            parameter   = atBody["parameter"];
+            replacedBy  = atBody["replacedBy"];
+            if !parameter continue;
+            while symbolArg = symbol.parameters.next()
+                {
+                if symbolArg.isThis
+                    {
+                    addParameter(symbolArg);
+                    continue;
+                    }
+                arg = null;
+                if !replacedBy
+                    {
+                    arg = new(symbolArg);
+                    arg.comment = parameter.toString();
+                    }
+                or parameter eq symbolArg.name
+                    {
+                    arg = new(symbolArg);
+                    arg.comment = replacedBy.toString();
+                    }
+                if arg
+                    {
+                    arg.isDefault = true;
+                    addParameter(arg);
+                    break;
+                    }
+                else addParameter(symbolArg);
+                }
+            }
+        if symbol.parameters.entry
+            while arg = symbol.parameters.next()
+                addParameter(arg);
+        methodName = null;
+        aliasStack += (void*)aliasSymbol;
+        //cout ``"handleAliasParameters:",name, aliasSymbol.name,aliasSymbol.symbolIndex, aliasSymbol.gitMethodName(),aliasSymbol.displayName():;
+        }
+    return aliasSymbol;
+}
+
+/******************************************************************************
+	Returns true if type is a parent of this
+******************************************************************************/
+int hasParent(SymbolType type)
+{
+SymbolType	ancestor = parent;
+    while ancestor
+		if ancestor == type return true;
+		else ancestor = ancestor.parent;
+	return false;
+}
+
+/*******************************************************************************
+        Make an alias
+*******************************************************************************/
+void makeAlias(String aliasName,String target,PLGitem body,Tawk tok)
+{
+Symbol		symbol,
+            aliasMethod,
+            aliasSymbol;
+    if !body
+        {
+        if components symbol = components[target];
+        if symbol
+            {
+            if aliasSymbol = symbol.makeAlias(aliasName)
+                add(aliasSymbol);
+            }
+        or methods
+            while symbol = methods.next(target)
+                if aliasSymbol = symbol.makeAlias(aliasName)
+                    addMethod(aliasSymbol);
+        goto finishMakeAlias;
+        }
+    if !methods return;
+    methods.resetIterator();
+    while symbol = methods.next(target)
+        if aliasMethod = handleAliasParameters(symbol,aliasName,body,tok)
+            aliasSymbol = aliasMethod;
+finishMakeAlias:
+    /***************************************************************************
+        If alias not found, check globals and static fields
+    ***************************************************************************/
+    if !aliasSymbol
+        {
+        Instance instance  = globalFields[target];
+        if instance
+            {
+            symbol = instance.symbol;
+            if aliasSymbol = symbol.makeAlias(aliasName)
+                {
+                add(aliasSymbol);
+                addGlobalField(aliasName,aliasSymbol);
+                }
+            }
+        }
+    if !aliasSymbol
+        cerr "makeAlias failed for",aliasName " on " target:;
+}
+
+/******************************************************************************
+	Returns true if the SymbolType parameter matches this type. Numeric types
+	match and String and char types match, signed or unsigned.
+******************************************************************************/
+int matches(SymbolType type)
+{
+SymbolType	current, target;
+	if type == this return true;
+	if isChar && type.isChar
+		return true;
+	or isNumber && type.isNumber
+		return true;
+	for ( current = this; current; current = current.parent )
+		for ( target = type; target; target = target.parent )
+			if current == target return true;
+	return false;
+}
+
+/******************************************************************************
+	Adds methods that overload the associated op
+******************************************************************************/
+void overload(String op,String method)
+{
+	if !overloads setOverloadTable();
+	overloads.put(op,method);
+}
+
+/******************************************************************************
+	If the op is overloaded, returns the name of the overloading method
+******************************************************************************/
+String overloaded(String op)
+{
+	if overloads
+		return (String)overloads.get(op);
+	return null;
+}
+
+/******************************************************************************
+	Only returns a method if the method belongs to this type
+******************************************************************************/
+Symbol ownMethod(String name)
+{
+Symbol      current = findField(name);
+    if current && current.isMethod && parentClass == this
+        return current;
+	return null;
+}
+
+/******************************************************************************
+	Creates the overload table, inheriting from parent, if parent exists
+	and is overloaded
+******************************************************************************/
+void setOverloadTable()
+{
+	overloads = new;
+    overloads.hasKeys = true;
+	if parent && parent.overloads
+        {
+        DoubleLinkList    list = parent.overloads;
+        list.reset();
+		while list.next()
+            overloads.put(entry.key,entry.value);
+        }
+}
+
+/******************************************************************************
+	Sets parent and adds this class to the parent descendents
+******************************************************************************/
+void setParent(SymbolType type)
+{
+    if !type.descendentTypes
+        type.descendentTypes = new;
+    type.descendentTypes += (void*)this;
+    isOC   = type.isOC;
+    parent = type;
+}
+
+/******************************************************************************
+	Sets the isReferenced flag for this type and its ancestors and protocols
+    (delegates) if any
+******************************************************************************/
+void setRefer()
+{
+SymbolType  type;
+	if !referring || isReferenced return;
+	isReferenced = true;
+    /**************************************************************************
+        if this is a typedef, access type table to obtain the associated type
+    **************************************************************************/
+	if isType
+		if type = getType(name)
+            if type != this type.setRefer();
+	if parent parent.setRefer();
+    if protocols
+        while type = protocols.next() type.setRefer();
+}
+
+/******************************************************************************
+	Initializes the type types
+******************************************************************************/
+static void setTypeTable()
+{
+	globalList	= new;
+    voidType	= types.getType("void");
+    voidType.isAtomic	= true;
+	voidType.isDirect	= true;
+	voidType.noDotH		= true;
+
+    buttonType	= types.getType("bUTTOn");
+    buttonType.isAtomic	= true;
+    buttonType.isNumber	= true;
+	buttonType.isDirect	= true;
+	buttonType.name		= "unsigned int";
+	buttonType.noDotH	= true;
+
+    charType	= types.getType("unsigned char");
+    charType.isAtomic	= true;
+    charType.isNumber	= true;
+    charType.isChar		= true;
+	charType.isDirect	= true;
+    charType.format		= new("%u");
+	charType.noDotH		= true;
+	charType.noSign		= true;
+    charType.typeSize   = sizeof(char);
+
+    charType	= types.getType("char");
+    charType.isAtomic	= true;
+    charType.isNumber	= true;
+    charType.isChar		= true;
+	charType.isDirect	= true;
+    charType.format		= new("%c");
+	charType.noDotH		= true;
+    charType.typeSize   = sizeof(char);
+
+    shortType	= types.getType("unsigned short");
+    shortType.isAtomic	= true;
+    shortType.isNumber	= true;
+	shortType.isDirect	= true;
+    shortType.format	= new("%hu");
+	shortType.noDotH	= true;
+	shortType.noSign	= true;
+    shortType.typeSize  = sizeof(short);
+
+    shortType	= types.getType("short");
+    shortType.isAtomic	= true;
+    shortType.isNumber	= true;
+	shortType.isDirect	= true;
+    shortType.format	= new("%hd");
+	shortType.noDotH	= true;
+    shortType.typeSize  = sizeof(short);
+
+    intType	= types.getType("unsigned int");
+    intType.isAtomic	= true;
+    intType.isNumber	= true;
+	intType.isDirect	= true;
+    intType.format		= new("%u");
+	intType.noDotH		= true;
+	intType.noSign		= true;
+    intType.typeSize    = sizeof(int);
+
+    intType	= types.getType("int");
+    intType.isAtomic	= true;
+    intType.isNumber	= true;
+	intType.isDirect	= true;
+    intType.format		= new("%d");
+	intType.noDotH		= true;
+    intType.typeSize    = sizeof(int);
+
+    longType    = types.getType("unsigned long");
+    longType.isAtomic    = true;
+    longType.isNumber    = true;
+    longType.isDirect    = true;
+    longType.format        = new("%lu");
+    longType.noSign        = true;
+    longType.typeSize   = sizeof(long);
+    pointerType         = longType;
+
+    longType    = types.getType("long");
+    longType.isAtomic    = true;
+    longType.isNumber    = true;
+    longType.isDirect    = true;
+    longType.format        = new("%ld");
+    longType.noDotH        = true;
+    longType.typeSize   = sizeof(long);
+
+    doubleType	= types.getType("float");
+    doubleType.isAtomic	= true;
+    doubleType.isNumber	= true;
+	doubleType.isDirect	= true;
+    doubleType.format	= new("%.0f");
+	doubleType.noDotH	= true;
+    doubleType.typeSize = sizeof(float);
+
+    doubleType	= types.getType("double");
+    doubleType.isAtomic	= true;
+    doubleType.isNumber	= true;
+	doubleType.isDirect	= true;
+    doubleType.format	= new("%.0f");
+	doubleType.noDotH	= true;
+    doubleType.typeSize = sizeof(double);
+
+    idType				= types.getType("id");
+    idType.isOC			= true;
+    idType.isAtomic		= true;
+	idType.isDirect		= true;
+	idType.noDotH		= true;
+    internalType			= types.getType("internal");
+	internalType.isExternal = true;
+    internalType.isGlobal   = true;
+	internalType.noDotH     = true;
+	globalList += (void*)internalType;
+    globalType			= types.getType("globals");
+	globalType.isExternal = true;
+    globalType.isGlobal = true;
+	globalType.noDotH	= true;
+	globalList += (void*)globalType;
+    nullType			= types.getType("null");
+	nullType.isAtomic	= true;
+	nullType.noDotH		= true;
+    nullType.format     = new("%s");
+    ocRoutines			= types.getType("OCroutines");
+    ocStringType		= types.getType("NSString");
+    ocStringType.isOC	= true;
+	ocStringType.isChar	= true;
+    ocStringType.dotHname = "Cocoa/Cocoa.h";
+    stringType			= types.getType("String");
+    stringType.name		= "char";
+    stringType.format	= new("%s");
+	stringType.noDotH	= true;
+	stringType.isChar	= true;
+	stringType.isAtomic = true;
+    stringType.comment  = "String";
+
+	stringRoutines		= types.getType("StringRoutines");
+
+    selectorType			= types.getType("SEL");
+    selectorType.isOC		= true;
+    selectorType.isAtomic	= true;
+	selectorType.isDirect	= true;
+    selectorType.dotHname   = "Cocoa/Cocoa.h";
+}
+}

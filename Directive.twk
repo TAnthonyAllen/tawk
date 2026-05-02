@@ -1,0 +1,51 @@
+include includes
+
+/*******************************************************************************
+    Simple class to encapsulate a debugging directive
+*******************************************************************************/
+class Directive
+{
+SymbolType  type;
+Symbol      method;
+String      codeMatch,
+            codeToAdd;
+PLGitem     line;
+boolean
+    atEnd
+    atStart
+    comesBefore
+    isDirected
+    within
+    ;
+
+/*******************************************************************************
+    Emit the directive statements into the output code stream.
+*******************************************************************************/
+void emitDirective()
+{
+PLGitem     item;
+Statement   statement;
+    for line
+        {
+        if !(item = line.get("statement"))
+            continue;
+        if statement = item.value
+            formatter.write(statement);
+        }
+    isDirected = true;
+    directives.next();
+}
+
+/*******************************************************************************
+    Parse the codeToAdd into statements and add them to the block passed in.
+*******************************************************************************/
+void parseDirective()
+{
+PLGitem     item;
+use tawking
+    isDirected = true;
+    if item = divertInput(codeToAdd,"Directivise")
+        line = item.get("line");
+    if !line cout "parseDirective: failed for",method.name,codeMatch:;
+}
+}
