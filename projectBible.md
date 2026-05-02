@@ -78,7 +78,7 @@ Each repo has a `CLAUDE.md` for Clod orientation and this bible (mirrored).
 
 ### Key Design Decisions
 1. **Buffer-based input** — all input lives in Buffer objects. divertInput pushes current buffer, installs new one. No raw pointer arithmetic. No writable string problems.
-2. **Safe iteration** — use `for link = list.first; link; link = link->next` pattern everywhere. Never use the default `next()` iterator in recursive contexts — it uses shared `entry` state that gets clobbered.
+2. **Safe iteration** — use `for link = list.first; link; link = link->next` pattern everywhere. Never use the default `next()` iterator in recursive contexts — it uses shared `entry` state that gets clobbered. **TAWK trap**: in `.twk` source, write `for link = list.first { ... }` and do **not** add an explicit `link = link.next;` inside the body — TAWK auto-generates the increment, and an explicit one causes a double-advance that SIGSEGVs on multi-alternative rules. Element.twk is the canonical example.
 3. **Composition over inheritance** — PLG contains a PLGparse field rather than extending it (workaround for C++ incomplete type issues with TAWK-generated headers).
 4. **toString() only** — PLGitem no longer null-terminates in place. toString() returns a malloc'd copy. string()/unString() retained for backward compatibility with support code.
 5. **GC friendly** — tape allocator retired. New/delete or GC handles memory.
