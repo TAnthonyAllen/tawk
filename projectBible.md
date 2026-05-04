@@ -161,6 +161,45 @@ PLG is supposed to generate setRules() but needs setRules() to parse plg.g to ge
 
 ---
 
+
+## Incant Bytecode (Phase 2 — in progress)
+
+*Canonical state: `incant.md` in the incant repo. Live task list: `TODO.md` in the incant repo. This section is the cross-repo summary.*
+
+**The decision.** Bytecode is the canonical IR, represented as a `GroupItem`. LLVM IR is generated *from* bytecode when the JIT lands. Forced by the self-hosting goal: incant code must be able to construct, inspect, and modify its own IR — opaque LLVM IR can't fill that role.
+
+**Phase status:**
+
+- **Phase 0 — BDWGC integration.** ✅ Complete. `GroupItem` allocation switched to `GC_malloc`; `itemFactory` retired in favor of constructors.
+- **Phase 1 — `generateCode()` repurposed** as bytecode emitter entry point. ✅ Complete in spirit. The placeholder C++-source emit path is being abandoned, not preserved.
+- **Phase 2 — Bytecode emitter in incant.** 🔧 In progress. Blocked on three open design questions plus the missing `Bytecode.{h,mm}` interpreter.
+- **Phase 3 — LLVM JIT (ORC v2).** Not started.
+
+**Where the work lives:**
+
+- `XML/WorkingOn/generate` — the per-statement emitters (`gBlocK`, `gIF`, `gFOR`, `gWhilE`, `gDO`, `gExpressioN`, `gXpress`, `gPrinT`). Currently mix of working old-style C++-source emitters (the loop forms) and stubs (`gIF`, `gExpressioN`, `gXpress`, `gPrinT`). All to be rewritten as bytecode emitters.
+- `XML/WorkingOn/setup` — registries (cOMMANDs, Operators, pROPERTIEs, Keywords, GroupFields, fILEs). **Bytecode registry to be added.**
+- `XML/WorkingOn/unitTests:116-117` — `testByteCode; { if righty > 0; maximus = righty * 2; }` — Phase 2 round-trip target. Five expected instructions: `runGT`, `runBRZ`, `runMultiply`, `runAssign`, `runRET`.
+- `Generate.rtn` — C++ bridge. `generateCode()` stays; `genPrint()` retires when `gPrinT` is bytecodified.
+- `GroupRules.twk` / `.mm` — gating hook lands here (check for `bytecodE` attribute, route through interpreter).
+- `Bytecode.{h,mm}` — **planned**, not yet written. Interpreter loop + per-opcode handlers.
+
+**Three design questions — decided:**
+
+1. **Handler identity on instructions** — instruction's tag is the **op GroupItem itself**, drawn from existing `Operators` registry (`>`, `*`, `=`, etc.) plus a new `bcOPs` registry (`bcBR`, `bcBRZ`, `bcRET`, etc.). The op GroupItem carries the handler reference; interpreter dispatches `runOP`-style.
+2. **Registry split** — `Operators` and `bcOPs` are **separate** registries, *not* folded together. User-level operators stay in `Operators`; bytecode control-flow lives in `bcOPs`. An incant program walking `Operators` should not see `bcBR`.
+3. **Instruction successor** — **implicit-next** (sibling member). Instructions are members of the body in execution order; "next" means "next sibling member." Branches override by returning their target. Operands materialize into vregs (skipping the `tempField` step-2a intermediate).
+**Decisions landed (don't relitigate):**
+
+- **Operand-resolution rule (option β).** Every operand to a handler is a value or a slot holding a value. Sub-expressions, invocations, indexed accesses linearize into prior instructions. Polymorphism dissolves at emit time.
+- **Build handlers as tests force them.** `testByteCode` needs five (`runGT`, `runMultiply`, `runAssign`, `runBRZ`, `runRET`); new handlers come when a new test exercises them.
+- **Branch targets** are direct GroupItem refs (not integer offsets), backpatched.
+- **Phase 2 staged in two halves.** 2a uses `tempField` as implicit destination; 2b switches to vregs.
+- **`runRET` is explicit** (not implicit end-of-members) so dumps are readable.
+
+**Cross-cutting: debugger-readiness.** `RuleStuff::sourceLine` promoted from int to `GroupItem` (✅). Bytecode emitter copies `sourceLine` onto each instruction so a debugger written in incant inspects source positions through normal field-walking.
+
+---
 ## generateRules() / setRules() relationship
 
 `generateRules()` is PLG's primitive bytecode compiler — it promotes interpreted grammar structures to compiled C++.  
