@@ -189,6 +189,8 @@ PLG is supposed to generate setRules() but needs setRules() to parse plg.g to ge
 1. **Handler identity on instructions** — instruction's tag is the **op GroupItem itself**, drawn from existing `Operators` registry (`>`, `*`, `=`, etc.) plus a new `bcOPs` registry (`bcBR`, `bcBRZ`, `bcRET`, etc.). The op GroupItem carries the handler reference; interpreter dispatches `runOP`-style.
 2. **Registry split** — `Operators` and `bcOPs` are **separate** registries, *not* folded together. User-level operators stay in `Operators`; bytecode control-flow lives in `bcOPs`. An incant program walking `Operators` should not see `bcBR`.
 3. **Instruction successor** — **implicit-next** (sibling member). Instructions are members of the body in execution order; "next" means "next sibling member." Branches override by returning their target. Operands materialize into vregs (skipping the `tempField` step-2a intermediate).
+
+**No vregs — they're just fields.** A "virtual register" in the bytecode design is just a GroupItem field being used to hold an intermediate value. The field IS the register. No special vreg type, no per-action vreg array, no new machinery — just a GroupItem set as the `dst` slot of an instruction (`dst->setGroup(result)` is the storage primitive on the C++ side; the incant equivalent is the same setter the language already uses for any field). This is "everything is a field" applied to the IR.
 **Decisions landed (don't relitigate):**
 
 - **Operand-resolution rule (option β).** Every operand to a handler is a value or a slot holding a value. Sub-expressions, invocations, indexed accesses linearize into prior instructions. Polymorphism dissolves at emit time.
