@@ -111,6 +111,13 @@ This is the pattern for `extern "C"` bridge functions (see PLG's `foundIn`).
 
 ---
 
+## Style Conventions
+
+- Always use the `:` shortcut instead of `\n` in `print` / `cout` / `cerr` statements.
+- A trailing `:` at the end of a print statement adds the newline — cleaner than embedding `\n` in strings.
+
+---
+
 ## Build Workflow
 
 ```bash
@@ -124,6 +131,61 @@ xcodegen generate
 
 # 4. Verify test passes
 ```
+
+---
+
+## Directives — debug injection without source pollution
+
+TAWK supports a separate **directives file** that weaves debug code into the
+generated C++ at TAWK-generation time, without touching the `.twk` source.
+Use this for any tracing/instrumentation work — much cleaner than peppering
+print statements through `match()` or `setGuard()` and forgetting to remove
+them later.
+
+**Run with directives:**
+```bash
+tok FileName.twk directiveFile     # generates FileName.C with directive code woven in
+```
+
+**Directive files exist for each repo's classes:**
+- `Tokf/tokDirectives` — TAWK's own classes
+- `Parse/plgDirectives` — PLG classes (PLGparse, PLGrule, PLGtester, …)
+- `Groups/groupDirectives` (and `Groups/GUI/groupDirectives`) — Incant classes
+
+**Directive syntax** (from `Parse/plgDirectives`):
+```
+#ClassName
+methodName <position> active|ctive
+    <C++ code injected at that position>
+#;
+```
+
+- **`#ClassName`** opens a section for that class.
+- **`<position>`** — recognized markers: `starting`, `before`, `return`,
+  `if`, `goto`, plus method-specific labels (e.g. `endSetGuard`).
+- **`active`** turns the directive on; anything else (the convention is the
+  typo-cute `ctive`) leaves it off. Toggling is one-character.
+- The injected code can reference local variables in scope at the
+  injection point.
+
+**Example** — trace every PLGrule.match() entry without modifying PLGrule.twk:
+```
+#PLGrule
+match starting active
+    cout "match: " name " at offset " (state.cursor - state.buffer.start):;
+#;
+```
+
+Toggle off with `ctive` instead of `active` — no recompile of source needed
+to flip directives, just regenerate.
+
+**When to use directives vs editing `.twk` source:**
+- Use **directives** for ephemeral instrumentation: tracing one parse run,
+  diagnosing one bug, capturing one statistic.
+- Edit **`.twk` source** for permanent runtime behavior changes.
+
+The TAWK autopsy will eventually formalize the available position markers
+per method — for now, copy from existing examples in the directive files.
 
 ---
 
