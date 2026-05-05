@@ -52,3 +52,6 @@ DerivedData/
 
 # Logs / misc
 *.log
+
+# Test alias dir — symlinks back to parent sources, not tracked
+Tests/

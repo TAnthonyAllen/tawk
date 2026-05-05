@@ -36,22 +36,22 @@ Rules
     Statement StatementBody Strings StringExpression SyntaxExtensions Target
     TargetMethod Template Throw Try Type TypeList UnaryExpression UnaryOperator
 ;
-Set	alphaSet		[A-Za-z_]
-Set	nameStartSet	[A-Za-z_@]
-Set	commentSet		[-/#]
-Set	compareSet		[-!/|%^?:&*<>+=glen]
-Set	compareFollow	[-+ \t\n\r('\"*&!]
-Set	logicSet		[glen]
-Set	methodSet		[A-Za-z0-9_*&(),@]
-Set methodNameSet	[A-Za-z0-9_:]
-Set	nameSet			[A-Za-z0-9_]
-Set	operatorSet		[-!/~|%^?:&*<>+=ei]
-Set rangeSet        [<>.]
-Set	singleQuote		[']
-Set space			[ \t\n]
-Set stringOP        [-+=]
-Set	textFollow		[A-Za-z0-9_]
-Set typesSet
+Set	alphaSet		[A-Za-z_] ;
+Set	nameStartSet	[A-Za-z_@] ;
+Set	commentSet		[-/#] ;
+Set	compareSet		[-!/|%^?:&*<>+=glen] ;
+Set	compareFollow	[-+ \t\n\r('\"*&!] ;
+Set	logicSet		[glen] ;
+Set	methodSet		[A-Za-z0-9_*&(),@] ;
+Set methodNameSet	[A-Za-z0-9_:] ;
+Set	nameSet			[A-Za-z0-9_] ;
+Set	operatorSet		[-!/~|%^?:&*<>+=ei] ;
+Set rangeSet        [<>.] ;
+Set	singleQuote		['] ;
+Set space			[ \t\n] ;
+Set stringOP        [-+=] ;
+Set	textFollow		[A-Za-z0-9_] ;
+Set typesSet ;
 
 include(keywords.g)
 include(generate.g)
