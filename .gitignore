@@ -55,3 +55,7 @@ DerivedData/
 
 # Test alias dir — symlinks back to parent sources, not tracked
 Tests/
+
+# PLG regen output — produced by `plg Tawk.g`; consumed manually for
+# splice into Tawk.twk's setRules. Never commit, regenerated on every run.
+Tawk.regen.twk
