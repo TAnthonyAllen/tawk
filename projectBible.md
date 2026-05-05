@@ -12,7 +12,6 @@
 *PLG recognizes. TAWK transforms. Incant reasons.*
 
 The three are one ecosystem. Working on any one inevitably involves the others.  
-To refactor TAWK you first need to fix PLG. To finish Incant you need both.  
 The design follows elegance; the classifications are just other nerds recognizing what was already there.
 
 ---
@@ -26,7 +25,7 @@ The design follows elegance; the classifications are just other nerds recognizin
 | Support | https://github.com/TAnthonyAllen/support | public ✅ |
 | TAWK | https://github.com/TAnthonyAllen/tawk | public ✅ |
 
-Each repo has a `CLAUDE.md` for Clod orientation and this bible (mirrored).
+Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 
 ---
 
@@ -35,18 +34,23 @@ Each repo has a `CLAUDE.md` for Clod orientation and this bible (mirrored).
 ```
 /Users/anthony/Library/CloudStorage/Dropbox/data/
     InProcess/
-        Parse/      — PLG source (plg repo)
-        Tokf/       — TAWK source (tawk repo, pending)
-        Groups/     — Incant source (incant repo)
-        Include/    — symlink → ~/data/support/Include
-        Frame/      — symlink → ~/data/support/Frame  
-        Groups/Maps — symlink → ~/data/support/Maps
-    support/        — shared support classes (support repo)
-        Frame/      — Buffer, DoubleLinkList, PLGset, BaseHash, Stak, Tape, StringRoutines
-        Include/    — TAWK externals (frame, maps, globals, plg.ext, groups.ext)
-        KeyTable/   — keyword lookup
-        Maps/       — BitMAP, Segment
+        Parse/          — PLG legacy source
+        Parse/Revision/ — PLG new architecture (active codebase)
+        Parse/Revision/Grammar/ — Grammar files: plg.g, plgRules.g, plg.act
+        Parse/Tests/    — Test files + symlinks into Grammar/
+        Tokf/           — TAWK source (tawk repo)
+        Groups/         — Incant source (incant repo)
+        Include/        — symlink → ~/data/support/Include
+        Frame/          — symlink → ~/data/support/Frame
+        Groups/Maps     — symlink → ~/data/support/Maps
+    support/            — shared support classes (support repo)
+        Frame/          — Buffer, DoubleLinkList, PLGset, BaseHash, Stak, Tape, StringRoutines
+        Include/        — TAWK externals
+        KeyTable/       — keyword lookup
+        Maps/           — BitMAP, Segment
 ```
+
+**APFS case-insensitive gotcha**: `plg.twk` and `PLG.twk` are the SAME file on macOS. Generated artifacts must live in a subdirectory. Grammar/ was created specifically to avoid this collision.
 
 ---
 
@@ -58,33 +62,34 @@ Each repo has a `CLAUDE.md` for Clod orientation and this bible (mirrored).
 | TAWK | Transpiler | Source-to-source, metaprogramming, syntactic sugar for C++ |
 | Incant | General purpose | Reflexive, homoiconic, stack-aware, generates to C++ |
 
-**DSL** — Domain-Specific Language. Designed for one purpose. PLG only matches patterns.  
+**DSL** — Domain-Specific Language. Designed for one purpose.  
 **Reflexive** — the language can examine and describe itself.  
 **Homoiconic** — code and data have the same structure. A GroupItem field IS the rule that describes it.  
-**Transpiler** — compiles to source code (C++) rather than machine code.  
-**Declarative** — describes what to match, not how to match it.
+**Transpiler** — compiles to source code (C++) rather than machine code.
 
 ---
 
 ## Architecture
 
 ### PLG Core Classes (new architecture)
-- **PLGparse** — base parser. Buffer-based input, cursor/eof, rules/setTable hashes, divertInput/revertInput stack, addTest(), getRule(), getSet(), parse()
+- **PLGparse** — base parser. Buffer-based input, cursor/eof, rules/setTable hashes, addTest(), getRule(), getSet(), parse(), divertInput/revertInput stack
 - **PLGrule** — one grammar rule. Has alternatives (DoubleLinkList), guardSet, action callbacks (defer/immediate/fail)
 - **Alternative** — one option within a rule. Has elements (DoubleLinkList), guardSet
 - **Element** — one match unit. Kind (kLit/kChr/kSet/kAny/kEof/kRuleRef/kKeyTable/kCondition/kVariable/kUpTo/kBalanced), min/max, setRef/litText/ruleRef etc.
-- **PLGitem** — match result. Buffer reference + offset (not raw pointer), itemLength, toString()
-- **PLG** — contains PLGparse via composition. setRules() and all plg-specific grammar/actions live here.
+- **PLGitem** — match result. Buffer reference + offset, itemLength, toString()
+- **PLG** — contains PLGparse via composition. setRules() and all plg-specific grammar/actions
 
 ### Key Design Decisions
-1. **Buffer-based input** — all input lives in Buffer objects. divertInput pushes current buffer, installs new one. No raw pointer arithmetic. No writable string problems.
-2. **Safe iteration** — use `for link = list.first; link; link = link->next` pattern everywhere. Never use the default `next()` iterator in recursive contexts — it uses shared `entry` state that gets clobbered. **TAWK trap**: in `.twk` source, write `for link = list.first { ... }` and do **not** add an explicit `link = link.next;` inside the body — TAWK auto-generates the increment, and an explicit one causes a double-advance that SIGSEGVs on multi-alternative rules. Element.twk is the canonical example.
-3. **Composition over inheritance** — PLG contains a PLGparse field rather than extending it (workaround for C++ incomplete type issues with TAWK-generated headers).
-4. **toString() only** — PLGitem no longer null-terminates in place. toString() returns a malloc'd copy. string()/unString() retained for backward compatibility with support code.
-5. **GC friendly** — tape allocator retired. New/delete or GC handles memory.
-6. **Single exit point** — match methods use result variable + break pattern for debuggability.
-7. **extern "C" bridge functions** — functions that bridge two types (neither owns the other) are `extern "C"` free functions. Pattern established by plg action callbacks (plgNow, plgAct). `foundIn(PLGset, PLGitem)` follows this pattern.
-8. **Method ordering** — alphabetical by convention (Anthony's preference for Xcode navigability). Not a TAWK requirement.
+1. **Buffer-based input** — all input lives in Buffer objects. divertInput pushes/pops buffer stack.
+2. **Safe iteration** — `for (link = list->first; link; link = link->next)` — never add manual advance inside body (TAWK's for loop already advances — double-advance = SIGSEGV).
+3. **Composition over inheritance** — PLG contains PLGparse field (workaround for TAWK header issues).
+4. **toString() only** — PLGitem no longer null-terminates in place.
+5. **addTest() shorthand** — `addTest(kind, data, label, min, max, skipSet)` creates and wires an Element in one call.
+6. **Guards** — setGuard() computes FIRST sets. CRITICAL: null guard = accept anything; empty PLGset = reject everything. These are NOT the same. When setGuard() can't determine FIRST set (kAny, negated sets, kEof etc.) return null, not empty set.
+7. **Method ordering** — alphabetical by convention (Anthony's preference). Not a TAWK requirement.
+8. **extern "C" bridge functions** — functions bridging two types: `foundIn(PLGset, PLGitem)` is the example.
+9. **Two-table pattern** — process() swaps rules/setTable to fresh BaseHashes before parse. Callbacks build into fresh tables.
+10. **TAWK error propagation** — unresolved references embedded as errors in generated C++. Feature — errors appear in context.
 
 ### The Match Chain
 ```
@@ -97,26 +102,8 @@ PLG::parse(name)
             → Element::applyRepetition(state)
 ```
 
-### Input Diversion
-```
-divertInput(s):
-    inputStack.push(buffer)
-    buffer = new Buffer(s)
-    cursor = buffer.start
-    eof = buffer.end
-
-revertInput():
-    buffer = inputStack.pop()
-    cursor = buffer.current
-    eof = buffer.end
-```
-
-### addTest() — setRules() shorthand
-```
-addTest(kind, data, label, min, max, skipSet)
-```
-Creates an Element, sets all fields, adds to currentAlt. Reduces setRules() from 8 lines per element to 1.
-`currentAlt` is a PLGparse field set before calling addTest(). `currentRule` similarly.
+### Guards
+setGuard() computes FIRST sets recursively with cycle protection via `guardComputed` flag. Zero-advance-stop: if a rule succeeds without consuming input, treat as failure.
 
 ---
 
@@ -125,172 +112,191 @@ Creates an Element, sets all fields, adds to currentAlt. Reduces setRules() from
 PLG is supposed to generate setRules() but needs setRules() to parse plg.g to generate setRules().
 
 **Current bootstrap sequence:**
-1. Old PLG binary runs on `plg.g` → generates `plg.twk` (old addTest format)
-2. `python3 translateSetRules.py plg.twk new_setRules.twk` → translates to new Alternative/Element format
-3. Paste `setRules()` from `new_setRules.twk` into `PLG.twk`
-4. Run `tawk PLG.twk` → `PLG.C`
+1. Old PLG binary runs on `Grammar/plg.g` → generates plg.twk
+2. `python3 translateSetRules.py plg.twk new_setRules.twk` → new format
+3. Paste setRules() into PLG.twk
+4. `tawk PLG.twk` → PLG.C
 5. Compile and test
 
-**Long term goal**: New PLG parses `plg.g` and generates its own `setRules()`. Self-hosting.
+**Self-host status**: plg.g parses end-to-end (37 rules). Generator emits correct addTest() format (76% smaller). Round-trip chain stalls at bare-include over-matching — next debug cycle, use plgDirectives.
 
-**Same problem exists for TAWK**: building tawk-from-source requires a working tawk binary. Currently solved by `~/bin/tok`. Any clean-checkout build story needs to address this.
+**Same problem exists for TAWK**: solved by `~/bin/tok`.
+
+---
+
+## Grammar File Architecture
+
+Grammar source in `Parse/Revision/Grammar/`:
+- `plg.g` — rule structure. 4 changes from original: plgRules.g include, action.g excluded, bare-include support, Start rule fixed to `Header* '%%' Body+ '%%'? Trailer?`
+- `plgRules.g` — shared foundational rules (Comment+CommentBody, Integer, Name, Label etc.)
+- `plg.act` — action code
+- `action.g` — DEFERRED pending Action-blocks feature
+
+**Action blocks design** (approved, TODO):
+```
+Action actionName { TAWK body } ;
+```
+Generates: `void actionName(PLGparse *state, PLGitem *item) { body }`
+Goal: grammar files self-contained, no separate .act/.rtn files needed.
 
 ---
 
 ## TAWK Known Issues (autopsy table)
 
-1. **Empty comment lines** (`//`) reset field resolution context — causes `new` to fail type inference and field references to be lost. Fix: context tracking should be comment-blind.
-2. **Implicit field resolution** is complex machinery. Incant solves this elegantly with `lastREF`/`@context`. TAWK refactor: replace implicit resolution with explicit `@field` context markers.
-3. **No include guards** generated in .h files. Must add manually for inherited classes.
-4. **`new` type inference** inconsistent — `alt = new` sometimes fails to resolve to `new Alternative()`. Workaround: explicit `alt = new Alternative()`. Known quirk, not worth fixing until TAWK refactor.
-5. **No `#include` in .h files** — inherited classes need parent .h included but TAWK never generates includes in .h files. Must add manually after every re-tawk.
-6. **Unused field warning** — TAWK silently drops unused declared fields instead of warning. Fix: emit warning, keep field.
-7. **`kSet` macro conflict** — `kSet(button)` is a test macro, not an assignable value. Kind assignment requires numeric literal. Fix: separate test macros from enum values.
-8. **TAWK error propagation** — when TAWK encounters unresolved references, it embeds the error INTO the generated C++ file as invalid code. The C++ compiler (Xcode) then flags it. Workflow: run tawk → compile in Xcode → fix tawk errors flagged by Xcode → repeat. Annoying but effective.
+1. **Empty `//` comment lines** reset field resolution context. Fix: context tracking should be comment-blind.
+2. **Implicit field resolution** complex. TAWK refactor: `@field` context markers.
+3. **No include guards** in .h files. Add manually for inherited classes.
+4. **`new` type inference** inconsistent. Workaround: `field = new ClassName()`.
+5. **No `#include` in .h files** — add manually after every re-tawk.
+6. **Unused field** — TAWK silently drops. Fix: emit warning, keep field.
+7. **`kSet`/`kRuleRef` macro conflict** — test macros, not assignable/comparable values. Use numeric literals.
+8. **`extern "C"`** in tawk-generated files gets clobbered on re-tawk. C-linkage functions in hand-written files.
+9. **No include search paths** — all includes must be absolute paths.
+10. **TAWK iteration trap** — `for` loop already advances. Never add manual advance inside body.
+11. **TAWK Directives** — debug injection without source pollution. `tawk filename directiveFile`. Directive files exist for PLG, Incant, TAWK. Use BEFORE adding print statements to source.
 
 ---
 
 ## Incant / PLG Convergence
 
-- `match()` — atomic recognition. Did this pattern occur here?
-- `parse()` — semantic processing. What does it mean that it occurred?
-- In PLG these are separate. In Incant they collapse because the data structure IS the grammar IS the result.
-- **The bridge**: PLGitem is a lightweight match result. GroupItem wraps PLGitem when semantics are needed. Promotion is lazy — only when incant needs to reason about the result.
-- **Input diversion**: same concept in both. PLG: push/pop Buffer. Incant: push/pop GroupItem containing buffer. Same contract, appropriate implementation for each.
-- **The north star**: PLG written in Incant, parsing itself. Not today. But the architecture points there.
+- `match()` — atomic recognition. `parse()` — semantic processing.
+- In PLG these are separate. In Incant they collapse — data structure IS grammar IS result.
+- **defer**: in PLG a callback convention. In Incant a first-class keyword. Same insight.
+- **Labels**: isLabel = parse result, same name as rule that produced it. isRule = rule definition. Everything inside label context is isLabel.
+- **The north star**: PLG written in Incant.
 
 ---
-
 
 ## Incant Bytecode (Phase 2 — in progress)
 
-*Canonical state: `incant.md` in the incant repo. Live task list: `TODO.md` in the incant repo. This section is the cross-repo summary.*
+### Status
+- Phase 0 (BDWGC) ✅
+- Phase 1 (generateCode repurposed) ✅
+- Phase 2 (bytecode emitter + interpreter) — in progress
 
-**The decision.** Bytecode is the canonical IR, represented as a `GroupItem`. LLVM IR is generated *from* bytecode when the JIT lands. Forced by the self-hosting goal: incant code must be able to construct, inspect, and modify its own IR — opaque LLVM IR can't fill that role.
+### Key Design Decisions (settled)
+- Bytecodes ARE GroupItems. No vregs — "a virtual register is just a GroupItem field."
+- Stack-based dispatch via `interpret` sub-attribute on each op GroupItem
+- `bcOPs` registry: bcBR, bcBRZ, bcCALL, bcRET — separate from user Operators
+- `bytecodE` attribute name (Cap-on-last-letter convention)
+- Instruction successor: implicit-next via for loop; branch by reassigning `grup` mid-loop
 
-**Phase status:**
+### interpret() — written in incant (XML/WorkingOn/bytecode)
+```
+interpret body; {
+    for grup in body; members
+        handler = grup.interpret;
+        if !handler;
+            print "interpret: no handler for" grup.taG:;
+            return;
+        result = handler(grup);
+        if result;  grup = result;
+    }
+```
+`for grup in body; members` — LoopRestrict `members` iterates members only. The for loop is a C++ while under the covers. Reassigning `grup` mid-loop redirects to branch target.
 
-- **Phase 0 — BDWGC integration.** ✅ Complete. `GroupItem` allocation switched to `GC_malloc`; `itemFactory` retired in favor of constructors.
-- **Phase 1 — `generateCode()` repurposed** as bytecode emitter entry point. ✅ Complete in spirit. The placeholder C++-source emit path is being abandoned, not preserved.
-- **Phase 2 — Bytecode emitter in incant.** 🔧 In progress. Blocked on three open design questions plus the missing `Bytecode.{h,mm}` interpreter.
-- **Phase 3 — LLVM JIT (ORC v2).** Not started.
+### Gating hook (GroupRules.mm:786) ✅
+```cpp
+GroupItem *bc = statement->getAttribute("bytecodE");
+if ( bc ) {
+    GroupItem *interpretField = GroupControl::groupController->locate("interpret");
+    if ( interpretField )
+        return ::runAction(bc, interpretField);
+}
+```
+Falls through to gMethod when no bytecode — safe no-op until emitter produces bytecodE attributes.
 
-**Where the work lives:**
+### Remaining for testByteCode POP
+1. `Bytecode.mm` → Xcode target (manual: drag into incantGUI)
+2. Emitter rewrite: gIF, gExpressioN produce bytecodE attributes
+3. End-to-end: `testByteCode` → `maximus = 26`
 
-- `XML/WorkingOn/generate` — the per-statement emitters (`gBlocK`, `gIF`, `gFOR`, `gWhilE`, `gDO`, `gExpressioN`, `gXpress`, `gPrinT`). Currently mix of working old-style C++-source emitters (the loop forms) and stubs (`gIF`, `gExpressioN`, `gXpress`, `gPrinT`). All to be rewritten as bytecode emitters.
-- `XML/WorkingOn/setup` — registries (cOMMANDs, Operators, pROPERTIEs, Keywords, GroupFields, fILEs). **Bytecode registry to be added.**
-- `XML/WorkingOn/unitTests:116-117` — `testByteCode; { if righty > 0; maximus = righty * 2; }` — Phase 2 round-trip target. Five expected instructions: `runGT`, `runBRZ`, `runMultiply`, `runAssign`, `runRET`.
-- `Generate.rtn` — C++ bridge. `generateCode()` stays; `genPrint()` retires when `gPrinT` is bytecodified.
-- `GroupRules.twk` / `.mm` — gating hook lands here (check for `bytecodE` attribute, route through interpreter).
-- `Bytecode.{h,mm}` — **planned**, not yet written. Interpreter loop + per-opcode handlers.
-
-**Three design questions — decided:**
-
-1. **Handler identity on instructions** — instruction's tag is the **op GroupItem itself**, drawn from existing `Operators` registry (`>`, `*`, `=`, etc.) plus a new `bcOPs` registry (`bcBR`, `bcBRZ`, `bcRET`, etc.). The op GroupItem carries the handler reference; interpreter dispatches `runOP`-style.
-2. **Registry split** — `Operators` and `bcOPs` are **separate** registries, *not* folded together. User-level operators stay in `Operators`; bytecode control-flow lives in `bcOPs`. An incant program walking `Operators` should not see `bcBR`.
-3. **Instruction successor** — **implicit-next** (sibling member). Instructions are members of the body in execution order; "next" means "next sibling member." Branches override by returning their target. Operands materialize into vregs (skipping the `tempField` step-2a intermediate).
-
-**No vregs — they're just fields.** A "virtual register" in the bytecode design is just a GroupItem field being used to hold an intermediate value. The field IS the register. No special vreg type, no per-action vreg array, no new machinery — just a GroupItem set as the `dst` slot of an instruction (`dst->setGroup(result)` is the storage primitive on the C++ side; the incant equivalent is the same setter the language already uses for any field). This is "everything is a field" applied to the IR.
-**Decisions landed (don't relitigate):**
-
-- **Operand-resolution rule (option β).** Every operand to a handler is a value or a slot holding a value. Sub-expressions, invocations, indexed accesses linearize into prior instructions. Polymorphism dissolves at emit time.
-- **Build handlers as tests force them.** `testByteCode` needs five (`runGT`, `runMultiply`, `runAssign`, `runBRZ`, `runRET`); new handlers come when a new test exercises them.
-- **Branch targets** are direct GroupItem refs (not integer offsets), backpatched.
-- **Phase 2 staged in two halves.** 2a uses `tempField` as implicit destination; 2b switches to vregs.
-- **`runRET` is explicit** (not implicit end-of-members) so dumps are readable.
-
-**Cross-cutting: debugger-readiness.** `RuleStuff::sourceLine` promoted from int to `GroupItem` (✅). Bytecode emitter copies `sourceLine` onto each instruction so a debugger written in incant inspects source positions through normal field-walking.
+### Incant Dispatch Idiom (IMPORTANT)
+Two steps — never chain:
+```
+handler = field.attribute;    // get the attribute
+handler(argument);            // call its method
+```
+One method per field by design. Sub-attribute pattern for second invokable behavior.
 
 ---
-## generateRules() / setRules() relationship
 
-`generateRules()` is PLG's primitive bytecode compiler — it promotes interpreted grammar structures to compiled C++.  
-Incant's bytecode work is the same idea at higher abstraction.  
-`parse()` orchestrates. `match()` is atomic. `generateRules()` compiles.
+## The Long Game — Incant as Distributed Virtual OS
 
----
+GroupItem fields are deployable units. Run anywhere. Message each other across platforms. Location transparent.
 
-## Support Library Architecture
+Claude is a GroupItem — `isCLAUDE` alongside `isSTRING`, `isNUMBER`, `isGROUP`. The AI is not a tool called from incant — it IS a field in incant.
 
-Support classes are shared across PLG, TAWK, and Incant. They live in the support repo.
+Go-style channel messaging — steal Go's goroutine/channel pattern. HPDL. Ken Thompson approved.
 
-**Dependency rule**: support classes must not depend on PLG/TAWK/Incant classes. If a dependency creeps in, extract a bridge function (`extern "C"`) rather than adding an include.
+ZFS-flavored storage — copy-on-write, snapshots as GroupItem operations. HPDL.
 
-**Known bridge**: `foundIn(PLGset*, PLGitem*)` — lives in PLGparse.C as `extern "C"`. PLGset needs to check if a PLGitem matches a set, but PLGset must not include PLGitem.h.
-
-**Target architecture**: support as a static library (support.a), linked into each tool. Currently support files are compiled inline — static library refactor in progress.
-
-**PLGset note**: PLGset was previously in Parse (PLG source). Moved to support/Frame. It's general-purpose pattern-set machinery used by all three projects.
+The JIT is the enabling technology. Without JIT, incant is an interpreter. With JIT, incant ships.
 
 ---
 
 ## Working Relationship
 
-**Anthony** — architect, domain expert, final authority on design decisions. Coding as thinking out loud.  
-**Clay** (Claude at claude.ai) — design, reasoning, architecture, HWF navigation, code review.  
-**Clod** (Claude Code) — execution, file edits, GitHub maintenance, build verification.
+**Anthony (Haps)** — architect, domain expert, final authority.  
+**Clay** (Claude at claude.ai) — design, reasoning, architecture, HWF navigation.  
+**Clod** (Claude Code) — execution, file edits, GitHub, build verification.
 
-**Standing permissions**: Clod may change any code in source directories without asking. Ask before GitHub pushes.  
-**HWF protocol**: When design goes near a cliff, flag it. The face plants teach as much as the successes.  
-**Convention of one**: tawk not tok in source (Tony's awk). Conventions are conventions even with one member.  
-**The cha cha**: Clay designs, Clod executes, Anthony architects. Each dancer has a distinct role.
+**Standing permissions**: Clod changes any code in source directories without asking. Ask before GitHub pushes. No option menus — do the needful.  
+**Clod protocols**: "got it" when message lands. "ready" when done. PLG:/Incant: labels when parallel tracks.  
+**End-of-session ritual**: Clay drafts bible + TODO, Clod pushes to all 4 repos. Before every Goodnight Gracie.
 
 ---
 
-## Current State (last updated: session 3)
+## Current State (last updated: May 4-5 2026)
 
-### Working
-- PLGparse, PLGrule, Alternative, Element, PLGitem compiling and running
-- Buffer-based input with divertInput/revertInput
-- matchSet, matchLit, matchRuleRef working correctly
-- applyRepetition working
-- Safe DoubleLinkList iteration established
-- addTest() implemented in PLGparse
-- PLGset moved to support repo
-- GitHub repos: plg, incant, support, tawk all public ✅
-- Xcode project rebuilt via xcodegen/project.yml — reproducible
-- CLAUDE.md in plg and support repos
-- `matched 4 chars: ,678` — known-good test passing
+### PLG Working ✅
+- Full callback chain: RuleplgNow, AlternativeplgAct, ElementplgAct, ElementTypeplgAct
+- Testing.g parses end-to-end, labels work
+- plg.g parses end-to-end — 37 rules
+- Grammar source tracked in Parse/Revision/Grammar/
+- setGuard() properly handles null vs empty (8 cases)
+- Support static library (libsupport.a)
+- All 4 GitHub repos public
 
-### In Progress
-- Support static library refactor (foundIn dependency cycle being resolved)
-- setRules() shrinkage using addTest()
-- Xcode workspace (Shape B) — plg + support + future tawk/incant
+### PLG Next
+- Self-host: bare-include over-matching (use plgDirectives)
+- Action blocks feature
+- Grammar reorganization
 
-### Next Steps
-1. Resolve foundIn dependency cycle → complete static library refactor
-2. Shrink setRules() using addTest()
-3. Feed testing.g through parser instead of hardcoded setRules()
-4. Expand to plg.g — bootstrap new PLG
-5. Xcode workspace wiring
-6. TAWK on the autopsy table (after PLG bootstraps)
-7. Incant JIT (longer term)
+### Incant Working ✅
+- interpret() in incant (XML/WorkingOn/bytecode)
+- bcOPs registry + C++ handlers (Bytecode.mm)
+- Gating hook in GroupRules.mm:786
 
-### Known Working Test
+### Incant Next
+- Bytecode.mm → Xcode target (manual)
+- Emitter rewrite: gIF, gExpressioN
+- testByteCode POP
+
+### Known Working Tests
 ```
-input: ",678"
-rule:  Max
-result: matched 4 chars: ,678
+input: ",678" → rule: Max → matched 4 chars: ,678
+input: Grammar/Testing.g → parsed 90/91 bytes, Max+Integer+Test built correctly
+input: Grammar/plg.g → 37 rules parsed end-to-end
 ```
 
 ---
 
 ## Glossary
 
-- **HWF** — Hands Waving Furiously. Design mode with reduced constraint on anchor to reality. Valuable. Watch the cliff.
-- **Lootenant WTF** — debugging assistant. Finds culprits. Earns commendations. (British: Leftenant. American: Lootenant. We go American.)
-- **Bonfire** — retired code. Gone but not mourned.
-- **Attic** — commented-out code. Not active, not deleted, findable.
-- **Clay** — Claude at claude.ai. Design, reasoning, architecture. (Claude → Clay. Shorter.)
-- **Clod** — Claude Code. Execution, file ops, GitHub. Not disparaging. Just shorter.
-- **do the needful** — Hinglish. Do what needs doing. Standing instruction to Clod.
-- **eRocka** — modern eureka. Reserved for significant breakthroughs.
-- **convention of one** — a convention held by exactly one person. Still a convention.
-- **DSL** — Domain-Specific Language. A language designed for one specific purpose.
-- **YAML** — Yet Another Markup Language. Human-friendly config format. Used for xcodegen project specs.
-- **Nebulizing** — what Clod does when given a complex task. Activity is happening. Results pending.
-- **Gallivanting** — Clod charging off in all directions on a complex task. Usually ends somewhere useful.
-- **Zesting** — adding citrus flavor to the codebase. Meaning unclear but output is always fresh. 🍋
-- **The cha cha** — the three-way workflow: Clay designs, Clod executes, Anthony architects. An elegant dance.
-- **Tar baby** — a problem that gets stickier the more you engage with it. Avoid when possible.
-- **extern "C" bridge function** — a free function using C linkage (no name mangling) that bridges two types. Pattern for cross-type utilities that neither type should own.
+- **HWF** — Hands Waving Furiously. Design mode. Valuable. Watch the cliff.
+- **HPDL** — Hard Part Do Later. Important but foundation must come first.
+- **POP** — Proof Of Pudding. Prove it works.
+- **WSS** — We Shall See.
+- **eRocka** — modern eureka.
+- **Yak shaving** — chain of necessary tasks, goal keeps receding.
+- **Lootenant WTF** — debugging assistant. American pronunciation.
+- **Bonfire** — retired code.
+- **Attic** — commented-out code. Findable.
+- **Clay** — Claude at claude.ai.
+- **Clod** — Claude Code. Not disparaging.
+- **do the needful** — Hinglish. Standing instruction.
+- **convention of one** — held by one person. Still a convention.
+- **The cha cha** — Clay designs, Clod executes, Anthony architects.
+- **Tar baby** — problem that gets stickier. Avoid.
+- **Clod working states** — Nebulizing, Gallivanting, Zesting, Swirling, Fiddling, Moonwalking, Forging, Bebopping, Topsy turving, Embellishing, Churning, Pouncing, Reticulating, Baking, Puttering, Blanching, Catapulting, Percolating, Tempering, Stewing, Tinkering, Coalescing, Transfiguring, Cooking, Razzmatazzing, Frolicking, Kneading, Fiddle-faddling, Cerebrating, Galloping, Forging sigils, Flibbertigibbeting, Transmuting, Philosophising, Shoveling coal, Sketching, Scaffolding, Frosting, Hatching, Humping, Bamboozling, Clauding, Smooshing, Wondering, Boondoggling, Swooping, Shenaniganing, Tomfoolering, Inferring, Pollinating, Combobulating.
