@@ -39,10 +39,14 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
         Parse/Revision/Grammar/ — Grammar files: plg.g, plgRules.g, plg.act
         Parse/Tests/    — Test files + symlinks into Grammar/
         Tokf/           — TAWK source (tawk repo)
+        Tokf/Tests/     — TAWK test sandbox (symlinks + Test.twk) — gitignored
+        Tokf/Tawk.regen.twk — PLG-generated setRules in new format (gitignored artifact)
         Groups/         — Incant source (incant repo)
         Include/        — symlink → ~/data/support/Include
         Frame/          — symlink → ~/data/support/Frame
         Groups/Maps     — symlink → ~/data/support/Maps
+        TOK/            — TAWK Xcode project (TOK.xcodeproj) — 3 targets: Groups, TOK, PLG
+    InProcess.xcworkspace — umbrella workspace containing all projects
     support/            — shared support classes (support repo)
         Frame/          — Buffer, DoubleLinkList, PLGset, BaseHash, Stak, Tape, StringRoutines
         Include/        — TAWK externals
@@ -51,6 +55,8 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 ```
 
 **APFS case-insensitive gotcha**: `plg.twk` and `PLG.twk` are the SAME file on macOS. Generated artifacts must live in a subdirectory. Grammar/ was created specifically to avoid this collision.
+
+**PLG regen output**: `PLG.process()` writes to `<base>.regen.twk` in the same directory as the input. When running on Tokf/Tawk.g, output goes to Tokf/Tawk.regen.twk — NOT Tokf/Tawk.twk (the real source). This was fixed after a silent overwrite incident.
 
 ---
 
@@ -132,12 +138,32 @@ Grammar source in `Parse/Revision/Grammar/`:
 - `plg.act` — action code
 - `action.g` — DEFERRED pending Action-blocks feature
 
+**Set declaration format**: All Set declarations require a `;` terminator: `Set mySet [...] ;` — not optional. This prevents over-matching when empty Sets are followed by tokens that look like bare Names.
+
+**Quote character gotcha**: Matching `'` or `"` inside PLG grammar. Options: (1) use the other delimiter — `"'"` matches single-quote; (2) set notation `[']` — always unambiguous. The `[']` approach preferred when both quote types need matching in same grammar.
+
 **Action blocks design** (approved, TODO):
 ```
 Action actionName { TAWK body } ;
 ```
 Generates: `void actionName(PLGparse *state, PLGitem *item) { body }`
 Goal: grammar files self-contained, no separate .act/.rtn files needed.
+
+---
+
+## Paren-Alt Decomposition (BlockplgAct)
+
+When a grammar rule contains inline `( A | B )` syntax, PLG decomposes it into a named helper rule during parse.
+
+**Algorithm:**
+1. `BlockplgAct` fires as a deferred callback when `Block` rule matches
+2. Creates helper rule named `<parentRule>Block<N>` where N is a per-rule counter (resets per rule)
+3. Recursive nesting: inner blocks use the helper as parent — `QuotedStringBlock0Block1`
+4. All modifiers (label, min/max, noSkip, banged) transfer to the kRuleRef pointing at the helper
+
+**Naming convention**: Recursive parent-prefix — `QuotedStringBlock0` → `QuotedStringBlock0Block1`. Counter resets per rule to prevent monotonic growth and name collisions.
+
+**Important**: `( A | B )` cannot be stripped from PLG — TAWK's grammar uses it 5 times including nested forms. The decomposition machinery is required for TAWK ingestion.
 
 ---
 
@@ -167,7 +193,41 @@ Goal: grammar files self-contained, no separate .act/.rtn files needed.
 
 ---
 
-## Incant Bytecode (Phase 2 — in progress)
+## TAWK Runtime Replacement (Phase 2 Arc)
+
+TAWK currently uses the legacy PLGparse API (kind=5/7 with void* casts, *TawkNow callbacks). New PLG generates the new API (kind=6 with bare strings). Bridging this gap is the Phase 2 arc.
+
+**Phases:**
+- A: TOK xcodeproj — swap legacy Parse/ file refs → Revision/ (drop PLGlabel/PLGrgx/PLGtester/Splitter, add Alternative/Element)
+- B: Tawk.twk setRules() — splice Tawk.regen.twk body into legacy source
+- C: Port ~50+ *TawkNow/*TawkAct callbacks — signatures change to (PLGparse state, PLGitem iTEM); children via iTEM.children["label"]
+- D: First clean compile
+- E: Tests/ sandbox verification vs ~/bin/tok
+- F: Promotion
+
+**Safety rules:**
+- Tests/ directory in Tokf/ is mandatory sandbox — never touch Tokf/Tawk.twk before Tests/ proves it
+- ~/bin/tok is the safety net — broken TAWK can't fix itself
+- TOK.xcodeproj has conflicted-copy pbxproj files (Dropbox artifacts) — project.pbxproj is canonical
+
+**Independent of this arc:** Scoped TAWK autopsy (GC inheritance + include guards) goes directly into legacy Tokf/Tawk.twk.
+
+---
+
+## Resolved Issues Log
+
+*For orientation — issues that seemed like blockers but were resolved.*
+
+- **Bare-include over-matching** — STALE FRAMING. Was never actually broken. Directives trace proved Body was working correctly. The old session notes were based on pre-fix state.
+- **expression.g 0.6% coverage** — Java-style block comment at file head tripped CommentBody. Fixed by pre-parse stripComments() replacing in-grammar comment handling.
+- **keywords.g NOTE pollution** — `//` line comments not recognized by meta-grammar. Word "NOTE" parsed as rule name, eating downstream KeyWord declarations. Fixed by stripComments().
+- **parts.g ElementType {N,M} stop** — PLG.twk:900/909 had empty string literals where `{` and `}` belonged. Hand-coding placeholders never filled in. Two-char fix.
+- **Word bootstrap encoding** — PLG.twk:740/744 had `"n;"` instead of `"^ \f\r\t\n;"`. Hand-coding error causing Word to only match `n` or `;`. C compiler escape processing handles the fix correctly.
+- **SetVariable zombie rules** — SetVariableplgNow not wired (commented out). Sets registered as empty Rules instead of in setTable. Fixed by porting and wiring SetVariable dispatcher.
+- **Tawk.twk silent overwrite** — PLG.process() was writing `<base>.twk` to input directory. Running on Tokf/Tawk.g overwrote Tokf/Tawk.twk. Fixed: output now goes to `<base>.regen.twk`.
+- **APFS case collision** — `plg.twk` and `PLG.twk` same file on macOS. Solved by Grammar/ subdirectory.
+
+---
 
 ### Status
 - Phase 0 (BDWGC) ✅
@@ -235,6 +295,35 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 
 ---
 
+## Priority Plan (current)
+
+**Phase 1: PLG → Tawk.g ✅ COMPLETE**
+- PLG parses plg.g ✅ — 39 rules
+- PLG parses Tawk.g ✅ — 200 rules, 177 populated
+- Tawk.regen.twk generated in new format ✅
+
+**Phase 2: TAWK Runtime Replacement (multi-session arc)**
+- Phase A: TOK xcodeproj file refs — swap legacy Parse/ → Revision/
+- Phase B: Tawk.twk setRules() port — splice Tawk.regen.twk body
+- Phase C: Port ~50+ *TawkNow/*TawkAct callbacks (signature change to PLGparse state, PLGitem iTEM)
+- Phase D: First clean compile of new-runtime TAWK
+- Phase E: Tests/ sandbox verification vs ~/bin/tok
+- Phase F: Promotion
+
+**Scoped TAWK autopsy (independent of runtime replacement)**
+- GC inheritance fix — TAWK classes need to inherit from GC
+- Include guard fix
+- These go into LEGACY Tokf/Tawk.twk directly
+
+**Phase 3: Incant bytecode/JIT**
+- Emitter rewrite (gIF, gExpressioN)
+- testByteCode POP
+- Expand from there
+
+**Longer term TAWK autopsy** — HPDL. Plan carefully — many .twk files need re-tokkifying.
+
+---
+
 ## Working Relationship
 
 **Anthony (Haps)** — architect, domain expert, final authority.  
@@ -247,21 +336,40 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 
 ---
 
-## Current State (last updated: May 4-5 2026)
+## Current State (last updated: May 5 2026, session 5)
 
 ### PLG Working ✅
-- Full callback chain: RuleplgNow, AlternativeplgAct, ElementplgAct, ElementTypeplgAct
+- Full callback chain: RuleplgNow, AlternativeplgAct, ElementplgAct, ElementTypeplgAct, BlockplgAct
 - Testing.g parses end-to-end, labels work
-- plg.g parses end-to-end — 37 rules
+- plg.g parses end-to-end — 39 rules
+- Tawk.g parses end-to-end — 200 rules captured, 177 populated ✅
 - Grammar source tracked in Parse/Revision/Grammar/
-- setGuard() properly handles null vs empty (8 cases)
+- setGuard() properly handles null vs empty (8 cases fixed)
+- SetVariable dispatcher wired — sets, keywords registered
+- Paren-alt decomposition working — BlockplgAct, recursive parent-prefix naming
+- Set declarations require `;` terminator
+- Pre-parse comment stripping — stripComments() in PLGparse
+- PLG.process() output path fixed — regen goes to <base>.regen.twk
 - Support static library (libsupport.a)
+- TAWK Directives used in anger — proved their value
 - All 4 GitHub repos public
 
 ### PLG Next
-- Self-host: bare-include over-matching (use plgDirectives)
-- Action blocks feature
-- Grammar reorganization
+- Pending items: alt 7 min=0 quirk, ActionRule wired-but-deferred, Set spec-content capture, kUpTo escape-aware bracket
+- PLG code review (Clay + Clod) after TAWK runtime replacement
+
+### TAWK Current State
+- Tokf/Tawk.twk — full legacy source (7325 lines) ✅ restored after regen overwrite incident
+- Tokf/Tawk.regen.twk — new-format setRules generated by PLG (177 rules, 1851 lines) — target for Phase 2
+- TOK/TOK.xcodeproj — build project, currently references legacy Parse/ files
+- TAWK runtime replacement: Phase A-F planned, not yet started
+- Scoped autopsy (GC + include guards) can proceed independently into legacy Tawk.twk
+
+### TAWK Kind Enum Migration (for runtime replacement reference)
+- legacy kind=5 (kRuleRef, void* cast) → new kind=6 (kRuleRef, bare string)
+- legacy kind=7 (kLit, void* cast) → new kind=1 (kLit, bare string)
+- legacy kind=3 still kSet but spec semantics differ
+- New kinds: kAny=4, kEof=5, kKeyTable=7, kCondition=8, kVariable=9, kUpTo=10, kBalanced=11
 
 ### Incant Working ✅
 - interpret() in incant (XML/WorkingOn/bytecode)
@@ -277,7 +385,8 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 ```
 input: ",678" → rule: Max → matched 4 chars: ,678
 input: Grammar/Testing.g → parsed 90/91 bytes, Max+Integer+Test built correctly
-input: Grammar/plg.g → 37 rules parsed end-to-end
+input: Grammar/plg.g → 39 rules parsed end-to-end
+input: Tokf/Tawk.g → 200 rules captured, 177 populated, all 5 includes at 100%
 ```
 
 ---
@@ -299,4 +408,5 @@ input: Grammar/plg.g → 37 rules parsed end-to-end
 - **convention of one** — held by one person. Still a convention.
 - **The cha cha** — Clay designs, Clod executes, Anthony architects.
 - **Tar baby** — problem that gets stickier. Avoid.
-- **Clod working states** — Nebulizing, Gallivanting, Zesting, Swirling, Fiddling, Moonwalking, Forging, Bebopping, Topsy turving, Embellishing, Churning, Pouncing, Reticulating, Baking, Puttering, Blanching, Catapulting, Percolating, Tempering, Stewing, Tinkering, Coalescing, Transfiguring, Cooking, Razzmatazzing, Frolicking, Kneading, Fiddle-faddling, Cerebrating, Galloping, Forging sigils, Flibbertigibbeting, Transmuting, Philosophising, Shoveling coal, Sketching, Scaffolding, Frosting, Hatching, Humping, Bamboozling, Clauding, Smooshing, Wondering, Boondoggling, Swooping, Shenaniganing, Tomfoolering, Inferring, Pollinating, Combobulating.
+- **Clod working states** — Nebulizing, Gallivanting, Zesting, Swirling, Fiddling, Moonwalking, Forging, Bebopping, Topsy turving, Embellishing, Churning, Pouncing, Reticulating, Baking, Puttering, Blanching, Catapulting, Percolating, Tempering, Stewing, Tinkering, Coalescing, Transfiguring, Cooking, Razzmatazzing, Frolicking, Kneading, Fiddle-faddling, Cerebrating, Galloping, Forging sigils, Flibbertigibbeting, Transmuting, Philosophising, Shoveling coal, Sketching, Scaffolding, Frosting, Hatching, Humping, Bamboozling, Clauding, Smooshing, Wondering, Boondoggling, Swooping, Shenaniganing, Tomfoolering, Inferring, Pollinating, Combobulating, Waddling, Accomplishing, Catapulting.
+- **Tonto** — Clod's highest working state. Scout mode: read-only reconnaissance, holds the perimeter, reports cleanly, doesn't touch anything, doesn't get lost, doesn't gallivant. Distinguished by disciplined restraint. "Tonto goes in alone, kemosabe stays at the campfire."
