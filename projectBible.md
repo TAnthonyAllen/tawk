@@ -53,6 +53,8 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
         Maps/           — BitMAP, Segment
 ```
 
+**Symlink architecture**: shared support classes live once in `~/data/support/`; the InProcess paths (`Include/`, `Frame/`, `Groups/Maps`, etc.) are symlinks pointing into the support repo. This keeps existing `.twk` `include` directives working unchanged while making the support repo the single source of truth. Edits to a shared class in either path land in the same file.
+
 **APFS case-insensitive gotcha**: `plg.twk` and `PLG.twk` are the SAME file on macOS. Generated artifacts must live in a subdirectory. Grammar/ was created specifically to avoid this collision.
 
 **PLG regen output**: `PLG.process()` writes to `<base>.regen.twk` in the directory where plg was invoked (CWD). When running on Tokf/Tawk.g from Tokf/Tests, output goes to Tokf/Tests/Tawk.regen.twk — NOT Tokf/Tawk.twk (the real source). plg's contract is "this file here, output here" — invocation-directory-relative, not source-file-resolved.
@@ -123,7 +125,7 @@ PLG is supposed to generate setRules() but needs setRules() to parse plg.g to ge
 4. `tawk PLG.twk` → PLG.C
 5. Compile and test
 
-**Self-host status**: plg.g parses end-to-end (37 rules). Generator emits correct addTest() format (76% smaller). Round-trip chain stalls at bare-include over-matching — next debug cycle, use plgDirectives.
+**Self-host status**: plg.g parses end-to-end (39 rules). Generator emits correct addTest() format (76% smaller). Round-trip chain stalls at bare-include over-matching — next debug cycle, use plgDirectives.
 
 **Same problem exists for TAWK**: solved by `~/bin/tok`.
 
