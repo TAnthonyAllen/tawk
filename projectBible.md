@@ -45,7 +45,6 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
         Include/        — symlink → ~/data/support/Include
         Frame/          — symlink → ~/data/support/Frame
         Groups/Maps     — symlink → ~/data/support/Maps
-        TOK/            — TAWK Xcode project (TOK.xcodeproj) — 3 targets: Groups, TOK, PLG
     InProcess.xcworkspace — umbrella workspace containing all projects
     support/            — shared support classes (support repo)
         Frame/          — Buffer, DoubleLinkList, PLGset, BaseHash, Stak, Tape, StringRoutines
@@ -56,7 +55,7 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 
 **APFS case-insensitive gotcha**: `plg.twk` and `PLG.twk` are the SAME file on macOS. Generated artifacts must live in a subdirectory. Grammar/ was created specifically to avoid this collision.
 
-**PLG regen output**: `PLG.process()` writes to `<base>.regen.twk` in the same directory as the input. When running on Tokf/Tawk.g, output goes to Tokf/Tawk.regen.twk — NOT Tokf/Tawk.twk (the real source). This was fixed after a silent overwrite incident.
+**PLG regen output**: `PLG.process()` writes to `<base>.regen.twk` in the directory where plg was invoked (CWD). When running on Tokf/Tawk.g from Tokf/Tests, output goes to Tokf/Tests/Tawk.regen.twk — NOT Tokf/Tawk.twk (the real source). plg's contract is "this file here, output here" — invocation-directory-relative, not source-file-resolved.
 
 ---
 
@@ -66,7 +65,7 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 |---------|------|----------------|
 | PLG | DSL / pattern matcher | Declarative, stateless, fast, embeddable |
 | TAWK | Transpiler | Source-to-source, metaprogramming, syntactic sugar for C++ |
-| Incant | General purpose | Reflexive, homoiconic, stack-aware, generates to C++ |
+| Incant | General purpose | Reflexive, homoiconic, stack-aware, will be JIT enabled |
 
 **DSL** — Domain-Specific Language. Designed for one purpose.  
 **Reflexive** — the language can examine and describe itself.  
@@ -87,9 +86,9 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 
 ### Key Design Decisions
 1. **Buffer-based input** — all input lives in Buffer objects. divertInput pushes/pops buffer stack.
-2. **Safe iteration** — `for (link = list->first; link; link = link->next)` — never add manual advance inside body (TAWK's for loop already advances — double-advance = SIGSEGV).
+2. **Safe iteration** — `for (link = list->first; link; link = link->next)` — never add manual advance inside body (TAWK's for loop: for link = list.first; already advances — double-advance = SIGSEGV).
 3. **Composition over inheritance** — PLG contains PLGparse field (workaround for TAWK header issues).
-4. **toString() only** — PLGitem no longer null-terminates in place.
+4. **toString() only** — PLGitem string() and unString() that generate temporary strings in the input stream are not used (they were in old plg).
 5. **addTest() shorthand** — `addTest(kind, data, label, min, max, skipSet)` creates and wires an Element in one call.
 6. **Guards** — setGuard() computes FIRST sets. CRITICAL: null guard = accept anything; empty PLGset = reject everything. These are NOT the same. When setGuard() can't determine FIRST set (kAny, negated sets, kEof etc.) return null, not empty set.
 7. **Method ordering** — alphabetical by convention (Anthony's preference). Not a TAWK requirement.
@@ -198,17 +197,15 @@ When a grammar rule contains inline `( A | B )` syntax, PLG decomposes it into a
 TAWK currently uses the legacy PLGparse API (kind=5/7 with void* casts, *TawkNow callbacks). New PLG generates the new API (kind=6 with bare strings). Bridging this gap is the Phase 2 arc.
 
 **Phases:**
-- A: TOK xcodeproj — swap legacy Parse/ file refs → Revision/ (drop PLGlabel/PLGrgx/PLGtester/Splitter, add Alternative/Element)
-- B: Tawk.twk setRules() — splice Tawk.regen.twk body into legacy source
-- C: Port ~50+ *TawkNow/*TawkAct callbacks — signatures change to (PLGparse state, PLGitem iTEM); children via iTEM.children["label"]
-- D: First clean compile
-- E: Tests/ sandbox verification vs ~/bin/tok
-- F: Promotion
+- A: Tawk.twk setRules() — splice Tawk.regen.twk body into legacy source
+- B: Port ~50+ *TawkNow/*TawkAct callbacks — signatures change to (PLGparse state, PLGitem iTEM); children via iTEM.children["label"]
+- C: First clean compile
+- D: Tests/ sandbox verification vs ~/bin/tok
+- E: Promotion
 
 **Safety rules:**
 - Tests/ directory in Tokf/ is mandatory sandbox — never touch Tokf/Tawk.twk before Tests/ proves it
 - ~/bin/tok is the safety net — broken TAWK can't fix itself
-- TOK.xcodeproj has conflicted-copy pbxproj files (Dropbox artifacts) — project.pbxproj is canonical
 
 **Independent of this arc:** Scoped TAWK autopsy (GC inheritance + include guards) goes directly into legacy Tokf/Tawk.twk.
 
@@ -226,6 +223,7 @@ TAWK currently uses the legacy PLGparse API (kind=5/7 with void* casts, *TawkNow
 - **SetVariable zombie rules** — SetVariableplgNow not wired (commented out). Sets registered as empty Rules instead of in setTable. Fixed by porting and wiring SetVariable dispatcher.
 - **Tawk.twk silent overwrite** — PLG.process() was writing `<base>.twk` to input directory. Running on Tokf/Tawk.g overwrote Tokf/Tawk.twk. Fixed: output now goes to `<base>.regen.twk`.
 - **APFS case collision** — `plg.twk` and `PLG.twk` same file on macOS. Solved by Grammar/ subdirectory.
+- **plg path resolution** — process() was resolving the real path of input and writing output next to that, instead of writing to the invocation directory (CWD). Symlink invocations from Tokf/Tests broke includes lookup with empty sourceDir. Fixed: process() simplified (17 lines removed, 1 added), output now CWD-relative. Regen content unchanged across the fix (MD5-identical to baseline). Determinism preserved.
 
 ---
 
@@ -285,7 +283,7 @@ One method per field by design. Sub-attribute pattern for second invokable behav
 
 GroupItem fields are deployable units. Run anywhere. Message each other across platforms. Location transparent.
 
-Claude is a GroupItem — `isCLAUDE` alongside `isSTRING`, `isNUMBER`, `isGROUP`. The AI is not a tool called from incant — it IS a field in incant.
+Claude is a GroupItem — `isCLAUDE` alongside `isSTRING`, `isNUMBER`, `isGROUP`. The AI is not a tool called from incant — it IS a field in incant. (HWF Session 1 is unpacking what this means in practice — see HWF.md.)
 
 Go-style channel messaging — steal Go's goroutine/channel pattern. HPDL. Ken Thompson approved.
 
@@ -303,12 +301,11 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 - Tawk.regen.twk generated in new format ✅
 
 **Phase 2: TAWK Runtime Replacement (multi-session arc)**
-- Phase A: TOK xcodeproj file refs — swap legacy Parse/ → Revision/
-- Phase B: Tawk.twk setRules() port — splice Tawk.regen.twk body
-- Phase C: Port ~50+ *TawkNow/*TawkAct callbacks (signature change to PLGparse state, PLGitem iTEM)
-- Phase D: First clean compile of new-runtime TAWK
-- Phase E: Tests/ sandbox verification vs ~/bin/tok
-- Phase F: Promotion
+- Phase A: Tawk.twk setRules() port — splice Tawk.regen.twk body
+- Phase B: Port ~50+ *TawkNow/*TawkAct callbacks (signature change to PLGparse state, PLGitem iTEM)
+- Phase C: First clean compile of new-runtime TAWK
+- Phase D: Tests/ sandbox verification vs ~/bin/tok
+- Phase E: Promotion
 
 **Scoped TAWK autopsy (independent of runtime replacement)**
 - GC inheritance fix — TAWK classes need to inherit from GC
@@ -334,9 +331,11 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 **Clod protocols**: "got it" when message lands. "ready" when done. PLG:/Incant: labels when parallel tracks.  
 **End-of-session ritual**: Clay drafts bible + TODO, Clod pushes to all 4 repos. Before every Goodnight Gracie.
 
+**Resurrection-reader standard**: All .md files in this project (bible, HWF.md, TODO, CLAUDE.md, etc.) must make sense to fresh-Claude reading them cold tomorrow with no memory of today. The .md files exist to make resurrection work — reading them is how Claude/Clod start each day, and that reading is how project continuity persists. See HWF.md preamble for the full statement. This is the primary writing standard for project documentation.
+
 ---
 
-## Current State (last updated: May 5 2026, session 5)
+## Current State (last updated: May 7 2026, session 6)
 
 ### PLG Working ✅
 - Full callback chain: RuleplgNow, AlternativeplgAct, ElementplgAct, ElementTypeplgAct, BlockplgAct
@@ -349,7 +348,7 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 - Paren-alt decomposition working — BlockplgAct, recursive parent-prefix naming
 - Set declarations require `;` terminator
 - Pre-parse comment stripping — stripComments() in PLGparse
-- PLG.process() output path fixed — regen goes to <base>.regen.twk
+- PLG.process() output path fixed — regen goes to `<base>.regen.twk` in CWD (not source-file directory). Path-resolution simplification landed day 2 — process() works from invocation directory.
 - Support static library (libsupport.a)
 - TAWK Directives used in anger — proved their value
 - All 4 GitHub repos public
@@ -361,8 +360,8 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 ### TAWK Current State
 - Tokf/Tawk.twk — full legacy source (7325 lines) ✅ restored after regen overwrite incident
 - Tokf/Tawk.regen.twk — new-format setRules generated by PLG (177 rules, 1851 lines) — target for Phase 2
-- TOK/TOK.xcodeproj — build project, currently references legacy Parse/ files
-- TAWK runtime replacement: Phase A-F planned, not yet started
+- Bootstrap is reproducible: `plg Tawk.g` produces bit-identical output across runs (MD5 verified day 2)
+- TAWK runtime replacement: Phase A-E planned, not yet started
 - Scoped autopsy (GC + include guards) can proceed independently into legacy Tawk.twk
 
 ### TAWK Kind Enum Migration (for runtime replacement reference)
@@ -397,7 +396,6 @@ input: Tokf/Tawk.g → 200 rules captured, 177 populated, all 5 includes at 100%
 - **HPDL** — Hard Part Do Later. Important but foundation must come first.
 - **POP** — Proof Of Pudding. Prove it works.
 - **WSS** — We Shall See.
-- **eRocka** — modern eureka.
 - **Yak shaving** — chain of necessary tasks, goal keeps receding.
 - **Lootenant WTF** — debugging assistant. American pronunciation.
 - **Bonfire** — retired code.
@@ -408,5 +406,6 @@ input: Tokf/Tawk.g → 200 rules captured, 177 populated, all 5 includes at 100%
 - **convention of one** — held by one person. Still a convention.
 - **The cha cha** — Clay designs, Clod executes, Anthony architects.
 - **Tar baby** — problem that gets stickier. Avoid.
+- **Resurrection-reader** — fresh-Claude reading the .md files cold tomorrow with no memory of today. The audience all project documentation must serve.
 - **Clod working states** — Nebulizing, Gallivanting, Zesting, Swirling, Fiddling, Moonwalking, Forging, Bebopping, Topsy turving, Embellishing, Churning, Pouncing, Reticulating, Baking, Puttering, Blanching, Catapulting, Percolating, Tempering, Stewing, Tinkering, Coalescing, Transfiguring, Cooking, Razzmatazzing, Frolicking, Kneading, Fiddle-faddling, Cerebrating, Galloping, Forging sigils, Flibbertigibbeting, Transmuting, Philosophising, Shoveling coal, Sketching, Scaffolding, Frosting, Hatching, Humping, Bamboozling, Clauding, Smooshing, Wondering, Boondoggling, Swooping, Shenaniganing, Tomfoolering, Inferring, Pollinating, Combobulating, Waddling, Accomplishing, Catapulting.
 - **Tonto** — Clod's highest working state. Scout mode: read-only reconnaissance, holds the perimeter, reports cleanly, doesn't touch anything, doesn't get lost, doesn't gallivant. Distinguished by disciplined restraint. "Tonto goes in alone, kemosabe stays at the campfire."
