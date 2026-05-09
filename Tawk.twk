@@ -1069,1857 +1069,1852 @@ int         t,c,m;
 void setRules()
 {
 	setSkip();
-alphaSet = getSet( "alphaSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z_" );
-nameStartSet = getSet( "nameStartSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z_@" );
-commentSet = getSet( "commentSet","-/#" );
-compareSet = getSet( "compareSet","-!/|%^?:&*<>+=glen" );
-compareFollow = getSet( "compareFollow","-+r(\"*&!" );
-logicSet = getSet( "logicSet","glen" );
-methodSet = getSet( "methodSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_*&(),@" );
-methodNameSet = getSet( "methodNameSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_:" );
-nameSet = getSet( "nameSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_" );
-operatorSet = getSet( "operatorSet","-!/~|%^?:&*<>+=ei" );
-space = getSet( "space","n" );
-rangeSet = getSet( "rangeSet","<>." );
-singleQuote = getSet( "singleQuote","'" );
-stringOP = getSet( "stringOP","-+=" );
-textFollow = getSet( "textFollow","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_" );
-typesSet = getSet( "typesSet","" );
-//
-currentRule = getRule("Block");
-currentRule.immediate = BlockTawkNow;
-addTest(5,(void*)getRule("BlockStart"),"start",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Line"),"line",0,268435455,"defaultSKIP");
-addTest(7,(void*)"}",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected } or statement";
-//
-currentRule = getRule("StatementBody16");
-currentRule.immediate = StatementBody16TawkNow;
-addTest(7,(void*)"do",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Iterating"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)"while",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody17");
-//
-currentRule = getRule("BlockStart");
-currentRule.immediate = BlockStartTawkNow;
-addTest(7,(void*)"{","brace",1,1,"defaultSKIP");
-//
-currentRule = getRule("ClassBlockStart");
-currentRule.immediate = ClassBlockStartTawkNow;
-addTest(7,(void*)"{",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("OperationTail");
-currentRule.immediate = OperationTailTawkNow;
-addTest(5,(void*)getRule("Operator"),"operate",1,1,"defaultSKIP");
-currentSet = compareSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Question"),"question",0,1,"defaultSKIP");
-currentRule.next = getRule("OperationTail2");
-currentRule.fail = assignFailed;
-//
-currentRule = getRule("MacroBlock");
-currentRule.immediate = MacroBlockTawkNow;
-addTest(5,(void*)getRule("Line"),"line",0,268435455,"defaultSKIP");
-//
-currentRule = getRule("OverLoadItem4");
-currentRule.immediate = OverLoadItem4TawkNow;
-addTest(5,(void*)getRule("OverLoadItem4Block1"),"newOp",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-currentRule.next = getRule("OverLoadItem5");
-//
-currentRule = getRule("Body2");
-currentRule.immediate = Body2TawkNow;
-addTest(5,(void*)getRule("Method"),"body",1,1,"defaultSKIP");
-currentRule.next = getRule("Body3");
-//
-currentRule = getRule("Statement2");
-currentRule.immediate = Statement2TawkNow;
-addTest(5,(void*)getRule("StatementBody"),"statement",1,1,"defaultSKIP");
-//
-currentRule = getRule("Body3");
-currentRule.immediate = Body3TawkNow;
-addTest(5,(void*)getRule("Declaration"),"body",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected a semi-colon";
-currentRule.next = getRule("Body4");
-//
-currentRule = getRule("SecondaryExpression2");
-currentRule.immediate = SecondaryExpression2TawkNow;
-addTest(7,(void*)"sizeof","instance",1,1,"defaultSKIP");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Type"),(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)"*","pointer",0,268435455,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("PrimaryExpression2");
-addTest(5,(void*)getRule("SecondaryExpression"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("PrimaryExpression3");
-//
-currentRule = getRule("InitExpression2");
-addTest(5,(void*)getRule("RangeField"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("StringExpression2");
-currentRule.immediate = StringExpression2TawkNow;
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("UnaryExpression2");
-currentRule.immediate = UnaryExpression2TawkNow;
-addTest(5,(void*)getRule("UnaryOperator"),"operate",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("CastExpression"),"cast",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("PrimaryExpression"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("UnaryExpression3");
-//
-currentRule = getRule("ClassBlock");
-currentRule.immediate = ClassBlockTawkNow;
-addTest(5,(void*)getRule("ClassBlockStart"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Body"),(String)null,0,268435455,"defaultSKIP");
-addTest(7,(void*)"}",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected }, static, or type";
-//
-currentRule = getRule("ClassHeading");
-currentRule.immediate = ClassHeadingTawkNow;
-addTest(7,(void*)"class",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ClassName"),"nom",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ClassAttributes"),"attributes",0,268435455,"defaultSKIP");
-currentRule.next = getRule("ClassHeading2");
-//
-currentRule = getRule("StatementBody14");
-currentRule.immediate = StatementBody14TawkNow;
-addTest(7,(void*)";","statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody15");
-//
-currentRule = getRule("RangeTail");
-addTest(4,(void*)Ranges,"operate",1,1,"defaultSKIP");
-currentSet = rangeSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("ExpressItem");
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("ClassHeading2");
-currentRule.immediate = ClassHeading2TawkNow;
-addTest(7,(void*)"external","externalRef",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Structure"),"structure",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("ClassHeading3");
-//
-currentRule = getRule("Constant");
-addTest(5,(void*)getRule("Number"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("Constant2");
-//
-currentRule = getRule("Inheritance");
-addTest(5,(void*)getRule("Extends"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Inheritance2");
-//
-currentRule = getRule("ClassHeading3");
-currentRule.immediate = ClassHeading3TawkNow;
-addTest(7,(void*)"external",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ClassHeading3Block15"),"kind",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ClassName"),"nom",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("ClassAttributes"),"attributes",0,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("ItemArray");
-addTest(7,(void*)"[",(String)null,1,1,"defaultSKIP");
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,0,268435455,"defaultSKIP");
-addTest(7,(void*)"]",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Else2");
-currentRule.immediate = Else2TawkNow;
-addTest(7,(void*)"or",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("IfBody"),"statement",1,1,"defaultSKIP");
-//
-currentRule = getRule("CommentBody2");
-addTest(7,(void*)"//",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("EndComment"),"end",1,1,"defaultSKIP");
-currentRule.next = getRule("CommentBody3");
-//
-currentRule = getRule("StatementBody2");
-currentRule.immediate = StatementBody2TawkNow;
-addTest(5,(void*)getRule("Block"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody3");
-//
-currentRule = getRule("Number2Block8Block9");
-addTest(7,(void*)"0",(String)null,1,1,(String)null);
-currentSet = getSet("xX");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = getSet("01234567890-9abcdefa-fABCDEFA-F");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("Extends");
-currentRule.immediate = ExtendsTawkNow;
-addTest(5,(void*)getRule("ClassHeading"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ClassBlock"),(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("Extends2");
-//
-currentRule = getRule("Inheritance4");
-currentRule.immediate = Inheritance4TawkNow;
-addTest(5,(void*)getRule("EndComment"),"error",1,1,"defaultSKIP");
-//
-currentRule = getRule("PrintCommand");
-currentRule.immediate = PrintCommandTawkNow;
-addTest(7,(void*)"print","printer",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("PrintTarget"),"target",0,1,(String)null);
-currentRule.next = getRule("PrintCommand2");
-//
-currentRule = getRule("PoundCommand");
-currentRule.immediate = PoundCommandTawkNow;
-addTest(4,(void*)State,"state",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Type"),"type",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Count"),"level",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("RuleList"),"list",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("FieldList"),"field",0,1,"defaultSKIP");
-currentRule.next = getRule("PoundCommand2");
-//
-currentRule = getRule("Template2Any");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("FieldBody");
-currentRule.defer = FieldBodyTawkAct;
-addTest(5,(void*)getRule("Bump"),"prefix",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("FieldComponent"),"part",1,1,"defaultSKIP");
-currentRule.next = getRule("FieldBody2");
-//
-currentRule = getRule("FieldBody2");
-currentRule.defer = FieldBody2TawkAct;
-addTest(5,(void*)getRule("New"),"name",1,1,"defaultSKIP");
-currentRule.next = getRule("FieldBody3");
-//
-currentRule = getRule("FieldBody3");
-currentRule.immediate = FieldBody3TawkNow;
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"name",1,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Qualified");
-currentRule.immediate = QualifiedTawkNow;
-addTest(5,(void*)getRule("QualifyType"),"type",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("QualifyStart"),"field",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("QualifyTail"),"rest",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("Bump"),"postfix",0,1,"defaultSKIP");
-//
-currentRule = getRule("FieldExpression");
-currentRule.immediate = FieldExpressionTawkNow;
-addTest(5,(void*)getRule("CastExpression"),"cast",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("Expression");
-currentRule.immediate = ExpressionTawkNow;
-addTest(5,(void*)getRule("ExpressPart"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ExpressTail"),"express",0,268435455,"defaultSKIP");
-currentRule.fail = expressPartFailed;
-//
-currentRule = getRule("CastExpression");
-currentRule.immediate = CastExpressionTawkNow;
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CastType"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CastTail"),"rest",0,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("SecondaryExpression");
-currentRule.immediate = SecondaryExpressionTawkNow;
-addTest(7,(void*)"null","instance",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentRule.next = getRule("SecondaryExpression2");
-//
-currentRule = getRule("InitExpression");
-currentRule.immediate = InitExpressionTawkNow;
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("InitExpression2");
-//
-currentRule = getRule("RangeExpression");
-currentRule.immediate = RangeExpressionTawkNow;
-addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("RangeTail"),"back",1,1,"defaultSKIP");
-//
-currentRule = getRule("PrimaryExpression");
-addTest(5,(void*)getRule("Constant"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("PrimaryExpression2");
-//
-currentRule = getRule("StatementBody8");
-currentRule.immediate = StatementBody8TawkNow;
-addTest(5,(void*)getRule("Case"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody9");
-//
-currentRule = getRule("StringExpression");
-addTest(5,(void*)getRule("AllowShortcuts"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("StringExpression2");
-//
-currentRule = getRule("UnaryExpression");
-currentRule.immediate = UnaryExpressionTawkNow;
-addTest(5,(void*)getRule("UnaryOperator"),"operate",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ConditionWord"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("UnaryExpression2");
-//
-currentRule = getRule("Fielding");
-currentRule.immediate = FieldingTawkNow;
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("IfBody");
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"action",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Else"),"otherwise",0,1,"defaultSKIP");
-//
-currentRule = getRule("ForOption");
-currentRule.immediate = ForOptionTawkNow;
-addTest(7,(void*)"(","instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ExpressList"),"initial",0,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected expression list or ;";
-addTest(5,(void*)getRule("Expression"),"condition",0,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected expression or ;";
-addTest(5,(void*)getRule("ExpressList"),"increment",0,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Expected expression list or )";
-currentRule.next = getRule("ForOption2");
-//
-currentRule = getRule("ForOption2");
-currentRule.immediate = ForOption2TawkNow;
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ForOption2Block16"),"name",0,1,"defaultSKIP");
-//
-currentRule = getRule("Include");
-currentRule.immediate = IncludeTawkNow;
-addTest(5,(void*)getRule("IncludeBalancE"),"include",1,1,(String)null);
-currentRule.next = getRule("Include2");
-//
-currentRule = getRule("Include2");
-currentRule.immediate = Include2TawkNow;
-addTest(5,(void*)getRule("Include2BalancE"),"include",1,1,(String)null);
-currentRule.next = getRule("Include3");
-//
-currentRule = getRule("CommentBody3");
-addTest(5,(void*)getRule("CommentBody3BalancE"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("CommentBody4");
-//
-currentRule = getRule("StatementBody3");
-currentRule.immediate = StatementBody3TawkNow;
-addTest(7,(void*)"if",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("IfBody"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody4");
-//
-currentRule = getRule("Include3");
-currentRule.immediate = Include3TawkNow;
-addTest(5,(void*)getRule("Include3Block17"),(String)null,1,1,"defaultSKIP");
-currentSet = getSet("t");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-addTest(7,(void*)"\n","include",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("CommentBody4");
-addTest(5,(void*)getRule("CommentBody4BalancE"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("CommentBody5");
-//
-currentRule = getRule("StatementBody4");
-currentRule.immediate = StatementBody4TawkNow;
-addTest(7,(void*)"return","statement",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Expression"),"instance",0,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody5");
-//
-currentRule = getRule("InstanceTail");
-currentRule.immediate = InstanceTailTawkNow;
-addTest(5,(void*)getRule("NewArray"),"array",1,268435455,"defaultSKIP");
-currentRule.next = getRule("InstanceTail2");
-//
-currentRule = getRule("InstanceTail2");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("NoShortcuts"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ParameterList"),"expression",0,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-currentRule.fail = instanceTailFail;
-//
-currentRule = getRule("Iterating");
-currentRule.immediate = IteratingTawkNow;
-//
-currentRule = getRule("OverLoadItem5");
-currentRule.immediate = OverLoadItem5TawkNow;
-addTest(7,(void*)"()",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("Lambda");
-currentRule.immediate = LambdaTawkNow;
-addTest(5,(void*)getRule("LambdaName"),"function",1,1,"defaultSKIP");
-addTest(7,(void*)"=",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Block"),"body",1,1,"defaultSKIP");
-currentRule.next = getRule("Lambda2");
-//
-currentRule = getRule("Character");
-currentRule.immediate = CharacterTawkNow;
-addTest(5,(void*)getRule("CharacterBlock4"),"instance",1,1,(String)null);
-//
-currentRule = getRule("Lambda2");
-currentRule.immediate = Lambda2TawkNow;
-addTest(5,(void*)getRule("MethodType"),"function",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Block"),"body",1,1,"defaultSKIP");
-//
-currentRule = getRule("Line");
-currentRule.immediate = LineTawkNow;
-addTest(7,(void*)"use",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("FieldExpression"),"target",1,1,"defaultSKIP");
-currentRule.next = getRule("Line2");
-//
-currentRule = getRule("Line3");
-currentRule.immediate = Line3TawkNow;
-addTest(7,(void*)"label",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentTest.errorMessage = "Label declaration expected an ending ;";
-//
-currentRule = getRule("Format");
-addTest(7,(void*)"#",(String)null,1,1,(String)null);
+currentSet = getSet("alphaSet","alphaSet");
+currentSet = getSet("nameStartSet","nameStartSet");
+currentSet = getSet("commentSet","commentSet");
+currentSet = getSet("0-3");
+currentSet = getSet("compareSet","compareSet");
+currentSet = getSet("compareFollow","compareFollow");
+currentSet = getSet("logicSet","logicSet");
+currentSet = getSet("methodSet","methodSet");
+currentSet = getSet("methodNameSet","methodNameSet");
+currentSet = getSet("nameSet","nameSet");
+currentSet = getSet("operatorSet","operatorSet");
+currentSet = getSet("space","space");
+currentSet = getSet("rangeSet","rangeSet");
+currentSet = getSet("singleQuote","singleQuote");
+currentSet = getSet("stringOP","stringOP");
+currentSet = getSet("textFollow","textFollow");
+currentSet = getSet("typesSet","typesSet");
+currentSet = getSet("^,;\n");
+currentSet = getSet(" \t");
+currentSet = getSet("^,)");
+currentSet = getSet("a-zA-z0-9");
+currentSet = getSet("^a-zA-z0-9;");
+currentSet = getSet("^,(");
+currentSet = getSet("'");
+currentSet = getSet("a-zA-Z0-9_.");
+currentSet = getSet("A-Za-z0-9_()*");
+currentSet = getSet("^'");
+currentSet = getSet("^\n");
+currentSet = getSet("0-9");
+currentSet = getSet("nrtbf\"'\\");
+currentSet = getSet("0-9a-fA-F");
+currentSet = getSet("4-7");
 currentSet = getSet("- 0+");
-addTest(6,(void*)currentSet,(String)null,0,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,"width",0,268435455,(String)null);
-currentSet = getSet("*%.01234567890-9abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZA-Z");
-addTest(6,(void*)currentSet,(String)null,0,268435455,(String)null);
-//
-currentRule = getRule("LineByLine");
-currentRule.immediate = LineByLineTawkNow;
-addTest(5,(void*)getRule("Statement"),"line",1,268435455,"defaultSKIP");
-currentSet = getSet("ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9/(*");
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-//
-currentRule = getRule("MacroName");
-currentRule.immediate = MacroNameTawkNow;
-addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("Method");
-currentRule.immediate = MethodTawkNow;
-addTest(5,(void*)getRule("MethodType"),"method",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Block"),"block",1,1,"defaultSKIP");
-//
-currentRule = getRule("IncludeBoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"#include","begin",0,1,(String)null);
-addTest(7,(void*)"\n","end",0,1,(String)null);
-currentRule.next = getRule("IncludeAny");
-//
-currentRule = getRule("TargetMethod");
-currentRule.immediate = TargetMethodTawkNow;
-addTest(5,(void*)getRule("Name"),"target",1,1,"defaultSKIP");
-//
-currentRule = getRule("MethodHead");
-currentRule.defer = MethodHeadTawkAct;
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("MethodName"),"function",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("MethodParameters"),"head",1,1,"defaultSKIP");
-//
-currentRule = getRule("MethodType");
-currentRule.immediate = MethodTypeTawkNow;
-currentRule.defer = MethodTypeTawkAct;
-addTest(4,(void*)Linkage,"modify",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("MethodHead"),"methodHead",1,1,"defaultSKIP");
-addTest(7,(void*)"{",(String)null,1,1,"defaultSKIP");
-currentTest.isIgnored = true;
-//
-currentRule = getRule("Extends2");
-addTest(5,(void*)getRule("Comment"),(String)null,1,1,"defaultSKIP");
-currentSet = commentSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-currentRule.next = getRule("Extends3");
-//
-currentRule = getRule("Throw");
-addTest(7,(void*)"throw",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"express",1,1,"defaultSKIP");
-//
-currentRule = getRule("New");
-currentRule.defer = NewTawkAct;
-addTest(7,(void*)"new","instance",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Type"),"type",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("InstanceBody"),"body",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ArrayInitializer"),"initial",0,1,"defaultSKIP");
-//
-currentRule = getRule("NoShortcuts");
-currentRule.immediate = NoShortcutsTawkNow;
-//
-currentRule = getRule("AllowShortcuts");
-currentRule.immediate = AllowShortcutsTawkNow;
-//
-currentRule = getRule("CaseLabel2");
-currentRule.immediate = CaseLabel2TawkNow;
-addTest(5,(void*)getRule("RangeField"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("CaseLabel3");
-//
-currentRule = getRule("Parameter");
-currentRule.immediate = ParameterTawkNow;
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ParameterItem"),"item",0,268435455,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("AliasParameter");
-addTest(5,(void*)getRule("Name"),"parameter",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("AliasParameterBlock0"),"replacedBy",0,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("AliasParameter2");
-//
-currentRule = getRule("Indirection");
-currentSet = getSet("*&^");
-addTest(6,(void*)currentSet,"direct",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("ParameterItem");
-currentRule.defer = ParameterItemTawkAct;
-addTest(5,(void*)getRule("MethodHead"),"name",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("ParameterItem2");
-//
-currentRule = getRule("ParameterItem2");
-currentRule.defer = ParameterItem2TawkAct;
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-addTest(7,(void*)"[]","array",0,268435455,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("ParameterItem3");
-//
-currentRule = getRule("ParameterItem3");
-currentRule.defer = ParameterItem3TawkAct;
-addTest(7,(void*)"[]","name",1,268435455,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("ParameterItem4");
-//
-currentRule = getRule("QualifyStart2");
-addTest(5,(void*)getRule("FieldBody"),"field",1,1,"defaultSKIP");
-//
-currentRule = getRule("ParameterItem4");
-currentRule.defer = ParameterItem4TawkAct;
-addTest(5,(void*)getRule("Indirection"),"name",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("EscapeCharacters2");
-addTest(7,(void*)"u",(String)null,1,268435455,(String)null);
-currentSet = getSet("01234567890-9abcdefa-fABCDEFA-F");
-addTest(6,(void*)currentSet,(String)null,4,4,(String)null);
-currentRule.next = getRule("EscapeCharacters3");
-//
-currentRule = getRule("AliasItem2");
-currentRule.immediate = AliasItem2TawkNow;
-addTest(7,(void*)"new",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"alias",1,1,"defaultSKIP");
-currentRule.next = getRule("AliasItem3");
-//
-currentRule = getRule("Print");
-currentRule.immediate = PrintTawkNow;
-addTest(5,(void*)getRule("PrintCommand"),"start",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("PrintItem"),"arguments",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("PrintTo"),"output",0,1,"defaultSKIP");
-//
-currentRule = getRule("FieldComponent");
-addTest(5,(void*)getRule("Fielding"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("InstanceBody"),"body",0,1,"defaultSKIP");
-currentRule.next = getRule("FieldComponent2");
-//
-currentRule = getRule("PrintCommand2");
-currentRule.immediate = PrintCommand2TawkNow;
-addTest(7,(void*)"cout","stdPrint",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentRule.next = getRule("PrintCommand3");
-//
-currentRule = getRule("PoundCommand2");
-addTest(5,(void*)getRule("MacroDefine"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("PoundCommand3");
-//
-currentRule = getRule("PrintCommand3");
-currentRule.immediate = PrintCommand3TawkNow;
-addTest(7,(void*)"cerr","stdPrint",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-//
-currentRule = getRule("PoundCommand3");
-addTest(5,(void*)getRule("Directive"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("PrintItem2");
-currentRule.immediate = PrintItem2TawkNow;
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Format"),"format",0,1,"defaultSKIP");
-//
-currentRule = getRule("SaveVirtuals");
-currentRule.immediate = SaveVirtualsTawkNow;
-//
-currentRule = getRule("PrintShortcut");
-currentRule.immediate = PrintShortcutTawkNow;
-currentSet = getSet(",:`");
-addTest(6,(void*)currentSet,"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("CastType");
-currentRule.immediate = CastTypeTawkNow;
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("CastTypeBlock13"),"array",0,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody17");
-currentRule.immediate = StatementBody17TawkNow;
-addTest(5,(void*)getRule("Throw"),"statement",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody18");
-//
-currentRule = getRule("QualifyStart");
-currentRule.immediate = QualifyStartTawkNow;
-addTest(7,(void*)"this","name",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentRule.next = getRule("QualifyStart2");
-//
-currentRule = getRule("NotQuote");
-//
-currentRule = getRule("ResetType");
-currentRule.immediate = ResetTypeTawkNow;
-//
-currentRule = getRule("Start");
-currentRule.immediate = StartTawkNow;
-addTest(5,(void*)getRule("Inheritance"),(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("StatementBody");
-currentRule.immediate = StatementBodyTawkNow;
-addTest(5,(void*)getRule("CommentBody"),"statement",1,1,"defaultSKIP");
-currentSet = commentSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-currentRule.next = getRule("StatementBody2");
-//
-currentRule = getRule("CommentBody");
-addTest(5,(void*)getRule("CodePass"),"comment",1,1,"defaultSKIP");
-currentRule.next = getRule("CommentBody2");
-//
-currentRule = getRule("Template2");
-addTest(5,(void*)getRule("Template2BalancE"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody5");
-currentRule.immediate = StatementBody5TawkNow;
-addTest(7,(void*)"for",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Iterating"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ForOption"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody6");
-//
-currentRule = getRule("MethodNameSet");
-currentSet = nameStartSet;
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = methodNameSet;
-addTest(6,(void*)currentSet,(String)null,0,268435455,(String)null);
-//
-currentRule = getRule("CommentBody5");
-addTest(7,(void*)"#define",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("EndComment"),"end",1,1,"defaultSKIP");
-//
-currentRule = getRule("NameSet");
-currentSet = nameStartSet;
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = nameSet;
-addTest(6,(void*)currentSet,(String)null,0,268435455,(String)null);
-//
-currentRule = getRule("StatementBody6");
-currentRule.immediate = StatementBody6TawkNow;
-addTest(5,(void*)getRule("Print"),"statement",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody7");
-//
-currentRule = getRule("StatementBody7");
-currentRule.immediate = StatementBody7TawkNow;
-addTest(7,(void*)"while",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Iterating"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody8");
-//
-currentRule = getRule("StatementBody9");
-currentRule.immediate = StatementBody9TawkNow;
-addTest(7,(void*)"break","statement",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody10");
-//
-currentRule = getRule("StatementBody10");
-currentRule.immediate = StatementBody10TawkNow;
-addTest(7,(void*)"continue","statement",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody11");
-//
-currentRule = getRule("StatementBody11");
-currentRule.immediate = StatementBody11TawkNow;
-addTest(7,(void*)"goto","statement",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Target"),"field",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody12");
-//
-currentRule = getRule("Replacement");
-addTest(5,(void*)getRule("Quote"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Replacement2");
-//
-currentRule = getRule("NewArray");
-addTest(7,(void*)"[",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"instance",0,1,"defaultSKIP");
-addTest(7,(void*)"]",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody12");
-currentRule.immediate = StatementBody12TawkNow;
-addTest(5,(void*)getRule("Switch"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Block"),"block",1,1,"defaultSKIP");
-currentTest.errorMessage = "Switch expected a block";
-currentRule.next = getRule("StatementBody13");
-//
-currentRule = getRule("ItemHead");
-currentRule.immediate = ItemHeadTawkNow;
-addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ItemArray"),"array",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("Bits"),"bits",0,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody15");
-currentRule.immediate = StatementBody15TawkNow;
-addTest(7,(void*)"delete","statement",1,1,"defaultSKIP");
-addTest(7,(void*)"[]","array",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody16");
-//
-currentRule = getRule("StatementBody18");
-currentRule.immediate = StatementBody18TawkNow;
-addTest(5,(void*)getRule("Try"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody19");
-//
-currentRule = getRule("StatementBody19");
-currentRule.immediate = StatementBody19TawkNow;
-addTest(5,(void*)getRule("Declaration"),"statement",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody20");
-//
-currentRule = getRule("FieldComponent2");
-addTest(5,(void*)getRule("TypeName"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("InstanceBody"),"body",1,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody20");
-currentRule.immediate = StatementBody20TawkNow;
-addTest(5,(void*)getRule("Expression"),"statement",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody21");
-//
-currentRule = getRule("ClassHeading3Block15");
-addTest(4,(void*)Structures,"kind",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-//
-currentRule = getRule("EscapeCharacters");
-currentSet = getSet("nrtb\"\\");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentRule.next = getRule("EscapeCharacters2");
-//
-currentRule = getRule("StatementBody21");
-currentRule.immediate = StatementBody21TawkNow;
-addTest(5,(void*)getRule("Lambda"),"statement",1,1,"defaultSKIP");
-//
-currentRule = getRule("ForOption2Block16");
-addTest(7,(void*)"on",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("DeclareItem");
-currentRule.defer = DeclareItemTawkAct;
-addTest(5,(void*)getRule("MethodHead"),"item",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("MethodInitializer"),"instance",0,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("DeclareItem2");
-//
-currentRule = getRule("StructureItem");
-currentRule.defer = StructureItemTawkAct;
-addTest(5,(void*)getRule("Declaration"),"item",1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("StructureItem2");
-//
-currentRule = getRule("Switch");
-currentRule.immediate = SwitchTawkNow;
-addTest(7,(void*)"switch","statement",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("FieldBody3"),"name",0,1,"defaultSKIP");
-currentTest.errorMessage = "Switch expected expression in parentheses";
-//
-currentRule = getRule("Target");
-currentRule.immediate = TargetTawkNow;
-addTest(5,(void*)getRule("Qualified"),"field",1,1,"defaultSKIP");
-currentRule.next = getRule("Target2");
-//
-currentRule = getRule("PrintTarget");
-addTest(7,(void*)"(",(String)null,1,1,(String)null);
-addTest(5,(void*)getRule("FieldExpression"),"instance",0,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("CastTail");
-currentRule.immediate = CastTailTawkNow;
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CastType"),"rest",1,268435455,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("DotH");
-//
-currentRule = getRule("Target2");
-currentRule.immediate = Target2TawkNow;
-addTest(5,(void*)getRule("Name"),"field",1,1,"defaultSKIP");
-//
-currentRule = getRule("Directivise");
-addTest(5,(void*)getRule("Line"),"line",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("AliasTarget2");
-addTest(5,(void*)getRule("Name"),"target",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("AliasBody"),"body",0,1,"defaultSKIP");
-//
-currentRule = getRule("PrintItem");
-addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("PrintItem2");
-//
-currentRule = getRule("Body");
-addTest(5,(void*)getRule("Commands"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Body2");
-//
-currentRule = getRule("MethodName");
-currentRule.immediate = MethodNameTawkNow;
-addTest(5,(void*)getRule("MethodNameSet"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("Bump");
-addTest(5,(void*)getRule("BumpBlock3"),"bump",1,1,(String)null);
-//
-currentRule = getRule("CodePass");
-addTest(7,(void*)"-%",(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)"%-","comment",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("Comment");
-currentRule.immediate = CommentTawkNow;
-addTest(5,(void*)getRule("CommentBody"),"comment",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("EndComment");
-currentSet = getSet("\n");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("Count");
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("ConditionList");
-//
-currentRule = getRule("NumberBlock6");
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-addTest(7,(void*)".",(String)null,1,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-addTest(5,(void*)getRule("NumberBlock6Block7"),(String)null,0,1,(String)null);
-//
-currentRule = getRule("Declaration");
-currentRule.defer = DeclarationTawkAct;
-currentRule.doNotGuard = true;
-addTest(7,(void*)"outlet","outlet",0,1,"defaultSKIP");
-addTest(4,(void*)Linkage,"modify",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("DeclareType"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("DeclareItem"),"declare",1,268435455,"defaultSKIP");
-currentRule.next = getRule("Declaration2");
-//
-currentRule = getRule("CaseLabel3");
-currentRule.immediate = CaseLabel3TawkNow;
-addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)":",(String)null,1,1,"defaultSKIP");
-currentTest.isIgnored = true;
-currentRule.next = getRule("CaseLabel4");
-//
-currentRule = getRule("AliasTarget");
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Indirection"),"indirect",0,1,"defaultSKIP");
-currentRule.next = getRule("AliasTarget2");
-//
-currentRule = getRule("Escape");
-addTest(7,(void*)"\\",(String)null,1,1,(String)null);
-addTest(5,(void*)getRule("EscapeCharacters"),(String)null,1,1,(String)null);
-//
-currentRule = getRule("AliasItem4");
-currentRule.immediate = AliasItem4TawkNow;
-addTest(5,(void*)getRule("NameSet"),"alias",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("AliasTarget"),"value",1,1,"defaultSKIP");
-//
-currentRule = getRule("EscapeCharacters4");
-currentSet = getSet("45674-7");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,0,1,(String)null);
-//
-currentRule = getRule("ExpressList");
-currentRule.immediate = ExpressListTawkNow;
-addTest(5,(void*)getRule("NoShortcuts"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ExpressItem"),"list",1,268435455,"defaultSKIP");
-currentRule.fail = instanceTailFail;
-//
-currentRule = getRule("MacroPart");
-currentSet = getSet(",(");
-addTest(6,(void*)currentSet,(String)null,1,268435455,"defaultSKIP");
-currentRule.next = getRule("MacroPart2");
-//
-currentRule = getRule("Include3Block17");
-addTest(7,(void*)"include",(String)null,1,1,"defaultSKIP");
-saveTest = currentTest;
-addTest(7,(void*)"import",(String)null,1,1,"defaultSKIP");
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("ExpressPart");
-currentRule.immediate = ExpressPartTawkNow;
-addTest(5,(void*)getRule("SaveVirtuals"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("UnaryOperator"),"unaryOp",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("RangeTail"),(String)null,-1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ExpressType"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("OperationTail"),"express",0,268435455,"defaultSKIP");
-//
-currentRule = getRule("ClassAttributes4");
-currentRule.defer = ClassAttributes4TawkAct;
-addTest(7,(void*)"namespace",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("NameSet"),"nSpace",1,1,"defaultSKIP");
-//
-currentRule = getRule("DeclareConditions");
-addTest(7,(void*)"Conditions",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ConditionLabel"),(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("Field");
-currentRule.immediate = FieldTawkNow;
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("ParameterList");
-addTest(5,(void*)getRule("ExpressItem"),"expression",1,268435455,"defaultSKIP");
-currentRule.next = getRule("ParameterList2");
-//
-currentRule = getRule("Initializer");
-currentRule.immediate = InitializerTawkNow;
-addTest(5,(void*)getRule("ExpressList"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("Initializer2");
-//
-currentRule = getRule("ArrayInitializer");
-currentRule.immediate = ArrayInitializerTawkNow;
-addTest(7,(void*)"{",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Initializer"),"instance",0,268435455,"defaultSKIP");
-addTest(7,(void*)"}",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("CommentBody4Any");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("ItemInitializer");
-addTest(7,(void*)"=",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("SetObject"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ItemInitializerBlock12"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("MethodInitializer");
-addTest(7,(void*)"=",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("RangeField2");
-addTest(5,(void*)getRule("RangeExpression"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("InstanceBody");
-addTest(5,(void*)getRule("InstanceTail"),"body",1,1,"defaultSKIP");
-//
-currentRule = getRule("Quote");
-currentRule.immediate = QuoteTawkNow;
-addTest(7,(void*)"@","string",0,1,(String)null);
-addTest(7,(void*)"\"","instance",1,1,(String)null);
-addTest(7,(void*)"\"","body",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("Label");
-addTest(5,(void*)getRule("Name"),"name",1,1,(String)null);
-addTest(7,(void*)":",(String)null,1,1,(String)null);
-//
-currentRule = getRule("MethodParameters");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Parameter"),"parameter",0,268435455,"defaultSKIP");
-addTest(7,(void*)"...","ellipsis",0,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Initializer2");
-addTest(5,(void*)getRule("ArrayInitializer"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("AssumedString");
-currentRule.immediate = AssumedStringTawkNow;
-addTest(5,(void*)getRule("NameSet"),"instance",1,1,(String)null);
-//
-currentRule = getRule("MacroParameters");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("MacroElement"),"parameters",1,268435455,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("AliasParameters");
-addTest(5,(void*)getRule("AliasParameter"),"body",0,268435455,"defaultSKIP");
-//
-currentRule = getRule("InitializerItem");
-currentRule.immediate = InitializerItemTawkNow;
-addTest(5,(void*)getRule("NameSet"),"field",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("NameSet"),"function",1,1,"defaultSKIP");
-//
-currentRule = getRule("CheckMacroParameters");
-currentRule.immediate = CheckMacroParametersTawkNow;
-addTest(5,(void*)getRule("CheckMacroParametersBalancE"),"braced",1,1,"defaultSKIP");
-//
-currentRule = getRule("Modify");
-//
-currentRule = getRule("Name");
-currentRule.immediate = NameTawkNow;
-addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("NotQuote2");
-//
-currentRule = getRule("Number");
-currentRule.immediate = NumberTawkNow;
-addTest(5,(void*)getRule("NumberBlock6"),"instance",1,1,(String)null);
-currentRule.next = getRule("Number2");
-//
-currentRule = getRule("Operator");
-currentRule.immediate = OperatorTawkNow;
-addTest(4,(void*)Operators,"operand",1,1,"defaultSKIP");
-currentSet = operatorSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-currentRule.next = getRule("Operator2");
-//
-currentRule = getRule("UnaryOperator");
-addTest(5,(void*)getRule("Bump"),"operate",1,1,"defaultSKIP");
-currentRule.next = getRule("UnaryOperator2");
-//
-currentRule = getRule("Path");
-addTest(7,(void*)"/",(String)null,0,1,(String)null);
-addTest(5,(void*)getRule("PathBlock11"),(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("Imports");
-addTest(5,(void*)getRule("Include"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Imports2");
-//
-currentRule = getRule("PrintSet");
-//
-currentRule = getRule("Inheritance2");
-addTest(5,(void*)getRule("Imports"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Inheritance3");
-//
-currentRule = getRule("Question");
-currentRule.immediate = QuestionTawkNow;
-addTest(7,(void*)"?","question",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"trueExp",1,1,"defaultSKIP");
-addTest(7,(void*)":",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"falseExp",1,1,"defaultSKIP");
-//
-currentRule = getRule("RangeField");
-currentRule.immediate = RangeFieldTawkNow;
-addTest(5,(void*)getRule("Name"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("RangeField2");
-//
-currentRule = getRule("RuleList");
-addTest(7,(void*)"Rule",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("DebugRule"),"debugRULE",1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("ClassName");
-currentRule.immediate = ClassNameTawkNow;
-addTest(5,(void*)getRule("ClassAttributes"),(String)null,-1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Path"),"path",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("NameSet"),"name",1,1,(String)null);
-addTest(5,(void*)getRule("Template"),"temp",0,1,"defaultSKIP");
-addTest(7,(void*)".h","dotH",0,1,(String)null);
-//
-currentRule = getRule("Statement");
-addTest(5,(void*)getRule("CheckMacro"),"statement",1,1,"defaultSKIP");
-currentRule.next = getRule("Statement2");
-//
-currentRule = getRule("FieldList");
-addTest(7,(void*)"Field",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentSet = getSet("ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_()*");
-addTest(6,(void*)currentSet,"name",0,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("FieldList2");
-//
-currentRule = getRule("Strings");
-currentRule.immediate = StringsTawkNow;
-addTest(5,(void*)getRule("StringExpression"),"item",1,268435455,"defaultSKIP");
-currentSet = getSet(";");
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-//
-currentRule = getRule("MacroPart2");
-addTest(5,(void*)getRule("Braced"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("SyntaxExtensions");
-addTest(7,(void*)"overload",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("OverLoadItem"),(String)null,1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("SyntaxExtensions2");
-//
-currentRule = getRule("ItemInitializerBlock12");
-addTest(5,(void*)getRule("ArrayInitializer"),"instance",1,1,"defaultSKIP");
-saveTest = currentTest;
-addTest(5,(void*)getRule("InitExpression"),"instance",1,1,"defaultSKIP");
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("Template");
-addTest(7,(void*)"<>",(String)null,1,1,(String)null);
-currentRule.next = getRule("Template2");
-//
-currentRule = getRule("PrimaryExpression3");
-addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("PrimaryExpression4");
-//
-currentRule = getRule("Body4");
-addTest(5,(void*)getRule("Comment"),(String)null,1,1,"defaultSKIP");
-currentSet = commentSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-currentRule.next = getRule("Body5");
-//
-currentRule = getRule("FieldList2");
-addTest(7,(void*)"Map;",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("UnaryExpression3");
-addTest(5,(void*)getRule("AllowShortcuts"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("Try");
-addTest(7,(void*)"try",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Catch"),"catch",0,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("Final"),"end",0,1,"defaultSKIP");
-//
-currentRule = getRule("StructureBody2");
-currentRule.defer = StructureBody2TawkAct;
-addTest(5,(void*)getRule("StructureItem"),"entry",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("Type");
-currentRule.immediate = TypeTawkNow;
-currentRule.doNotGuard = true;
-addTest(7,(void*)"const","hasConst",0,1,"defaultSKIP");
-addTest(7,(void*)"unsigned","noSign",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("TypeName"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Template"),"temp",0,1,"defaultSKIP");
-//
-currentRule = getRule("TypeList");
-currentRule.immediate = TypeListTawkNow;
-addTest(5,(void*)getRule("Type"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("Include2BalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"#import","start",1,1,(String)null);
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("Include2BoDY"),"body",0,268435455,(String)null);
-addTest(7,(void*)"\n","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("IncludeBalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"#include","start",1,1,(String)null);
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("IncludeBoDY"),"body",0,268435455,(String)null);
-addTest(7,(void*)"\n","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("Template2BalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"<","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("Template2BoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)">","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("CommentBody4BalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"#ifdef","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("CommentBody4BoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)"#endif","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("CommentBody3BalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"/*","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("CommentBody3BoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)"*/","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("ClassAttributes");
-currentRule.defer = ClassAttributesTawkAct;
-addTest(4,(void*)Attributes,"trait",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentRule.next = getRule("ClassAttributes2");
-//
-currentRule = getRule("CheckMacroParametersBalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("CheckMacroParametersBoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)")","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("BracedBalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("BracedBoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)")","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("AliasBodyBalancE");
-currentRule.immediate = balancE;
-addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-currentTest.leftBalance = true;
-addTest(5,(void*)getRule("AliasBodyBoDY"),"body",0,268435455,"defaultSKIP");
-addTest(7,(void*)")","finish",1,1,(String)null);
-currentTest.rightBalance = true;
-//
-currentRule = getRule("AliasItem");
-currentRule.immediate = AliasItemTawkNow;
-addTest(5,(void*)getRule("Field"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("TargetMethod"),"target",1,1,"defaultSKIP");
-currentRule.next = getRule("AliasItem2");
-//
-currentRule = getRule("CheckMacro");
-currentRule.immediate = CheckMacroTawkNow;
-addTest(5,(void*)getRule("MacroName"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CheckMacroParameters"),"braced",0,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("ConditionLabel");
-currentRule.immediate = ConditionLabelTawkNow;
-addTest(5,(void*)getRule("Name"),"label",1,1,"defaultSKIP");
-currentSet = getSet("t");
-addTest(6,(void*)currentSet,(String)null,0,1,"defaultSKIP");
-addTest(7,(void*)"\n","text",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("NumberBlock6Block7");
+currentSet = getSet("*%.0-9a-zA-Z");
 currentSet = getSet("eE");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = getSet("-+");
-addTest(6,(void*)currentSet,(String)null,0,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("Extender");
-currentRule.immediate = ExtenderTawkNow;
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("QualifyType");
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(7,(void*)".",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("OverLoadItem");
-currentRule.immediate = OverLoadItemTawkNow;
-addTest(5,(void*)getRule("Operator"),"operate",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-currentRule.next = getRule("OverLoadItem2");
-//
-currentRule = getRule("ButtonArray");
-currentRule.defer = ButtonArrayTawkAct;
-addTest(7,(void*)"[",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"button",1,268435455,"defaultSKIP");
-addTest(7,(void*)"]",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("OverLoadItem2");
-currentRule.immediate = OverLoadItem2TawkNow;
-addTest(7,(void*)"[]",(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)"=","assign",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-currentRule.next = getRule("OverLoadItem3");
-//
-currentRule = getRule("OverLoadItem3");
-currentRule.immediate = OverLoadItem3TawkNow;
-addTest(5,(void*)getRule("Bump"),"operate",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-currentRule.next = getRule("OverLoadItem4");
-//
-currentRule = getRule("MacroBit");
-currentRule.immediate = MacroBitTawkNow;
-currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`A-z01234567890-9");
-addTest(6,(void*)currentSet,"bitpart",1,268435455,(String)null);
-//
-currentRule = getRule("DeclareItem3");
-currentRule.defer = DeclareItem3TawkAct;
-addTest(5,(void*)getRule("ItemHead"),"item",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ItemInitializer"),"assign",0,1,"defaultSKIP");
-addTest(7,(void*)":","initialize",0,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("Assuming");
-currentRule.immediate = AssumingTawkNow;
-//
-currentRule = getRule("MacroBody");
-currentRule.immediate = MacroBodyTawkNow;
-addTest(5,(void*)getRule("MacroBodyPart"),"parts",1,268435455,(String)null);
-//
-currentRule = getRule("MacroDelimit");
-currentRule.immediate = MacroDelimitTawkNow;
-currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`A-z01234567890-9;");
-addTest(6,(void*)currentSet,"delimiter",1,1,"defaultSKIP");
-//
-currentRule = getRule("MacroDefine");
-currentRule.immediate = MacroDefineTawkNow;
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("MacroParameters"),"parameters",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("MacroDelimit"),(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)&macroDelimiter,"body",0,1,(String)null);
-currentTest.aVariable = true;
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("Replacement2");
-currentSet = getSet(",n");
-addTest(6,(void*)currentSet,(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("DeclareItem2");
-currentRule.defer = DeclareItem2TawkAct;
-addTest(5,(void*)getRule("Name"),"item",1,1,"defaultSKIP");
-addTest(7,(void*)"(",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Expression"),"argument",1,1,"defaultSKIP");
-addTest(7,(void*)")",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("DeclareItem3");
-//
-currentRule = getRule("StructureItem2");
-currentRule.defer = StructureItem2TawkAct;
-addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Bits"),"bits",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("ButtonArray"),"buttons",0,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("AliasParameterBlock0");
-addTest(7,(void*)"=",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Replacement"),"replacedBy",1,1,"defaultSKIP");
-//
-currentRule = getRule("AliasBodyAny");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("AliasParameter2");
-addTest(5,(void*)getRule("Replacement"),"parameter",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("AliasBody");
-addTest(5,(void*)getRule("AliasBodyBalancE"),"body",1,1,"defaultSKIP");
-//
-currentRule = getRule("LambdaName");
-currentRule.immediate = LambdaNameTawkNow;
-addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-//
-currentRule = getRule("AliasBodyBoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"(","begin",0,1,(String)null);
-addTest(7,(void*)")","end",0,1,(String)null);
-currentRule.next = getRule("AliasBodyAny");
-//
-currentRule = getRule("ExpressType");
-currentRule.immediate = ExpressTypeTawkNow;
-//
-currentRule = getRule("AliasItem3");
-addTest(5,(void*)getRule("Comment"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("AliasItem4");
-//
-currentRule = getRule("EscapeCharacters3");
-currentSet = getSet("01230-3");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,0,1,(String)null);
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,0,1,(String)null);
-currentRule.next = getRule("EscapeCharacters4");
-//
-currentRule = getRule("Final");
-addTest(7,(void*)"finally",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("OverLoadItem4Block1");
-currentSet = operatorSet;
-addTest(6,(void*)currentSet,(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("MacroElement");
-currentSet = getSet(",)");
-addTest(6,(void*)currentSet,"element",1,268435455,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("Declaration3");
-addTest(5,(void*)getRule("DeclareConditions"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("MacroBodyPart");
-currentRule.doNotGuard = true;
-addTest(5,(void*)getRule("MacroBit"),"other",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-currentRule.next = getRule("MacroBodyPart2");
-//
-currentRule = getRule("MacroBodyPart2");
-addTest(1,(void*)null,"rest",1,268435455,(String)null);
-//
-currentRule = getRule("CharacterBlock4Block5");
-addTest(5,(void*)getRule("Escape"),(String)null,1,1,(String)null);
-saveTest = currentTest;
-currentSet = getSet("'");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("Braced");
-addTest(5,(void*)getRule("BracedBalancE"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Case");
-currentRule.immediate = CaseTawkNow;
-addTest(7,(void*)"default:","instance",1,1,"defaultSKIP");
-currentRule.next = getRule("Case2");
-//
-currentRule = getRule("BracedBoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"(","begin",0,1,(String)null);
-addTest(7,(void*)")","end",0,1,(String)null);
-currentRule.next = getRule("BracedAny");
-//
-currentRule = getRule("Case2");
-currentRule.immediate = Case2TawkNow;
-addTest(7,(void*)"case",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Assuming"),(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CaseLabel"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)":",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Case3");
-currentRule.fail = caseLabelFail;
-//
-currentRule = getRule("BracedAny");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("Constant4");
-currentRule.immediate = Constant4TawkNow;
-addTest(7,(void*)"true","instance",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-currentRule.next = getRule("Constant5");
-//
-currentRule = getRule("MacroArgument");
-addTest(5,(void*)getRule("MacroArgumentBlock2"),"part",1,1,"defaultSKIP");
-addTest(7,(void*)",",(String)null,0,1,"defaultSKIP");
-//
-currentRule = getRule("MacroArgumentBlock2");
-addTest(5,(void*)getRule("MacroPart"),(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("IncludeAny");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("MacroArgumentList");
-addTest(5,(void*)getRule("MacroArgument"),"argument",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("Line2");
-addTest(7,(void*)"}",(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("Line3");
-//
-currentRule = getRule("CheckMacroParametersBoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"(","begin",0,1,(String)null);
-addTest(7,(void*)")","end",0,1,(String)null);
-currentRule.next = getRule("CheckMacroParametersAny");
-//
-currentRule = getRule("CheckMacroParametersAny");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("CodeMatch2");
-addTest(4,(void*)Directives,(String)null,-1,1,"defaultSKIP");
-currentSet = space;
-addTest(6,(void*)currentSet,"body",0,1,(String)null);
-currentTest.processUpTo = true;
-//
-currentRule = getRule("OperationTail2");
-currentRule.immediate = OperationTail2TawkNow;
-addTest(5,(void*)getRule("Question"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("OperationTail3");
-//
-currentRule = getRule("Case3");
-currentRule.immediate = Case3TawkNow;
-addTest(5,(void*)getRule("Label"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("CaseLabel");
-currentRule.immediate = CaseLabelTawkNow;
-addTest(5,(void*)getRule("Constant"),"instance",1,1,"defaultSKIP");
-addTest(7,(void*)":",(String)null,1,1,"defaultSKIP");
-currentTest.isIgnored = true;
-currentRule.next = getRule("CaseLabel2");
-//
-currentRule = getRule("CaseLabel5");
-currentRule.immediate = CaseLabel5TawkNow;
-addTest(5,(void*)getRule("Name"),"instance",1,1,"defaultSKIP");
-//
-currentRule = getRule("ClassAttributes2");
-currentRule.defer = ClassAttributes2TawkAct;
-addTest(7,(void*)"extends",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-currentRule.next = getRule("ClassAttributes3");
-//
-currentRule = getRule("ClassAttributes3");
-currentRule.defer = ClassAttributes3TawkAct;
-addTest(7,(void*)"implements",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Type"),"proto",1,268435455,"defaultSKIP");
-currentRule.next = getRule("ClassAttributes4");
-//
-currentRule = getRule("Constant5");
-currentRule.immediate = Constant5TawkNow;
-addTest(7,(void*)"false","instance",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-//
-currentRule = getRule("Commands");
-addTest(7,(void*)"#",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("PoundCommand"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("Commands2");
-//
-currentRule = getRule("DebugDirective");
-currentRule.defer = DebugDirectiveTawkAct;
-addTest(7,(void*)"#",(String)null,-1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Comment"),(String)null,0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Name"),"method",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("CodeMatch"),"body",0,1,"defaultSKIP");
-addTest(4,(void*)Directives,"locate",0,1,"defaultSKIP");
-addTest(7,(void*)"active","active",0,1,"defaultSKIP");
-addTest(7,(void*)"#;","code",0,1,(String)null);
-currentTest.skipOverMatch = true;
-currentTest.processUpTo = true;
-//
-currentRule = getRule("Directive");
-currentRule.immediate = DirectiveTawkNow;
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("DebugDirective"),"directives",0,268435455,"defaultSKIP");
-//
-currentRule = getRule("FileName");
-currentRule.immediate = FileNameTawkNow;
-addTest(5,(void*)getRule("Path"),"path",0,1,(String)null);
-addTest(5,(void*)getRule("NameSet"),"name",1,1,(String)null);
-addTest(7,(void*)".twk",(String)null,1,1,(String)null);
-//
-currentRule = getRule("Number2");
-currentRule.immediate = Number2TawkNow;
-addTest(5,(void*)getRule("Number2Block8"),"instance",1,1,(String)null);
+currentSet = getSet("xX");
 currentSet = getSet("lL");
-addTest(6,(void*)currentSet,"isLong",0,1,(String)null);
-//
-currentRule = getRule("DebugText");
-currentRule.immediate = DebugTextTawkNow;
-addTest(7,(void*)"=",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Quote"),"upcoming",1,1,"defaultSKIP");
-//
-currentRule = getRule("DebugRule");
-currentRule.immediate = DebugRuleTawkNow;
-addTest(5,(void*)getRule("NameSet"),"name",1,268435455,"defaultSKIP");
-addTest(5,(void*)getRule("DebugText"),"upcoming",0,1,"defaultSKIP");
-//
-currentRule = getRule("Stop");
-currentRule.immediate = StopTawkNow;
-//
-currentRule = getRule("Constant3");
-addTest(5,(void*)getRule("Quote"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("Constant4");
-//
-currentRule = getRule("SyntaxExtensions2");
-currentRule.immediate = SyntaxExtensions2TawkNow;
-addTest(7,(void*)"alias",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("AliasItem"),(String)null,1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("SyntaxExtensions3");
-//
-currentRule = getRule("Alpha");
-currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZA-Z01234567890-9_.");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("BumpBlock3");
-addTest(7,(void*)"++","bump",1,1,(String)null);
-saveTest = currentTest;
-addTest(7,(void*)"--","bump",1,1,(String)null);
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("CharacterBlock4");
-currentSet = getSet("'");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-addTest(5,(void*)getRule("CharacterBlock4Block5"),(String)null,1,1,(String)null);
-currentSet = getSet("'");
-addTest(6,(void*)currentSet,(String)null,1,1,(String)null);
-//
-currentRule = getRule("CaseLabel4");
-addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("CaseLabel5");
-//
-currentRule = getRule("Commands2");
-addTest(5,(void*)getRule("SyntaxExtensions"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("CommentBody3BoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"/*","begin",0,1,(String)null);
-addTest(7,(void*)"*/","end",0,1,(String)null);
-currentRule.next = getRule("CommentBody3Any");
-//
-currentRule = getRule("CommentBody3Any");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("PathBlock11");
-addTest(5,(void*)getRule("Alpha"),(String)null,1,1,(String)null);
-addTest(7,(void*)"/",(String)null,1,1,(String)null);
-//
-currentRule = getRule("CommentBody4BoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"#ifdef","begin",0,1,(String)null);
-addTest(7,(void*)"#endif","end",0,1,(String)null);
-currentRule.next = getRule("CommentBody4Any");
-//
-currentRule = getRule("CodeMatch");
-addTest(5,(void*)getRule("Quote"),"body",1,1,"defaultSKIP");
-currentRule.next = getRule("CodeMatch2");
-//
-currentRule = getRule("Constant2");
-addTest(5,(void*)getRule("Character"),"instance",1,1,"defaultSKIP");
-currentRule.next = getRule("Constant3");
-//
-currentRule = getRule("SyntaxExtensions3");
-addTest(7,(void*)"extender",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Extender"),(String)null,1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("SyntaxExtensions4");
-//
-currentRule = getRule("SyntaxExtensions4");
-addTest(7,(void*)"initializer",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("InitializerItem"),(String)null,1,268435455,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Number2Block8");
-addTest(5,(void*)getRule("Number2Block8Block9"),"instance",1,1,(String)null);
-saveTest = currentTest;
-addTest(5,(void*)getRule("Number2Block8Block10"),"instance",1,1,(String)null);
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("Number2Block8Block10");
-currentSet = getSet("01234567890-9");
-addTest(6,(void*)currentSet,(String)null,1,268435455,(String)null);
-//
-currentRule = getRule("DeclareType");
-currentRule.immediate = DeclareTypeTawkNow;
-currentRule.doNotGuard = true;
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-//
-currentRule = getRule("StructureType");
-addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-currentRule.next = getRule("StructureType2");
-//
-currentRule = getRule("Declaration2");
-currentRule.defer = Declaration2TawkAct;
-addTest(5,(void*)getRule("Structure"),"declare",1,1,"defaultSKIP");
-currentRule.next = getRule("Declaration3");
-//
-currentRule = getRule("SetObject");
-currentRule.immediate = SetObjectTawkNow;
-//
-currentRule = getRule("Structure");
-currentRule.defer = StructureTawkAct;
-addTest(4,(void*)Structures,"kind",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("StructureBody"),"body",1,1,"defaultSKIP");
-//
-currentRule = getRule("StructureBody");
-currentRule.defer = StructureBodyTawkAct;
-addTest(5,(void*)getRule("StructureType"),"label",1,1,"defaultSKIP");
-addTest(7,(void*)"{",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("StructureItem"),"entry",1,268435455,"defaultSKIP");
-addTest(7,(void*)"}",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("DeclareItem"),"field",0,268435455,"defaultSKIP");
-currentRule.next = getRule("StructureBody2");
-//
-currentRule = getRule("StructureType2");
-currentRule.defer = StructureType2TawkAct;
-addTest(5,(void*)getRule("Name"),"type",1,1,"defaultSKIP");
-//
-currentRule = getRule("StatementBody13");
-addTest(5,(void*)getRule("Commands"),(String)null,1,1,"defaultSKIP");
-currentRule.next = getRule("StatementBody14");
-//
-currentRule = getRule("QualifyTail");
-addTest(7,(void*)".",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("FieldBody"),"field",1,1,"defaultSKIP");
-//
-currentRule = getRule("TypeName");
-currentRule.immediate = TypeNameTawkNow;
-addTest(5,(void*)getRule("NameSet"),"type",1,1,"defaultSKIP");
-//
-currentRule = getRule("Bits");
-addTest(7,(void*)":",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Number"),"length",1,1,"defaultSKIP");
-//
-currentRule = getRule("Template2BoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"<","begin",0,1,(String)null);
-addTest(7,(void*)">","end",0,1,(String)null);
-currentRule.next = getRule("Template2Any");
-//
-currentRule = getRule("Include2BoDY");
-currentRule.immediate = balancEbody;
-addTest(7,(void*)"#import","begin",0,1,(String)null);
-addTest(7,(void*)"\n","end",0,1,(String)null);
-currentRule.next = getRule("Include2Any");
-//
-currentRule = getRule("ConditionWord");
-currentRule.defer = ConditionWordTawkAct;
-currentRule.doNotGuard = true;
-addTest(4,(void*)Conditions,"list",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-//
-currentRule = getRule("Operator2");
-currentRule.immediate = Operator2TawkNow;
-addTest(4,(void*)Comparisons,"comparator",1,1,"defaultSKIP");
-currentSet = logicSet;
-currentRule.guardSet = currentSet;
-currentTest.guardSet = currentSet;
-currentSet = alphaSet;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-//
-currentRule = getRule("Divert");
-addTest(5,(void*)getRule("Inheritance"),(String)null,1,268435455,"defaultSKIP");
-//
-currentRule = getRule("UnaryOperator2");
-currentRule.immediate = UnaryOperator2TawkNow;
+currentSet = getSet("*&^");
 currentSet = getSet("-+!~");
-addTest(6,(void*)currentSet,"operate",1,268435455,"defaultSKIP");
-//
-currentRule = getRule("CastTypeBlock13");
-addTest(7,(void*)"[]",(String)null,1,268435455,"defaultSKIP");
-//
+currentSet = getSet(",:`");
+
+currentRule = getRule("Block");
+currentAlt = new Alternative();
+addTest(6, "BlockStart", "start", 1, 1, "");
+addTest(6, "Line", "line", 0, 999999, "");
+addTest(1, "}", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Body");
+currentAlt = new Alternative();
+addTest(6, "Commands", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Method", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Declaration", "body", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Comment", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Include3", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodName");
+currentAlt = new Alternative();
+addTest(6, "MethodNameSet", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Bump");
+currentAlt = new Alternative();
+addTest(6, "BumpBlock0", "bump", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CastExpression");
+currentAlt = new Alternative();
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "CastType", "type", 1, 1, "");
+addTest(6, "CastTail", "rest", 0, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Expression");
+currentAlt = new Alternative();
+addTest(6, "ExpressPart", "instance", 1, 1, "");
+addTest(6, "ExpressTail", "express", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrimaryExpression");
+currentAlt = new Alternative();
+addTest(6, "Constant", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "SecondaryExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "FieldExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "AssumedString", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FieldExpression");
+currentAlt = new Alternative();
+addTest(6, "CastExpression", "cast", 0, 1, "");
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "Qualified", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("InitExpression");
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "RangeField", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("RangeExpression");
+currentAlt = new Alternative();
+addTest(6, "UnaryExpression", "instance", 1, 1, "");
+addTest(6, "RangeTail", "back", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("SecondaryExpression");
+currentAlt = new Alternative();
+addTest(1, "null", "instance", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "sizeof", "instance", 1, 1, "");
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "Type", "", 1, 1, "");
+addTest(1, "*", "pointer", 0, 999999, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("StringExpression");
+currentAlt = new Alternative();
+addTest(6, "AllowShortcuts", "", 1, 1, "");
+addTest(6, "PrintShortcut", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("UnaryExpression");
+currentAlt = new Alternative();
+addTest(6, "UnaryOperator", "operate", 0, 1, "");
+addTest(6, "ConditionWord", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "UnaryOperator", "operate", 0, 1, "");
+addTest(6, "CastExpression", "cast", 0, 1, "");
+addTest(6, "PrimaryExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "AllowShortcuts", "", 1, 1, "");
+addTest(6, "PrintShortcut", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CastType");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "CastTypeBlock0", "array", 0, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrintShortcut");
+currentAlt = new Alternative();
+addTest(3, ",:`", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CodePass");
+currentAlt = new Alternative();
+addTest(1, "-%", "", 1, 1, "");
+addTest(3, "^%-", "comment", 1, 999999, "");
+addTest(1, "%-", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CastTypeBlock0");
+currentAlt = new Alternative();
+addTest(1, "[]", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("OverLoadItemBlock0");
+currentAlt = new Alternative();
+addTest(3, "operatorSet", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("IncludeBlock0");
+currentAlt = new Alternative();
+addTest(1, "include", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "import", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Comment");
+currentAlt = new Alternative();
+addTest(6, "CommentBody", "comment", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("EndComment");
+currentAlt = new Alternative();
+addTest(3, "^\n", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Count");
+currentAlt = new Alternative();
+addTest(3, "0-9", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ConditionList");
+
+currentRule = getRule("Constant");
+currentAlt = new Alternative();
+addTest(6, "Number", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Character", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Quote", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "true", "instance", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "false", "instance", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Inheritance");
+currentAlt = new Alternative();
+addTest(6, "Extends", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Imports", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Body", "method", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "EndComment", "error", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Declaration");
+currentAlt = new Alternative();
+addTest(1, "outlet", "outlet", 0, 1, "");
+{
+Element *elem = new Element();
+elem->minimum = 0;
+elem->maximum = 999999;
+elem->kind = 8;
+elem->label = "modify";
+currentAlt->elements.add((void*)elem);
+}
+addTest(6, "DeclareType", "type", 1, 1, "");
+addTest(6, "DeclareItem", "declare", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Structure", "declare", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "DeclareConditions", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasTarget");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+addTest(6, "Indirection", "indirect", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "target", 1, 1, "");
+addTest(6, "AliasBody", "body", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DotH");
+
+currentRule = getRule("CastTail");
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "CastType", "rest", 1, 999999, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Target");
+currentAlt = new Alternative();
+addTest(6, "Qualified", "field", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "field", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrintTarget");
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+setNoSkip();
+addTest(6, "FieldExpression", "instance", 0, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Escape");
+currentAlt = new Alternative();
+addTest(1, "\\", "", 1, 1, "");
+addTest(6, "EscapeCharacters", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ExpressItem");
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassHeadingBlock0");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "kind";
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassHeading");
+currentAlt = new Alternative();
+addTest(1, "class", "", 1, 1, "");
+addTest(6, "ClassName", "nom", 1, 1, "");
+addTest(6, "ClassAttributes", "attributes", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "external", "externalRef", 0, 1, "");
+addTest(6, "Structure", "structure", 1, 1, "");
+addTest(1, ";", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "external", "", 1, 1, "");
+addTest(6, "ClassHeadingBlock0", "kind", 0, 1, "");
+addTest(6, "ClassName", "nom", 0, 999999, "");
+addTest(6, "ClassAttributes", "attributes", 0, 999999, "");
+addTest(1, ";", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("RangeTail");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "operate";
+currentAlt->elements.add((void*)elem);
+}
+addTest(6, "Expression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ExpressList");
+currentAlt = new Alternative();
+addTest(6, "NoShortcuts", "", 1, 1, "");
+addTest(6, "ExpressItem", "list", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroPart");
+currentAlt = new Alternative();
+addTest(3, "^,(", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Braced", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ExpressPart");
+currentAlt = new Alternative();
+addTest(6, "SaveVirtuals", "", 1, 1, "");
+addTest(6, "UnaryOperator", "unaryOp", 0, 1, "");
+addTest(6, "UnaryExpression", "instance", 1, 1, "");
+addTest(6, "RangeTail", "", -1, 1, "");
+setBanged();
+addTest(6, "ExpressType", "", 0, 1, "");
+addTest(6, "OperationTail", "express", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DeclareConditions");
+currentAlt = new Alternative();
+addTest(1, "Conditions", "", 1, 1, "");
+addTest(6, "ConditionLabel", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Extends");
+currentAlt = new Alternative();
+addTest(6, "ClassHeading", "", 1, 1, "");
+addTest(6, "ClassBlock", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Comment", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "DeclareConditions", "", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PoundCommand");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "state";
+currentAlt->elements.add((void*)elem);
+}
+addTest(6, "Type", "type", 0, 1, "");
+addTest(6, "Count", "level", 0, 1, "");
+addTest(6, "RuleList", "list", 0, 1, "");
+addTest(6, "FieldList", "field", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "MacroDefine", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Directive", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrintCommand");
+currentAlt = new Alternative();
+addTest(1, "print", "printer", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "PrintTarget", "target", 0, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "cout", "stdPrint", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "cerr", "stdPrint", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Field");
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ParameterList");
+currentAlt = new Alternative();
+addTest(6, "ExpressItem", "expression", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "TypeList", "expression", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FieldBody3");
+
+currentRule = getRule("Qualified");
+currentAlt = new Alternative();
+addTest(6, "QualifyType", "type", 0, 1, "");
+addTest(6, "QualifyStart", "field", 1, 1, "");
+addTest(6, "QualifyTail", "rest", 0, 999999, "");
+addTest(6, "Bump", "postfix", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("IfBody");
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(6, "Comment", "", 0, 1, "");
+addTest(6, "Statement", "action", 1, 1, "");
+addTest(6, "ResetType", "", 0, 1, "");
+addTest(6, "Else", "otherwise", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Fielding");
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Indirection");
+currentAlt = new Alternative();
+addTest(3, "*&^", "direct", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasParameter");
+currentAlt = new Alternative();
+addTest(6, "Name", "parameter", 1, 1, "");
+addTest(6, "AliasParameterBlock0", "replacedBy", 0, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Replacement", "parameter", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Parameter");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+addTest(6, "ParameterItem", "item", 0, 999999, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Initializer");
+currentAlt = new Alternative();
+addTest(6, "ExpressList", "instance", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "ArrayInitializer", "instance", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ArrayInitializer");
+currentAlt = new Alternative();
+addTest(1, "{", "", 1, 1, "");
+addTest(6, "Initializer", "instance", 0, 999999, "");
+addTest(1, "}", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ItemInitializer");
+currentAlt = new Alternative();
+addTest(1, "=", "", 1, 1, "");
+addTest(6, "SetObject", "", 0, 1, "");
+addTest(6, "ItemInitializerBlock0", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodInitializer");
+currentAlt = new Alternative();
+addTest(1, "=", "", 1, 1, "");
+addTest(6, "FieldExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("InstanceBody");
+currentAlt = new Alternative();
+addTest(6, "InstanceTail", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Quote");
+currentAlt = new Alternative();
+addTest(1, "@", "string", 0, 1, "");
+addTest(1, "\"", "instance", 1, 1, "");
+addTest(3, "^\"", "body", 1, 999999, "");
+setNoSkip();
+addTest(1, "\"", "", 1, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ItemHead");
+currentAlt = new Alternative();
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+addTest(6, "ItemArray", "array", 0, 999999, "");
+addTest(6, "Bits", "bits", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Label");
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+addTest(1, ":", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Line");
+currentAlt = new Alternative();
+addTest(1, "use", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "FieldExpression", "target", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "}", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "label", "", 1, 1, "");
+addTest(6, "Name", "name", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Method");
+currentAlt = new Alternative();
+addTest(6, "MethodType", "method", 1, 1, "");
+addTest(6, "Block", "block", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("TargetMethod");
+currentAlt = new Alternative();
+addTest(6, "Name", "target", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodHead");
+currentAlt = new Alternative();
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "MethodName", "function", 0, 1, "");
+addTest(6, "MethodParameters", "head", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodParameters");
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "Parameter", "parameter", 0, 999999, "");
+addTest(1, "...", "ellipsis", 0, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AssumedString");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CheckMacroParameters");
+currentAlt = new Alternative();
+addTest(1, "(", "braced", 1, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroParameters");
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "MacroElement", "parameters", 1, 999999, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("InitializerItem");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "field", 1, 1, "");
+addTest(6, "NameSet", "function", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasParameters");
+currentAlt = new Alternative();
+addTest(6, "AliasParameter", "body", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Modify");
+
+currentRule = getRule("NumberBlock2");
+currentAlt = new Alternative();
+addTest(6, "NumberBlock2Block3", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "NumberBlock2Block4", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Name");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NameSet");
+currentAlt = new Alternative();
+addTest(3, "nameStartSet", "", 1, 1, "");
+addTest(3, "nameSet", "", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodNameSet");
+currentAlt = new Alternative();
+addTest(3, "nameStartSet", "", 1, 1, "");
+addTest(3, "methodNameSet", "", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("New");
+currentAlt = new Alternative();
+addTest(1, "new", "instance", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Type", "type", 0, 1, "");
+addTest(6, "InstanceBody", "body", 0, 1, "");
+addTest(6, "ArrayInitializer", "initial", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NewArray");
+currentAlt = new Alternative();
+addTest(1, "[", "", 1, 1, "");
+addTest(6, "Expression", "instance", 0, 1, "");
+addTest(1, "]", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Replacement");
+currentAlt = new Alternative();
+addTest(6, "Quote", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(3, "^,;\n", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NotQuote");
+
+currentRule = getRule("QualifyStart");
+currentAlt = new Alternative();
+addTest(1, "this", "name", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "FieldBody", "field", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NotQuote2");
+
+currentRule = getRule("Number");
+currentAlt = new Alternative();
+addTest(6, "NumberBlock0", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "NumberBlock2", "instance", 1, 1, "");
+addTest(3, "lL", "isLong", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Operator");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "operand";
+currentAlt->elements.add((void*)elem);
+}
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "comparator";
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "alphaSet", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("UnaryOperator");
+currentAlt = new Alternative();
+addTest(6, "Bump", "operate", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(3, "-+!~", "operate", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("OperationTail");
+currentAlt = new Alternative();
+addTest(6, "Operator", "operate", 1, 1, "");
+addTest(6, "UnaryExpression", "instance", 1, 1, "");
+addTest(6, "Question", "question", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Question", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "in", "in", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "RangeField", "range", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassBlockStart");
+currentAlt = new Alternative();
+addTest(1, "{", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("BlockStart");
+currentAlt = new Alternative();
+addTest(1, "{", "brace", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroBlock");
+currentAlt = new Alternative();
+addTest(6, "Line", "line", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ParameterItem");
+currentAlt = new Alternative();
+addTest(6, "MethodHead", "name", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+addTest(1, "[]", "array", 0, 999999, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "[]", "name", 1, 999999, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Indirection", "name", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Path");
+currentAlt = new Alternative();
+addTest(1, "/", "", 0, 1, "");
+addTest(6, "PathBlock0", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Imports");
+currentAlt = new Alternative();
+addTest(6, "Include", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Commands", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrintItem");
+currentAlt = new Alternative();
+addTest(6, "PrintShortcut", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(6, "Format", "format", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Directivise");
+currentAlt = new Alternative();
+addTest(6, "Line", "line", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PrintSet");
+
+currentRule = getRule("Question");
+currentAlt = new Alternative();
+addTest(1, "?", "question", 1, 1, "");
+addTest(6, "Expression", "trueExp", 1, 1, "");
+addTest(1, ":", "", 1, 1, "");
+addTest(6, "Expression", "falseExp", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("RangeField");
+currentAlt = new Alternative();
+addTest(6, "Name", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "RangeExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ResetType");
+
+currentRule = getRule("RuleList");
+currentAlt = new Alternative();
+addTest(1, "Rule", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "DebugRule", "debugRULE", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassName");
+currentAlt = new Alternative();
+addTest(6, "ClassAttributes", "", -1, 1, "");
+setBanged();
+addTest(6, "Path", "path", 0, 1, "");
+addTest(6, "NameSet", "name", 1, 1, "");
+setNoSkip();
+addTest(6, "Template", "temp", 0, 1, "");
+addTest(1, ".h", "dotH", 0, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Statement");
+currentAlt = new Alternative();
+addTest(6, "CheckMacro", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "StatementBody", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FieldList");
+currentAlt = new Alternative();
+addTest(1, "Field", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(3, "A-Za-z0-9_()*", "name", 0, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "Map;", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("StatementBody");
+currentAlt = new Alternative();
+addTest(6, "CommentBody", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Block", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "if", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "IfBody", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "return", "statement", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Expression", "instance", 0, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "for", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Iterating", "", 0, 1, "");
+addTest(6, "ForOption", "instance", 1, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Print", "statement", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "while", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Iterating", "", 0, 1, "");
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(6, "Comment", "", 0, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Case", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "break", "statement", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "continue", "statement", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "goto", "statement", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Indirection", "direct", 0, 1, "");
+addTest(6, "Target", "field", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Switch", "statement", 1, 1, "");
+addTest(6, "Comment", "", 0, 1, "");
+addTest(6, "Block", "block", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Commands", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, ";", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "delete", "statement", 1, 1, "");
+addTest(1, "[]", "array", 0, 1, "");
+addTest(6, "Qualified", "instance", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "do", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Iterating", "", 0, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 1, 1, "");
+addTest(1, "while", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Throw", "statement", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Try", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Declaration", "statement", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Expression", "statement", 1, 1, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Lambda", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CommentBody");
+currentAlt = new Alternative();
+addTest(6, "CodePass", "comment", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "//", "", 1, 1, "");
+addTest(6, "EndComment", "end", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "/*", "", 1, 1, "");
+addTest(1, "*/", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "#ifdef", "", 1, 1, "");
+addTest(1, "#endif", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "#define", "", 1, 1, "");
+addTest(6, "EndComment", "end", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Strings");
+currentAlt = new Alternative();
+addTest(6, "StringExpression", "item", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("SyntaxExtensions");
+currentAlt = new Alternative();
+addTest(1, "overload", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "OverLoadItem", "", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "alias", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "AliasItem", "", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "extender", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Extender", "", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "initializer", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "InitializerItem", "", 1, 999999, "");
+addTest(1, ";", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Template");
+currentAlt = new Alternative();
+addTest(1, "<>", "", 1, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "<", "", 1, 1, "");
+setNoSkip();
+addTest(1, ">", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Throw");
+currentAlt = new Alternative();
+addTest(1, "throw", "", 1, 1, "");
+addTest(6, "Expression", "express", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MethodType");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 0;
+elem->maximum = 999999;
+elem->kind = 8;
+elem->label = "modify";
+currentAlt->elements.add((void*)elem);
+}
+addTest(6, "Type", "type", 1, 1, "");
+addTest(6, "MethodHead", "methodHead", 1, 1, "");
+addTest(1, "{", "", 1, 1, "");
+setIgnored();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Try");
+currentAlt = new Alternative();
+addTest(1, "try", "", 1, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 1, 1, "");
+addTest(6, "Catch", "catch", 0, 999999, "");
+addTest(6, "Final", "end", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Type");
+currentAlt = new Alternative();
+addTest(1, "const", "hasConst", 0, 1, "");
+addTest(1, "unsigned", "noSign", 0, 1, "");
+addTest(6, "TypeName", "type", 1, 1, "");
+addTest(6, "Template", "temp", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("TypeList");
+currentAlt = new Alternative();
+addTest(6, "Type", "instance", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassAttributes");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "trait";
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "extends", "", 1, 1, "");
+addTest(6, "Type", "type", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "implements", "", 1, 1, "");
+addTest(6, "Type", "proto", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "namespace", "", 1, 1, "");
+addTest(6, "NameSet", "nSpace", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasParameterBlock0");
+currentAlt = new Alternative();
+addTest(1, "=", "", 1, 1, "");
+addTest(6, "Replacement", "replacedBy", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CharacterBlock0");
+currentAlt = new Alternative();
+addTest(3, "'", "", 1, 1, "");
+addTest(6, "CharacterBlock0Block1", "", 1, 1, "");
+addTest(3, "'", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NumberBlock0");
+currentAlt = new Alternative();
+addTest(3, "0-9", "", 1, 999999, "");
+addTest(1, ".", "", 1, 1, "");
+addTest(3, "0-9", "", 1, 999999, "");
+addTest(6, "NumberBlock0Block1", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ForOptionBlock0");
+currentAlt = new Alternative();
+addTest(1, "on", "", 1, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ItemInitializerBlock0");
+currentAlt = new Alternative();
+addTest(6, "ArrayInitializer", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "InitExpression", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasBody");
+currentAlt = new Alternative();
+addTest(1, "(", "body", 1, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("LambdaName");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("AliasItem");
+currentAlt = new Alternative();
+addTest(6, "Field", "name", 1, 1, "");
+addTest(6, "TargetMethod", "target", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "new", "", 1, 1, "");
+addTest(6, "Name", "alias", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Comment", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "NameSet", "alias", 1, 1, "");
+addTest(6, "AliasTarget", "value", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ConditionLabel");
+currentAlt = new Alternative();
+addTest(6, "Name", "label", 1, 1, "");
+addTest(3, " \t", "", 0, 1, "");
+addTest(3, "^\n", "text", 1, 999999, "");
+setNoSkip();
+addTest(1, "\n", "", 1, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Extender");
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("QualifyType");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+addTest(1, ".", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("OverLoadItem");
+currentAlt = new Alternative();
+addTest(6, "Operator", "operate", 1, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "[]", "", 1, 1, "");
+addTest(1, "=", "assign", 0, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Bump", "operate", 1, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "OverLoadItemBlock0", "newOp", 1, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "()", "", 1, 1, "");
+addTest(6, "Name", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ButtonArray");
+currentAlt = new Alternative();
+addTest(1, "[", "", 1, 1, "");
+addTest(6, "Name", "button", 1, 999999, "");
+addTest(1, "]", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroElement");
+currentAlt = new Alternative();
+addTest(3, "^,)", "element", 1, 999999, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroBit");
+currentAlt = new Alternative();
+addTest(3, "a-zA-z0-9", "bitpart", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Assuming");
+
+currentRule = getRule("MacroBodyPart");
+currentAlt = new Alternative();
+addTest(3, "^", "other", 1, 999999, "");
+addTest(1, "", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(4, "", "rest", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroBody");
+currentAlt = new Alternative();
+addTest(6, "MacroBodyPart", "parts", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroDelimit");
+currentAlt = new Alternative();
+addTest(3, "^a-zA-z0-9;", "delimiter", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroDefine");
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+addTest(6, "MacroParameters", "parameters", 0, 1, "");
+addTest(6, "MacroDelimit", "", 1, 1, "");
+addTest(3, "^", "body", 1, 999999, "");
+addTest(1, "", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("macroDelimiter");
+
+currentRule = getRule("Iterating");
+
+currentRule = getRule("MacroName");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("LineByLine");
+currentAlt = new Alternative();
+addTest(6, "Statement", "line", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Braced");
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Case");
+currentAlt = new Alternative();
+addTest(1, "default:", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "case", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Assuming", "", 1, 1, "");
+addTest(6, "CaseLabel", "instance", 1, 1, "");
+addTest(1, ":", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Label", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroArgument");
+currentAlt = new Alternative();
+addTest(6, "MacroArgumentBlock0", "part", 1, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroArgumentBlock0");
+currentAlt = new Alternative();
+addTest(6, "MacroPart", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ExpressTailBlock0");
+currentAlt = new Alternative();
+addTest(1, "&&", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "||", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FileName");
+currentAlt = new Alternative();
+addTest(6, "Path", "path", 0, 1, "");
+addTest(6, "NameSet", "name", 1, 1, "");
+addTest(1, ".twk", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("BumpBlock0");
+currentAlt = new Alternative();
+addTest(1, "++", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "--", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("PathBlock0");
+currentAlt = new Alternative();
+addTest(6, "Alpha", "", 1, 1, "");
+addTest(1, "/", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("MacroArgumentList");
+currentAlt = new Alternative();
+addTest(6, "MacroArgument", "argument", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CheckMacro");
+currentAlt = new Alternative();
+addTest(6, "MacroName", "statement", 1, 1, "");
+addTest(6, "CheckMacroParameters", "braced", 0, 1, "");
+addTest(1, ";", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Alpha");
+currentAlt = new Alternative();
+addTest(3, "a-zA-Z0-9_.", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Character");
+currentAlt = new Alternative();
+addTest(6, "CharacterBlock0", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Lambda");
+currentAlt = new Alternative();
+addTest(6, "LambdaName", "function", 1, 1, "");
+addTest(1, "=", "", 1, 1, "");
+addTest(6, "Block", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "MethodType", "function", 1, 1, "");
+addTest(6, "Block", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CharacterBlock0Block1");
+currentAlt = new Alternative();
+addTest(6, "Escape", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(3, "^'", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NumberBlock0Block1");
+currentAlt = new Alternative();
+addTest(3, "eE", "", 1, 1, "");
+addTest(3, "+-", "", 0, 1, "");
+addTest(3, "0-9", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CaseLabel");
+currentAlt = new Alternative();
+addTest(6, "Constant", "instance", 1, 1, "");
+addTest(1, ":", "", 1, 1, "");
+setIgnored();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "RangeField", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Qualified", "instance", 1, 1, "");
+addTest(1, ":", "", 1, 1, "");
+setIgnored();
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Commands");
+currentAlt = new Alternative();
+addTest(1, "#", "", 1, 1, "");
+addTest(6, "PoundCommand", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "SyntaxExtensions", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("CodeMatch");
+currentAlt = new Alternative();
+addTest(6, "Quote", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = -1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->banged = true;
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "^", "body", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DebugDirective");
+currentAlt = new Alternative();
+addTest(1, "#", "", -1, 1, "");
+setBanged();
+addTest(6, "Comment", "", 0, 1, "");
+addTest(6, "Name", "method", 1, 1, "");
+addTest(6, "CodeMatch", "body", 0, 1, "");
+{
+Element *elem = new Element();
+elem->minimum = 0;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "locate";
+currentAlt->elements.add((void*)elem);
+}
+addTest(1, "active", "active", 0, 1, "");
+addTest(3, "^#;", "code", 1, 999999, "");
+addTest(1, "#;", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Directive");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+addTest(6, "DebugDirective", "directives", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("EscapeCharacters");
+currentAlt = new Alternative();
+addTest(3, "nrtbf\"'\\", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "u", "", 1, 999999, "");
+addTest(3, "0-9a-fA-F", "", 4, 0, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(3, "0-3", "", 1, 1, "");
+addTest(3, "0-9", "", 0, 1, "");
+addTest(3, "0-9", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(3, "4-7", "", 1, 1, "");
+addTest(3, "0-9", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Format");
+currentAlt = new Alternative();
+addTest(1, "#", "", 1, 1, "");
+addTest(3, "- 0+", "", 0, 1, "");
+addTest(3, "0-9", "width", 0, 999999, "");
+addTest(3, "*%.0-9a-zA-Z", "", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DebugText");
+currentAlt = new Alternative();
+addTest(1, "=", "", 1, 1, "");
+addTest(6, "Quote", "upcoming", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DebugRule");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "name", 1, 999999, "");
+addTest(6, "DebugText", "upcoming", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NumberBlock2Block3");
+currentAlt = new Alternative();
+addTest(1, "0", "", 1, 1, "");
+addTest(3, "xX", "", 1, 1, "");
+addTest(3, "0-9a-fA-F", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NumberBlock2Block4");
+currentAlt = new Alternative();
+addTest(3, "0-9", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Bits");
+currentAlt = new Alternative();
+addTest(1, ":", "", 1, 1, "");
+addTest(6, "Number", "length", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DeclareItem");
+currentAlt = new Alternative();
+addTest(6, "MethodHead", "item", 1, 1, "");
+addTest(6, "MethodInitializer", "instance", 0, 1, "");
+addTest(1, ",", "", 0, 1, "");
+addTest(6, "Comment", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "item", 1, 1, "");
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "Expression", "argument", 1, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "ItemHead", "item", 1, 1, "");
+addTest(6, "ItemInitializer", "assign", 0, 1, "");
+addTest(1, ":", "initialize", 0, 1, "");
+addTest(1, ",", "", 0, 1, "");
+addTest(6, "Comment", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("StructureItem");
+currentAlt = new Alternative();
+addTest(6, "Declaration", "item", 1, 1, "");
+addTest(1, ";", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "name", 1, 1, "");
+addTest(6, "Bits", "bits", 0, 1, "");
+addTest(6, "ButtonArray", "buttons", 0, 1, "");
+addTest(1, ",", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("DeclareType");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("StructureType");
+currentAlt = new Alternative();
+addTest(6, "Type", "type", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Name", "type", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Structure");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "kind";
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "StructureBody", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("SetObject");
+
+currentRule = getRule("ItemArray");
+currentAlt = new Alternative();
+addTest(1, "[", "", 1, 1, "");
+addTest(3, "0-9", "", 0, 999999, "");
+addTest(1, "]", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("StructureBody");
+currentAlt = new Alternative();
+addTest(6, "StructureType", "label", 1, 1, "");
+addTest(1, "{", "", 1, 1, "");
+addTest(6, "StructureItem", "entry", 1, 999999, "");
+addTest(1, "}", "", 1, 1, "");
+addTest(6, "DeclareItem", "field", 0, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "StructureItem", "entry", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("TypeName");
+currentAlt = new Alternative();
+addTest(6, "NameSet", "type", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ConditionWord");
+currentAlt = new Alternative();
+{
+Element *elem = new Element();
+elem->minimum = 1;
+elem->maximum = 1;
+elem->kind = 8;
+elem->label = "list";
+currentAlt->elements.add((void*)elem);
+}
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("SaveVirtuals");
+
+currentRule = getRule("ExpressType");
+
 currentRule = getRule("ExpressTail");
-addTest(5,(void*)getRule("ExpressTailBlock14"),"operate",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ExpressPart"),"instance",1,1,"defaultSKIP");
-currentRule.fail = expressPartFailed;
-//
-currentRule = getRule("ExpressTailBlock14");
-addTest(7,(void*)"&&","operate",1,1,"defaultSKIP");
-saveTest = currentTest;
-addTest(7,(void*)"||","operate",1,1,"defaultSKIP");
-saveTest.setAlternate(currentTest);
-//
-currentRule = getRule("OperationTail3");
-addTest(7,(void*)"in","in",1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("RangeField"),"range",1,1,"defaultSKIP");
-//
-currentRule = getRule("Body5");
-addTest(5,(void*)getRule("Include3"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("PrimaryExpression4");
-addTest(5,(void*)getRule("AssumedString"),"instance",1,1,"defaultSKIP");
-//
+currentAlt = new Alternative();
+addTest(6, "ExpressTailBlock0", "operate", 1, 1, "");
+addTest(6, "ExpressPart", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("NoShortcuts");
+
+currentRule = getRule("AllowShortcuts");
+
+currentRule = getRule("Include3");
+
 currentRule = getRule("Catch");
-addTest(7,(void*)"catch",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("Parameter"),"except",0,1,"defaultSKIP");
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,0,1,"defaultSKIP");
-//
+currentAlt = new Alternative();
+addTest(1, "catch", "", 1, 1, "");
+addTest(6, "Parameter", "except", 0, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ClassBlock");
+currentAlt = new Alternative();
+addTest(6, "ClassBlockStart", "", 1, 1, "");
+addTest(6, "Body", "", 0, 999999, "");
+addTest(1, "}", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Divert");
+currentAlt = new Alternative();
+addTest(6, "Inheritance", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+
 currentRule = getRule("Else");
-addTest(7,(void*)"else",(String)null,1,1,"defaultSKIP");
-currentSet = textFollow;
-addTest(6,(void*)currentSet,(String)null,-1,1,(String)null);
-addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-addTest(5,(void*)getRule("ResetType"),(String)null,0,1,"defaultSKIP");
-currentRule.next = getRule("Else2");
-//
-currentRule = getRule("Extends3");
-addTest(5,(void*)getRule("DeclareConditions"),(String)null,1,1,"defaultSKIP");
-addTest(7,(void*)";",(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Include2Any");
-currentRule.immediate = balancEbail;
-addTest(1,(void*)null,(String)null,1,1,(String)null);
-//
-currentRule = getRule("Imports2");
-addTest(5,(void*)getRule("Commands"),(String)null,1,1,"defaultSKIP");
-//
-currentRule = getRule("Inheritance3");
-addTest(5,(void*)getRule("Body"),"method",1,268435455,"defaultSKIP");
-currentRule.next = getRule("Inheritance4");
-//
-currentRule = getRule("ParameterList2");
-addTest(5,(void*)getRule("TypeList"),"expression",1,268435455,"defaultSKIP");
-//
+currentAlt = new Alternative();
+addTest(1, "else", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "or", "", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "IfBody", "statement", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FieldComponent");
+currentAlt = new Alternative();
+addTest(6, "Fielding", "name", 1, 1, "");
+addTest(6, "InstanceBody", "body", 0, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "TypeName", "name", 1, 1, "");
+addTest(6, "InstanceBody", "body", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Print");
+currentAlt = new Alternative();
+addTest(6, "PrintCommand", "start", 1, 1, "");
+addTest(6, "PrintItem", "arguments", 0, 999999, "");
+addTest(6, "PrintTo", "output", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("FieldBody");
+currentAlt = new Alternative();
+addTest(6, "Bump", "prefix", 0, 1, "");
+addTest(6, "FieldComponent", "part", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "New", "name", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "Expression", "name", 1, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Final");
+currentAlt = new Alternative();
+addTest(1, "finally", "", 1, 1, "");
+addTest(6, "Statement", "statement", 1, 1, "");
+addTest(6, "ResetType", "", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("ForOption");
+currentAlt = new Alternative();
+addTest(1, "(", "instance", 1, 1, "");
+addTest(6, "ExpressList", "initial", 0, 1, "");
+addTest(1, ";", "", 1, 1, "");
+addTest(6, "Expression", "condition", 0, 1, "");
+addTest(1, ";", "", 1, 1, "");
+addTest(6, "ExpressList", "increment", 0, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "Expression", "instance", 1, 1, "");
+addTest(6, "ForOptionBlock0", "name", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Include");
+currentAlt = new Alternative();
+addTest(1, "#include", "include", 1, 1, "");
+addTest(1, "\n", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "#import", "include", 1, 1, "");
+addTest(1, "\n", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(6, "IncludeBlock0", "", 1, 1, "");
+addTest(3, " \t", "", 1, 999999, "");
+setNoSkip();
+addTest(3, "^\n", "include", 1, 999999, "");
+setNoSkip();
+addTest(1, "\n", "", 1, 1, "");
+setNoSkip();
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("InstanceTail");
+currentAlt = new Alternative();
+addTest(6, "NewArray", "array", 1, 999999, "");
+currentRule.alternatives += currentAlt;
+currentAlt = new Alternative();
+addTest(1, "(", "", 1, 1, "");
+addTest(6, "ResetType", "", 1, 1, "");
+addTest(6, "NoShortcuts", "", 1, 1, "");
+addTest(6, "ParameterList", "expression", 0, 1, "");
+addTest(1, ")", "", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
 currentRule = getRule("PrintTo");
-addTest(7,(void*)"to",(String)null,1,1,"defaultSKIP");
-addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
+currentAlt = new Alternative();
+addTest(1, "to", "", 1, 1, "");
+addTest(6, "FieldExpression", "instance", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("QualifyTail");
+currentAlt = new Alternative();
+addTest(1, ".", "", 1, 1, "");
+addTest(6, "FieldBody", "field", 1, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Switch");
+currentAlt = new Alternative();
+addTest(1, "switch", "statement", 1, 1, "");
+addTest(3, "textFollow", "", -1, 1, "");
+setNoSkip();
+setBanged();
+addTest(6, "FieldBody3", "name", 0, 1, "");
+currentRule.alternatives += currentAlt;
+
+currentRule = getRule("Start");
+currentAlt = new Alternative();
+addTest(6, "Inheritance", "", 1, 999999, "");
+currentRule.alternatives += currentAlt;
 }
 
 PLGitem run(String name)
