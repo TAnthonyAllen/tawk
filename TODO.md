@@ -4,47 +4,68 @@
 
 ---
 
-## Tomorrow's wake-up (2026-05-11)
+## Tomorrow's wake-up (2026-05-12)
 
-**First work:** Get the Xcode environment workable. Goal is a working dev loop — build attempts visible in the IDE, errors actionable, debugger usable. Not a clean compile. Tony's looking at the DEFINing/indent-as-structure POP work overnight; that may inform the GroupRules.mm:3345-3364 errors that surfaced in today's Build-2.
+**First work:** Tony reviews `Tokf/Tests/FormatC.twk` via fileMerge against `Tokf/FormatC.twk` (overnight task). If the review passes, build and test Phase Triage: run tok on a sample .twk file using the Tests/-sandboxed FormatC, verify the resulting .h has include guards, `#include "gc/gc_cpp.h"`, and `: public gc` inheritance. If the build works and output looks right, promote Tests/FormatC.twk to live Tokf/FormatC.twk and rebuild ~/bin/tok.
+
+**Tony's overnight work also includes:**
+- Thinking about the code-block-as-defining-region problem (the `{...}` issue we backed out of checkSkip — defineSkipSet still declared, just not used yet).
+- Reviewing the FormatC.twk Triage changes via fileMerge.
 
 **Reading targets for Clay and Clod:**
-- `Groups/GroupItem.twk` and `Groups/GroupBody.twk` — PLGitem migration targets. Familiarize with their PLGitem usage: `compare`, `amount`, `test` (all gone from current PLGitem.h), and how they wrap PLGitem semantically.
-- `Parse/Revision/PLGitem.h` — current 35-line surface. Reference for what's available now.
-- `Groups/parse.rtn` — workaround landed today (commit 0835c34). Understand the new buffer-print idiom (`buffer += value` instead of direct appendChar).
-- `XML/WorkingOn/docs` — Tony's new idiom rules in prose form.
+- `Tokf/Tests/FormatC.twk` — the staged changes are here. Reading just the three edit sites is enough:
+  - Line 651-652 area (GC inheritance in C++ class declaration)
+  - Lines 174-190 (guardTokenFromName helper)
+  - Lines 195-211 (close() with guard emission)
+- `Tokf/FormatC.twk` — original for diff reference.
+- `Groups/GroupRules.twk` — checkSkip() is post-fix; line 159 changed, comment-in-define-block now works. The defineSkipSet machinery is staged but not active.
 
 **Out of scope (do not browse, survey, or modify):**
-- `Groups/GUI/`
-- `Parse/BeforeRefactor/`
+- `Groups/GUI/` — HPDL (Tony may unleash Clod-recon as a deliberate exception later; not today)
+- `Parse/BeforeRefactor/` — archive
 
 **Known current state:**
-- Three commits local, unpushed: Move (fec9358), Cluster B (6398920), RuleStuff-fix (0835c34).
-- Working tree intentionally dirty per documented dispositions (see commit messages).
-- Build-2 surfaced 9 errors: 4 in GroupRules.mm:3345-3364 (DEFINing POP failure), 5 in GroupItem.mm (PLGitem migration: compare×3, amount, test).
+- One uncommitted local change to commit at session-start: the checkSkip comment fix (line 159: `atContent += 2` → `atContent++`; line 163: `atRuleMark = atContent + 1`).
+- Tokf/Tests/FormatC.twk modified (Phase Triage staging) — stays dirty pending review.
+- defineSkipSet declared in GroupRules.twk and initialized in GroupMain.twk but not yet used in checkSkip — Tony's overnight design work.
+- Build still clean (Phase Triage hasn't been built/tested yet; comment fix is pure source-level).
+
+**Cha cha step worth noting:**
+This session introduced **Clay-designs, Clod-applies, Tony-reviews-before-tok-time** as a new mode. Used for Phase Triage today: edits land in a Tests/-sandboxed copy of FormatC.twk, Tony reviews via fileMerge before any tok run touches the modified file. Different from Tony-driving (yesterday's bisects) and Clay-and-Tony-debug-together (this morning's checkSkip walk-through). The discipline: any change that will pass through a code generator (tok or similar) gets staged for human review *before* the generator runs on it. Works well when there's enough overnight time for the review.
 
 ---
 
 ## 🔥 Immediate (current sprint)
 
-### Xcode environment — workable dev loop
+### Phase Triage — staged, pending build verification
 
-*Tomorrow's first work. The Xcode target named "Groups" (legacy name; actually incant) currently fails to build with 9 errors. Goal: make the build attempt useful — errors clickable in IDE, debugger usable, project loads cleanly. Doesn't have to be a clean compile.*
+*Tokf/Tests/FormatC.twk has three edits: GC inheritance in C++ class declarations (lines 623-628 area), guardTokenFromName helper function (new), and close() modified to emit include-guard prologue + `#endif`. Live Tokf/FormatC.twk is byte-identical to its pre-session state (MD5 6e473417dcbf31c5107cef0f80cbe82e). Tomorrow's first work is fileMerge review + build/test + promotion.*
 
-- [ ] Address the 4 GroupRules.mm:3345-3364 errors (DEFINing/indent-as-structure POP failure). Source is GroupRules.twk's checkSkip block extension; the TAWK→C++ output is producing `*atContent = '{'` shapes that the compiler rejects.
-- [ ] Verify Xcode opens cleanly, build runs, errors are clickable, debugger attaches and steps. The bar is workable, not green.
-- [ ] If quick wins on the 5 GroupItem.mm PLGitem-surface errors are visible while in the IDE, take them — but the formal vet of GroupItem.twk and GroupBody.twk against new PLGitem is the next phase, below.
+- [x] Recon: identify edit sites in FormatC.twk (Tonto, 2026-05-11)
+- [x] Design: three edits — GC inheritance, helper, close() modification
+- [x] Apply edits to Tokf/Tests/FormatC.twk (sandbox)
+- [ ] Tony reviews via fileMerge
+- [ ] Build ~/bin/tok from Tests/FormatC.twk (sandbox build)
+- [ ] Run sandboxed ~/bin/tok on a sample .twk file (one of the support classes?)
+- [ ] Verify output: include guards in .h, `#include "gc/gc_cpp.h"`, `: public gc` inheritance for C++ classes
+- [ ] If clean, promote Tests/FormatC.twk to live Tokf/FormatC.twk, rebuild ~/bin/tok
+- [ ] Test against existing test corpus to confirm no regressions
 
-### Incant — PLGitem migration vet
+### checkSkip — code-block-as-defining-region problem (Tony's overnight)
 
-*The PLG refactor changed PLGitem's surface significantly. GroupItem.twk and GroupBody.twk reference legacy members (`compare`, `amount`, `value`, `test`, `find`, `get`, `[]` subscript, boolean flag set) that no longer exist. Today's vet survey confirmed scope: GroupItem.twk and GroupBody.twk are the two source files needing migration; other Groups/ files were either GUI-scoped (out) or working files (moved to BeforeRefactor in commit fec9358).*
+*Half of indent-as-structure handling: comments now work (fixed today). Code blocks (`{...}`) inside define mode still problematic: the synthetic-`:` machinery clobbers the first character inside `{`. defineSkipSet was sketched as a fix but caused regressions in `setBrackets` (the `{` in `[{A-Za-z0-9+-;(]` set declarations was treated as a brace block). The actual fix needs context-awareness — `{` should be treated as a brace-block only in defining-mode contexts, not inside `[...]` set declarations or other contexts where `{` is content.*
 
-- [ ] Vet GroupItem.twk against current PLGitem.h surface. Catalog every PLGitem member touched. For each: (a) exists/matches, (b) renamed/removed, (c) replaced by GroupItem-side method.
-- [ ] Vet GroupBody.twk same way.
-- [ ] Design migration: which call sites move to GroupItem-side methods (the wrap-PLGitem-when-semantics-matter pattern), which need different patterns, which can use existing PLGitem surface (string/toString/itemStart/itemLength).
-- [ ] Apply migration to the two .twk files.
-- [ ] Regen .h/.mm pairs.
-- [ ] Build attempt — errors should drop further.
+- [ ] Tony's overnight: design a context-aware approach to `{` handling in checkSkip
+- [ ] Apply, test against the drawing file's Point + arc + curve definitions
+- [ ] Verify no regression in setBrackets or anywhere else `{` appears as content
+
+### Xcode environment — workable dev loop ✅ DONE (2026-05-11)
+
+*Tony got the build working overnight. Goal: workable dev loop in Xcode. Achieved.*
+
+### Incant — PLGitem migration vet ✅ DONE in effect (2026-05-11)
+
+*Build came clean when Tony got the dev loop working — meaning the PLGitem migration items in GroupItem.mm were either already addressed in his overnight work or the issues resolved as side effects of other changes. The catalogued errors (compare×3, amount, test) no longer appear in the build output.*
 
 ### TAWK — Back Up and Running
 
@@ -52,24 +73,9 @@
 
 *Phases run sequenced except where noted. Cha cha for parallel arcs: Clod picks one phase per session, Tony assigns at session start, Clod tags every report-in with the phase name (e.g. "Splice: ready"), Clay can interrupt either arc to park.*
 
-#### Phase Splice — Tawk.regen.twk into Tawk.twk ✅ COMPLETE (commit ef2730d, 2026-05-09)
+#### Phase Splice ✅ COMPLETE (commit ef2730d, 2026-05-09)
 
-*New-format setRules() body (177 rules, 1851 lines, MD5-stable) generated by revised PLG against Tawk.g spliced into legacy Tawk.twk, replacing the old setRules() body. Tonto verified the regen body is pure data — addTest + standard PLG core API calls, no PLGsetParse dependency. Body line count 1852 → 1847; file line count 7325 → 7320. Tawk.twk now in transitional state (new setRules, old callbacks still defined but no longer wired). Inner `{ new Element() ... }` blocks present for kind=8 (kCondition); will require Element class surface on host (public minimum/maximum/kind/label fields, currentAlt->elements.add(void*)) at Phase Compile.*
-
-- [x] Verify Tawk.regen.twk is current against Tawk.g — three-way MD5 match confirmed
-- [x] Splice setRules() body into Tawk.twk
-- [x] Commit — Tawk.twk in transitional state (commit ef2730d)
-
-#### Phase Triage — Scoped TAWK autopsy into legacy Tawk.twk
-
-*GC inheritance fix and include guards land directly into legacy `Tokf/Tawk.twk`. Rebuild ~/bin/tok from the result. Pure safety-net work on the legacy binary while runtime replacement happens elsewhere. **Parallel-eligible with Phase Port** under the cha cha rules above — different concerns, no collision risk.*
-
-*Note: Cluster A (gc inheritance walk-back already in incant .twk source) is a workaround pending Phase Triage. When Triage lands, the gc inheritance lines need adding back to GroupBody.twk, GroupItem.twk, GroupList.twk per the bible's Phase 0 BDWGC line.*
-
-- [ ] GC inheritance fix — TAWK classes inherit from GC
-- [ ] Include guards generated automatically in .h files
-- [ ] Rebuild ~/bin/tok from patched legacy Tawk.twk
-- [ ] Verify against existing test corpus — known-good legacy baseline preserved
+#### Phase Triage — Scoped TAWK autopsy into legacy Tawk.twk (STAGED 2026-05-11, pending build verification — see Immediate above)
 
 #### Phase Port — Callback signature migration
 
@@ -93,40 +99,17 @@
 
 *Three PLGsetParse files (.g + two more, likely .h and .C or .twk) sit in `Parse/BeforeRefactor/`, the local backup directory. They were left behind in the plg refactor. Tonto verified Phase Splice does not need PLGsetParse — the regen body is pure addTest data. But Phase Port (callback bodies) and Phase Compile (link errors) are likely triggers. **Activated on demand, not gating.** When activated, runs in parallel with whatever phase triggered it.*
 
-- [ ] Tonto reconnaissance — inventory the three files in `Parse/BeforeRefactor/`. Filename, size in bytes, first 20 lines verbatim for each. Do not browse the backup directory. Read-only. Report `Lazarus: ready` with the inventory.
-- [ ] Copy the three files flat into `Parse/Revision/` alongside existing PLG.*, PLGparse.*, PLGrule.* etc. No subdirectory. Do not modify.
-- [ ] Add to plg repo as-found. Commit message names them as stale-from-BeforeRefactor, not yet working. Stage only — do not push.
-- [ ] Tonto gap assessment — read PLGsetParse.h, compare API to PLG.h, PLGparse.h, PLGrule.h. Report drift, missing pieces, renames, net-new surface. No fixes proposed yet. Read-only.
-- [ ] Decide: PLGsetParse stays its own class, or gets absorbed into PLGparse / PLG. (Tony + Clay design call after gap assessment in hand.)
-- [ ] Make it compile against revised PLG.
-- [ ] Generate fresh PLGsetParse.twk by running plg on PLGsetParse.g — closes the loop.
-
 #### Phase Sandbox — Tests/ verification vs ~/bin/tok
 
 *New TAWK in `Tokf/Tests/` sandbox processes the .twk files in plg/incant/support/tawk repos. Output compared against ~/bin/tok output. **FLOOR POP for the arc.** Depends on Compile.*
-
-- [ ] Set up Tokf/Tests/ sandbox with .twk files from all four repos
-- [ ] Process each .twk file with new TAWK and ~/bin/tok in parallel
-- [ ] Diff outputs — investigate every difference
-- [ ] **FLOOR POP achieved when outputs match (or differences are explained and accepted)**
 
 #### Phase Promotion — Replace ~/bin/tok
 
 *Sandboxed new TAWK gets promoted to ~/bin/tok. Old binary archived. From here on, all .twk → C++ goes through new TAWK. Depends on Sandbox.*
 
-- [ ] Archive current ~/bin/tok with date stamp
-- [ ] Promote new TAWK to ~/bin/tok
-- [ ] Smoke test against ecosystem
-
 #### Phase Loop — Self-host POP
 
 *`plg Tawk.g` regenerates Tawk.twk. New TAWK builds from the regenerated source. New TAWK can re-tokkify itself and the ecosystem. **STRETCH POP.** Depends on Promotion.*
-
-- [ ] Run `plg Tawk.g` → fresh Tawk.twk
-- [ ] Build new TAWK from regenerated source
-- [ ] Re-tokkify the ecosystem .twk files
-- [ ] Verify self-consistency
-- [ ] **STRETCH POP achieved — TAWK self-hosts under new architecture**
 
 ---
 
@@ -163,7 +146,7 @@
 
 ### TOK Xcode project — yaml it (+ rename Groups → incant)
 
-*Tonto verified 2026-05-09: TOK.xcodeproj has no project.yml. The plg xcodeproj is yamled (Parse/Revision/project.yml, 195 lines) but TOK is not. Any TOK reorg currently rides along in the .pbxproj binary with no declarative source-of-truth. Reverse-engineering a project.yml from current .pbxproj is non-trivial — plan carefully. Set B drift below should fold in or be cleaned up as part of this work. Once yamled, the target rename Groups → incant becomes a small project.yml edit.*
+*Tonto verified 2026-05-09: TOK.xcodeproj has no project.yml. The plg xcodeproj is yamled (Parse/Revision/project.yml, 195 lines) but TOK is not. Any TOK reorg currently rides along in the .pbxproj binary with no declarative source-of-truth. Reverse-engineering a project.yml from current .pbxproj is non-trivial — plan carefully. Once yamled, the target rename Groups → incant becomes a small project.yml edit.*
 
 - [ ] Investigate: what does a credible TOK project.yml look like? Reference the plg yaml as template
 - [ ] Decide on Set B refs (Tawk.twk in Tests, Tawk.regen.twk in Tests, Tawk.h/.C in Links group with JIT siblings — added 2026-05-08 via direct Xcode edit). Are they intentional staging or accidental drift to clean up?
@@ -174,7 +157,7 @@
 
 ### Cluster C — Buffer 3-arg + new idiom adoption
 
-*Partially landed today: parse.rtn has the workaround for the tok post-increment-on-+= bug. Other files (Instruct.rtn, GroupRules.mm) still have Cluster C-flavored changes pending. The new `buffer += value` and `print(buffer) text;` idiom (per XML/WorkingOn/docs) replaces direct Buffer append calls. Other instances of the post-increment-on-+= pattern may need similar split-form workarounds.*
+*Partially landed: parse.rtn has the workaround for the tok post-increment-on-+= bug (commit 0835c34). Other files (Instruct.rtn, GroupRules.mm) still have Cluster C-flavored changes pending. Other instances of the post-increment-on-+= pattern may need similar split-form workarounds.*
 
 - [ ] Sweep for other instances of `... += *p++` or similar post-increment-on-RHS-of-+= constructs across .twk and .rtn files
 - [ ] Apply split-form workaround to any found
@@ -183,18 +166,18 @@
 
 ### Cluster D — Bytecode gating hook (PARKED)
 
-*The bytecodE → interpret() gating block in GroupRules.mm:786 (per bible Phase 2) was hand-edited out of the dirty .mm. Today's regen washed it; the hand-edit was confirmed to be tok-directive-injected debug instrumentation, not source-of-truth content. The actual bytecode gating hook still lives in the bible's documentation. Disposition for the hook itself (keep / remove / refactor) is a Phase 2 / Phase 3 question, not today's. Re-invokable via groupDirectives when needed.*
+*The bytecodE → interpret() gating block in GroupRules.mm:786 was hand-edited out of the dirty .mm. Confirmed to be tok-directive-injected debug instrumentation, not source-of-truth content. Re-invokable via groupDirectives when needed.*
 
 - [ ] Revisit when Phase 2 or Phase 3 work resumes
 
-### Cluster E — DEFINing flag / indent-as-structure (HWF Session 4 implementation)
+### Cluster E — DEFINing flag / indent-as-structure (HWF Session 4 implementation, IN PROGRESS)
 
-*Implementation for HWF Session 4's settled design (A1 colon-opens-block, B1 single-`;` terminator). Currently dirty in working tree: GroupMain.twk + .mm regen pair, GroupRules.twk + .mm regen pair, GroupActions.rtn flag wire-up, ruleActions.rtn cleanup, XML/WorkingOn/grammar comment. POP gated on a working Xcode target. Build-2 today surfaced 4 compile errors at GroupRules.mm:3345-3364 — TAWK→C++ translation oddity; the source produces `*atContent = '{'` shapes the compiler rejects. Tony looking at it overnight.*
+*Implementation for HWF Session 4's settled design (A1 colon-opens-block, B1 single-`;` terminator). Comment handling fixed today; code-block-as-defining-region remains open (Tony's overnight). Once code-block handling lands, full POP against the drawing file.*
 
-- [ ] Diagnose GroupRules.mm:3345-3364 — likely TAWK syntax in GroupRules.twk's checkSkip block extension that doesn't translate cleanly
-- [ ] Fix at .twk source, regen
-- [ ] Build attempt — DEFINing errors should clear
-- [ ] POP indent-as-structure once the build is workable
+- [x] Comment-in-define-block fix to checkSkip (line 159 + 163, in working tree)
+- [ ] Code-block-as-defining-region: design context-aware `{` handling
+- [ ] Verify against the drawing file (Point + arc + curve + perfRight)
+- [ ] Verify no regression in setBrackets or other `[...]`-as-content cases
 
 ### Incant
 
@@ -213,6 +196,12 @@ Clod wrote his first real incant (interpret()) — the demon is emerging.
 
 - [ ] Read `utilities` before next incant write
 - [ ] Expand testByteCode with more cases (after gIF/gExpressioN land — see Immediate)
+
+### GUI exploration recon (DEFERRED, by deliberate decision)
+
+*Tony has flagged willingness to unleash Clod-recon on the legacy GUI/ directory as a deliberate exception to the "do not look there" standing rule. Goal: surface what's reusable, build understanding for eventual GUI work. Not today — but when scheduled, this gets its own bounded recon instruction with clear boundaries on what to surface and where findings get captured.*
+
+- [ ] Schedule a session for the bounded GUI recon (Tony's call when)
 
 ---
 
@@ -236,14 +225,15 @@ Clod wrote his first real incant (interpret()) — the demon is emerging.
 - [ ] plg.g `%%` assumption — document/fix
 - [ ] doNotGuard accumulation — Header/CommentPartBoDY/ForwardDecl/Trailer
 - [ ] +1000 offset reporting quirk — benign but odd
-- [ ] Incant CLAUDE.md drift — says "TAWK runtime replacement Phase 2 is in flight"; bible said "planned, not yet started"; Phase Splice now landed. Both want updating. Settle on accurate language for both.
+- [ ] Incant CLAUDE.md drift — says "TAWK runtime replacement Phase 2 is in flight"; bible says "planned, not yet started"; Phase Splice now landed. Both want updating. Settle on accurate language for both.
 - [ ] ~/bin/plg dated Nov 2024, pre-day-2 path-resolution fix. Verify installed binary reflects current source, or rebuild and reinstall.
 - [ ] Bible safety-rule amendment — line 209 says "never touch Tokf/Tawk.twk before Tests/ proves it". Phase Splice operated directly on Tawk.twk per the runtime-replacement arc design. Amend to clarify Phase 2 arc as the explicit exception.
 - [ ] Support repo update process — needs a look. Local support tree drifts ahead of GitHub (Buffer.h, Include/frame: 595 local vs 557 GitHub, possibly others). Hand-maintained tok externals have no systematic sync discipline. Connected to HWF Session 2 (Sign-off ritual) — same root cause as cross-session-boundary verification gaps.
 - [ ] Bible update — TAWK Known Issues autopsy table, add item 12: post-increment-dereference (`*p++`) on the RHS of type-aware `+=` triggers infinite recursion in tok's `Instance::setIsUsed()`. Construct in isolation is fine; the combination produces an Instance graph cycle setIsUsed walks without a visited-marker. Workaround: split into two statements (`buffer += *p; p++;`). Bisected to parse.rtn:94 on 2026-05-10.
-- [ ] Add "out-of-scope directories" standing rule to bible or CLAUDE.md: `Groups/GUI/` is HPDL until GUI work formally opens; `Parse/BeforeRefactor/` is archive. Both should be excluded by default from any recon, grep, or modification.
+- [ ] Bible update — add "Clay-designs-Clod-applies-Tony-reviews-before-tok-time" as a named cha cha mode. Used for source changes that pass through a code generator. Staging in a Tests/-sandboxed file gives Tony a fileMerge-shaped review window before any generator runs.
+- [ ] Add "out-of-scope directories" standing rule to bible or CLAUDE.md: `Groups/GUI/` is HPDL until GUI work formally opens (deliberate-exception recon possible by Tony's call); `Parse/BeforeRefactor/` is archive. Both should be excluded by default from any recon, grep, or modification.
 - [ ] Move Groups/GUI/ to a Reference/ or Stealable/ sibling directory — it's mid-spectrum (stale, will be revised, has stealable parts). Stays in workspace structurally but marked as not-active. Defer until convenient.
-- [ ] `git add <file> && git commit` is not equivalent to "commit only `<file>`" if the index already has staged content. Discipline for mirror-style commits across repos: run `git diff --cached --name-only` after `git add` to confirm the index contains only what's intended, before committing. (Caught as a near-miss in 2026-05-09 push; should be standing protocol for Clod.)
+- [ ] `git add <file> && git commit` is not equivalent to "commit only `<file>`" if the index already has staged content. Discipline for mirror-style commits across repos: run `git diff --cached --name-only` after `git add` to confirm the index contains only what's intended, before committing.
 
 ---
 
@@ -251,11 +241,15 @@ Clod wrote his first real incant (interpret()) — the demon is emerging.
 
 ### Recent (2026-05)
 
-- [x] **RuleStuff fix (commit 0835c34, 2026-05-10)** — parse.rtn:94 split-form workaround for tok post-increment-on-+= bug. RuleStuff.h regenerated (was zero-byte from earlier crashed regen). RuleStuff.mm refreshed (was May 8 stale). Bug bisected to parse.rtn:94's `buffer += *atInput++` construct; split into two statements unblocks tok.
-- [x] **Cluster B regen + revert (commit 6398920, 2026-05-10)** — GroupBody.{mm,h}, GroupControl.mm, GroupMain.mm, GroupRules.mm regenerated from .twk source-of-truth (verified bit-identical to dirty state, confirming dirty was clean tok output). XML/WorkingOn/generate's `"PLGset*"` → `"CharSet*"` edit reverted (broke Generate.rtn:114 type-registry lookup). PLGset confirmed as keeper for incant parser-rule role.
-- [x] **Move five working files (commit fec9358, 2026-05-10)** — Testing.twk, action.twk, Test.twk, parts.twk, Simple.twk moved from Groups/ to Parse/BeforeRefactor/ for review and likely deletion. Were working files not source-of-truth.
-- [x] **Buffer source-of-truth verified (2026-05-10)** — Buffer.twk is consistently 3-arg (value, format, width) for all 6 append methods. The build's apparent "Buffer drift" was actually source code expecting the 3-arg surface that Buffer.twk genuinely provides; the regen produced byte-identical output to the May 8 .h, confirming no actual drift.
-- [x] Phase Splice complete (commit ef2730d, 2026-05-09) — setRules() body in Tokf/Tawk.twk replaced with new-format body from Tawk.regen.twk. Tawk.twk now in transitional state: new setRules, old callbacks still defined but no longer wired. ~/bin/tok untouched.
+- [x] **Phase Triage staged in Tokf/Tests/FormatC.twk (2026-05-11)** — three edits: GC inheritance in C++ class declarations, guardTokenFromName helper, close() emits include-guard prologue + `#endif`. Live Tokf/FormatC.twk untouched. Awaiting Tony's fileMerge review and tomorrow's build/test/promotion.
+- [x] **checkSkip comment-in-define-block fix (2026-05-11)** — line 159: `atContent += 2` → `atContent++`; line 163: `atRuleMark = atContent + 1`. Fix bisected via xcode debugger walk-through with Tony driving. Comment processing was over-advancing past the closing `\n` by 1, leaving indent state stale; fix lets the outer loop's tail `atContent++` complete the advancement so the newline handler fires correctly. Working tree, pending commit.
+- [x] **Xcode dev loop working (2026-05-11)** — Tony got the build clean overnight. Build target "Groups" compiles, errors actionable in IDE, debugger usable.
+- [x] **PLGset.addTest() removed (2026-05-11)** — was never called. Stashed in Parse/BeforeRefactor/ for safe keeping.
+- [x] RuleStuff fix (commit 0835c34, 2026-05-10) — parse.rtn:94 split-form workaround for tok post-increment-on-+= bug.
+- [x] Cluster B regen + revert (commit 6398920, 2026-05-10) — regenerated four .mm/.h pairs from .twk source-of-truth, reverted XML/WorkingOn/generate's PLGset → CharSet mis-edit.
+- [x] Move five working files (commit fec9358, 2026-05-10) — Testing.twk, action.twk, Test.twk, parts.twk, Simple.twk moved from Groups/ to Parse/BeforeRefactor/.
+- [x] Buffer source-of-truth verified (2026-05-10) — Buffer.twk consistently 3-arg.
+- [x] Phase Splice complete (commit ef2730d, 2026-05-09) — setRules() body in Tokf/Tawk.twk replaced with new-format body from Tawk.regen.twk.
 - [x] PLG `process()` CWD-relative path contract — drop sourceDir-from-filename, basename-only outFile (commit da51193, day 2)
 - [x] Bible May 7 polishes — resurrection-reader standard, day-3 inverse-failure lesson, path-bug entry, eRocka removed, TOK xcode references dropped
 - [x] Bible mirror sweep across all four repos (plg → support → tawk → incant) — same MD5 across all four
@@ -288,7 +282,7 @@ Clod wrote his first real incant (interpret()) — the demon is emerging.
 - [x] Grammar source tracked in Parse/Revision/Grammar/
 - [x] APFS case collision resolved — Grammar/ subdir
 - [x] plg.g self-describes — Start/Header/Include fixed
-- [x] Bare-include over-matching investigated — STALE FRAMING, was never actually broken (directives trace proved Body was working correctly)
+- [x] Bare-include over-matching investigated — STALE FRAMING, was never actually broken
 - [x] TAWK Directives documented and used in anger
 - [x] Xcode project rebuilt via xcodegen/project.yml (plg only — TOK still unyamled, see Next Up)
 - [x] Session docs created and tracked
