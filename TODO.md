@@ -4,126 +4,153 @@
 
 ---
 
-## Tomorrow's wake-up (2026-05-13)
+## Tomorrow's wake-up (2026-05-14)
 
-**First work:** Multiple threads converged today. Pick one to lead with — they don't all need to happen tomorrow, but they all want attention:
+**First work — bible refresh.** Tony reviewed `bible-amendments.md` overnight (it lives in his Downloads). Draft the full revised projectBible.md incorporating Tony's edits to the four amendments:
 
-- **Phase Triage promotion.** Tony reviewed Tokf/Tests/FormatC.twk via fileMerge today and approved the changes. Tomorrow: promote Tests/FormatC.twk to live Tokf/FormatC.twk, rebuild ~/bin/tok, run against a sample .twk to confirm output has include guards + `: public gc`.
+1. New section: "Out-of-Scope Directories" (slots after Local Directory Map)
+2. Phase 2 safety rules clarification (Phase Splice + Triage as explicit exceptions)
+3. New section: "TAWK Known Issues — Autopsy Table" (slots before Resolved Issues Log; items 1-6 sourced from older bible Priority Plan, need Tony's confirmation; item 12 is the tok post-increment-on-+= bug)
+4. Expanded Working Relationship section (Cha Cha Modes subsection + Working Disciplines subsection)
 
-- **Commit PLGset/CharSet rewrites.** Today's representation rewrite (bit-packed `map[4]` → `unsigned char *inSet`, 256 bytes, debuggable) is in working tree, untested beyond compile-and-run. Build is clean and the original morning corruption symptom is gone. Worth committing after a fresh-eyes look tomorrow.
+Then mirror across all four repos.
 
-- **checkSkip dedent for defining mode.** Today's session pinned the next bug: the dedent-half of the `defining` indent-check branch is commented out in checkSkip. When `:`-opened blocks dedent, no synthetic close fires, and the block doesn't close. Visible failure: `generator:` in the generate file absorbs `generatE` (which should be a peer in the outer define block). Per Clod's wake-up read yesterday morning: `//or defining { *atContent = ';'; }` at line ~195 of GroupRules.twk.
+**Other threads ready to advance:**
 
-- **Code-block-as-defining-region.** Still open. Yesterday's `defineSkipSet` attempt broke setBrackets (the `{` in `[{A-Za-z0-9+-;(]` was treated as a brace block). Real design work needed for context-aware `{` handling — Tony's continued overnight noodle.
+- **PLGset issues.** Tony testing PLGset against fixed Buffer overnight to see whether the 538976288 setBuffer-size issue resolves automatically. If it doesn't, a focused conversation on PLGset's remaining issues. If it does, one less thing to chase.
 
-**Tony's overnight work also includes:**
-- Reviewing PLGset/CharSet rewrites in working tree
-- Continued noodle on code-block-as-defining-region design
+- **plg directory flatten.** Tonto's recon already done (see Phase Integrate prep section below). Tomorrow opens with: verify PLGrgx/PLGtester usage paths to confirm the recon's coupling-list interpretation, then sequence the move. Real piece of work, possibly ~2-3 hours if smooth.
 
-**Reading targets for Clay and Clod:**
-- `support/Frame/CharSet.twk` — rewritten today, uses `unsigned char *inSet` representation
-- `Groups/PLGset.twk` — rewritten today, same representation
-- `Tokf/Tests/FormatC.twk` — staged Phase Triage changes, ready for promotion
-- `Groups/GroupRules.twk` — checkSkip() comment fix from 2026-05-11 is committed; dedent issue at line ~195 is next
+- **Phase Integrate work.** Today's Triage promotion failed at build because Instance.C uses old Buffer/PLGitem surfaces. That's Phase Integrate's whole job. Migration recon, then file-by-file migration, then TOK builds, then tokTemp, then Phase Triage validates, then ~/bin/tok promotion. Bigger arc than fits in any one day.
+
+- **Commit decisions for accumulated working-tree drift.** Today committed Buffer migration; yesterday's PLGset/CharSet rewrite still uncommitted, plus various Cluster C and older drift across multiple files. Worth a fresh-eyes pass on what should land as commits and what should be reverted.
+
+**Standing wake-up practice (new 2026-05-13):**
+After reading the docs, Clod runs `git diff --stat HEAD` in each repo to surface what's changed in working source since last commit. Reports the summary; Tony fills in context for anything significant. This is now part of the regular wake-up flow.
 
 **Out of scope (do not browse, survey, or modify):**
-- `Groups/GUI/` — HPDL (Tony may unleash Clod-recon as a deliberate exception later)
+- `Groups/GUI/` — HPDL legacy GUI material
 - `Parse/BeforeRefactor/` — archive
+- `Tokf/Backed/`, `Tokf/BeforeRefactor/`, `Tokf/OldStuff/` — TAWK archives
+- Any `Aside/`, `BackupIncludes/`, `*.rvsd` — accumulated backups
 
 **Known current state:**
-- Working tree carries today's rewrites: PLGset.twk, CharSet.twk, and the corresponding .h/.mm regen artifacts. Plus the dirty state from prior sessions (FormatC sandbox, defineSkipSet in GroupRules, etc.). None committed today.
-- Yesterday's `support/Include/frame` external for CharSet was updated to match the new representation (per Tony's update during today's session).
-- Build still clean. PLGset and CharSet rewrites compile and run.
-- Morning corruption symptom (ruleSkipSet.contains returning false on `\n`) appears to be resolved by the rewrite — the bit-packed `map[4]` representation was load-bearing in the bug somehow. Replaced with `inSet[256]` and the symptom is gone.
+- TOK build is broken on Tokf/Instance.C (old Buffer + PLGitem surface). This is Phase Integrate work.
+- Yesterday's PLGset/CharSet rewrites still uncommitted (in working tree).
+- Tokf/FormatC.twk live source carries today's Phase Triage promotion (uncommitted; binary identical to vetted Tests/ version).
+- Various accumulated drift across plg class set (May 8-10) and support files (May 8-10) — pre-existing, not from today.
+- Today's Buffer migration committed (today's commits).
 
 ---
 
 ## 🔥 Immediate (current sprint)
 
-### Phase Triage — vetted, ready for promotion tomorrow
+### Phase Integrate — Tokf migration to new plg
 
-*Tokf/Tests/FormatC.twk has three edits: GC inheritance in C++ class declarations, guardTokenFromName helper, and close() modified to emit include-guard prologue + `#endif`. Tony reviewed via fileMerge today and approved.*
+*Today's Phase Triage promotion exposed the gap: TOK build fails because Tokf source (Instance.C, others) uses old Buffer + PLGitem surfaces that have been migrated everywhere except Tokf. Until Tokf migrates, new TOK can't compile. Until new TOK compiles, Phase Triage's edits can't be runtime-validated. Until Phase Triage is validated, ~/bin/tok can't be promoted.*
 
-- [x] Recon: identify edit sites in FormatC.twk
-- [x] Design: three edits — GC inheritance, helper, close() modification
-- [x] Apply edits to Tokf/Tests/FormatC.twk (sandbox)
-- [x] Tony reviews via fileMerge (2026-05-12, approved)
-- [ ] Promote Tests/FormatC.twk to live Tokf/FormatC.twk
-- [ ] Rebuild ~/bin/tok from the updated FormatC
-- [ ] Run sandboxed ~/bin/tok on a sample .twk file (one of the support classes?)
-- [ ] Verify output: include guards in .h, `#include "gc/gc_cpp.h"`, `: public gc` inheritance for C++ classes
-- [ ] If clean, commit and ship
+*Replaces and absorbs Phase Port (callback signatures) and Phase Compile (first clean build). The work is bigger than Port alone — Port was about callbacks; Integrate is about every Tokf source that uses old plg/Buffer/PLGitem/PLGset surfaces migrating to the new ones.*
 
-### PLGset / CharSet — rewrite landed, needs commit
+- [ ] **Recon:** survey Tokf/ for files referencing Buffer, PLGitem, PLGset, PLGtester. Categorize by migration shape (mechanical Buffer 3-arg, PLGitem call-site refactor, PLGtester elimination).
+- [ ] **Sequence:** pick a small leaf-like Tokf file to migrate first as proof. Not Instance.C — too central.
+- [ ] **Migrate file by file.** Each migration its own commit. Run TOK build after each — even if it still fails, error count should drop. PLGtester gets parked in Parse/Backup/ as the migration proceeds (its files only needed by old tok runtime).
+- [ ] **Reach compilation.** Build clean — Phase Compile complete.
+- [ ] **Build ~/bin/tokTemp** (not ~/bin/tok — distinct binary to avoid confusion during transition). Old ~/bin/tok stays in place as safety net.
+- [ ] **Smoke test (Phase Sandbox).** Run tokTemp against representative .twk corpus. Diff output against current expectations.
+- [ ] **Phase Triage validation.** Verify tokTemp output has include guards + `#include "gc/gc_cpp.h"` + `: public gc` for C++ classes.
+- [ ] **Phase Promotion.** When validated, ~/bin/tok ← tokTemp. Old tok archived.
 
-*Today's representation rewrite. Storage changed from bit-packed `unsigned long *map` (4 longs, MSB-first packing) to `unsigned char *inSet` (256 bytes, one per char codepoint). Trivially debuggable: `inSet[10]` is either 0 or 1, no decoding needed. Negation resolved at construction time (input `^abc` produces `inSet[]` with 253 entries set), `negated` flag retained as informational only. toText removed; toString rewritten to print decimal-value-and-char for each present char.*
+### Phase Triage — promoted to live source, blocked on Phase Integrate
 
-*Mechanically: field declared as `unsigned char *inSet`, both constructors allocate via `calloc(256, sizeof(char))` as first line. Tok auto-init of `inSet = 0` works because the field is a pointer (not an array). Same fix applied to both PLGset and CharSet.*
+*FormatC.twk has been promoted from Tests/ to live Tokf/FormatC.twk (uncommitted in working tree, MD5 882ea729454d29870d07238b799e5055). Three edits: GC inheritance in C++ class declarations, guardTokenFromName helper, close() emits include-guard prologue + `#endif`. Live source is the source-of-truth. Runtime validation waits on Phase Integrate.*
 
-*Result: today's morning corruption symptom (ruleSkipSet.contains returning false on `\n` when it should be true, accompanied by 95 chars appearing in toString output) is gone. The bit-packed representation's MSB-first bit math may have been correctness-fragile in some specific way that the new representation eliminates.*
+- [x] Recon, design, sandbox edits, fileMerge review, approval
+- [x] Promote Tests/FormatC.twk to live Tokf/FormatC.twk (2026-05-13)
+- [ ] Commit (deferred — sits in working tree pending Phase Integrate completion)
+- [ ] Runtime-validate via tokTemp once Phase Integrate produces a working binary
+
+### Buffer migration — committed today
+
+*Replaced bufferFactory{1,2,3,4} free functions with three real C++ constructors. Three-step migration: edit Buffer.twk (add ctors, remove factories), edit Include/frame (add ctor decls, remove `new bufferFactory` alias, remove separate `external Buffer.h` block), re-tok consumers. The setBuffer-size 538976288 crash from yesterday should be addressed by the explicit field zero-init that tok now emits in constructor bodies (vs. relying on calloc's implicit zeroing in factories).*
+
+- [x] Rewrite Buffer.twk with three constructors
+- [x] Edit Include/frame external block
+- [x] Drop unused `include plg.ext` from frameIncludes (verified safe across all support consumers)
+- [x] Re-tok Buffer.twk → fresh Buffer.{C,h}
+- [x] Re-tok 3 consumer .twk files (CharSet, GroupControl, GroupRules) — all clean
+- [x] Tokf-side consumers skipped (blocked on Phase Integrate)
+- [x] plg-side consumers (Parse/Revision/PLG, PLGparse) deferred — not in today's scope
+- [x] Commit today (Buffer migration + Cluster C 3-arg method adoption bundled)
+- [ ] PLGset re-test against fixed Buffer (Tony overnight)
+
+### PLGset / CharSet — yesterday's rewrite, needs commit
+
+*Yesterday's representation rewrite (bit-packed `map[4]` → `unsigned char *inSet`) is in working tree, untested beyond compile-and-run. Build is clean and the morning corruption symptom is gone. PLGset's 538976288 setBuffer-size issue surfaced afterward; today's Buffer migration may address it. Commit decision waits on PLGset re-test against fixed Buffer.*
 
 - [x] Rewrite PLGset.twk with `unsigned char *inSet` storage
 - [x] Rewrite CharSet.twk with parallel representation
 - [x] Update `support/Include/frame` external for CharSet
-- [x] Build both, run incant loader
-- [ ] Tony reviews working tree state with fresh eyes
-- [ ] Commit when satisfied
-- [ ] Verify against more incant files than today's load test exercised
+- [ ] Tony tests PLGset against fixed Buffer (overnight)
+- [ ] Commit decision based on test result
 
 ### checkSkip — dedent for defining mode
 
-*Today's session pinned this. Without `:` on `generator`, it defines empty and members become outer-block peers. With `:`, it opens the member block correctly, but the block doesn't close — `generatE` (peer in outer block) gets absorbed as the 10th member of `generator`. Cause: the dedent-half of the `defining` branch in checkSkip's indent-check is commented out — `//or defining { *atContent = ';'; }` at line ~195 of GroupRules.twk.*
+*Pinned from 2026-05-12: the dedent-half of the `defining` branch in checkSkip's indent-check is commented out — `//or defining { *atContent = ';'; }` at line ~195 of GroupRules.twk. When `:`-opened blocks dedent, no synthetic close fires, and the block doesn't close. Tony has been working on checkSkip indentation handling after-hours.*
 
-*Tonto noted this gap yesterday morning at wake-up (Surprise 2). Today it's the live blocker for indent-as-structure POP.*
+- [ ] Continue Tony's overnight design work
+- [ ] Decide token shape for defining-mode dedent
+- [ ] Apply fix to checkSkip
+- [ ] Verify against generator define block in generate file (POP: `generatE` becomes peer of `generator` instead of being absorbed)
 
-- [ ] Design: what token should fire on `defining`-mode dedent? `;`? Something else?
-- [ ] Apply the dedent fix to checkSkip
-- [ ] Verify generator define block closes correctly before generatE
-- [ ] Verify no regression on `:`-opened blocks that *should* keep growing
+### checkSkip — code-block-as-defining-region (Tony's continued overnight)
 
-### checkSkip — code-block-as-defining-region (Tony's overnight, still open)
+*Open since 2026-05-11. Inside `{ ... }` code blocks within a defining context, checkSkip processes the contents and mutates indent state. Yesterday's `defineSkipSet` approach broke `setBrackets`. Tony continues design work.*
 
-*Open since 2026-05-11. Inside `{ ... }` code blocks within a defining context, checkSkip processes the contents and mutates indent state, producing wrong results downstream. Yesterday's `defineSkipSet` approach broke `setBrackets` (the `{` inside `[{A-Za-z0-9+-;(]` was treated as a brace block when it's actually a character in a `[...]` set declaration). Needs context-aware design.*
+- [ ] Continue Tony's overnight design
+- [ ] Apply, test against drawing file (Point + arc + curve)
+- [ ] Verify no regression in setBrackets
 
-- [ ] Tony's continued noodle: design context-aware `{` handling
-- [ ] Apply, test against drawing file's Point + arc + curve definitions
-- [ ] Verify no regression in setBrackets or anywhere else `{` appears as content
+### plg directory flatten — recon complete, action deferred to tomorrow
 
-### Xcode environment — workable dev loop ✅ DONE (2026-05-11)
+*Tonto recon completed 2026-05-13. Plan: move Parse/Revision/* up to Parse/, move legacy Parse/* contents to Parse/Backup/. Wrinkles surfaced:*
 
-### Incant — PLGitem migration vet ✅ DONE in effect (2026-05-11)
+- **Case-insensitivity collision** between legacy `plg.{C,h,twk}` and Revision `PLG.{C,h,twk}` — 12 file overlap (case-insensitive). Must sequence: legacy files OUT first, then Revision UP.
+- **`.git` lives in Parse/Revision/** — needs to move with the contents (`mv Revision/.git Parse/.git`). Parse/ itself is not a git repo currently.
+- **PLGrgx is active source** despite living in legacy Parse/ — referenced from incant (GroupItem, GroupBody, GroupRules) and support/Include (groups.ext, PLGrevision). Should move with Revision content, not to Backup. Tony confirmed: we need/will use PLGrgx.
+- **PLGtester is dead** — used only by old tok being phased out. Park in Parse/Backup/. Will be removable when Phase Integrate completes.
+- **plgDirectives in plg.xcodeproj** — references will need path updates post-move.
+- **References to "Parse/Revision" across docs** — 4 each in projectBible.md (in 4 repos), TODO.md (in 4 repos), and Sessions notes. Mechanical doc-update sweep post-move.
+
+Tomorrow's sequence:
+- [ ] Verify PLGrgx/PLGtester usage paths (confirms recon's interpretation)
+- [ ] Move legacy Parse/* contents to Parse/Backup/ (preserves them, makes way for Revision contents)
+- [ ] Move Parse/Revision/* up to Parse/ (case collisions now resolved by step above)
+- [ ] Move Parse/Revision/.git to Parse/.git
+- [ ] Update plg.xcodeproj/project.yml path references (or regenerate via xcodegen)
+- [ ] Update doc references across four repos
+- [ ] Verify plg repo still functional (build, push)
+
+### Bible refresh — first thing tomorrow
+
+*See "Tomorrow's wake-up" above.*
 
 ### TAWK — Back Up and Running
 
-*Get TAWK incorporating the revised PLG. Floor POP: new TAWK processes the .twk files in plg/incant/support/tawk. Stretch POP: `plg Tawk.g` → Tawk.twk → new TAWK builds → new TAWK re-tokkifies the ecosystem. Self-consistent loop.*
-
 #### Phase Splice ✅ COMPLETE (commit ef2730d, 2026-05-09)
 
-#### Phase Triage — staged & vetted, ready for promotion (see Immediate above)
+#### Phase Triage — promoted to live source (see Immediate above)
 
-#### Phase Port — Callback signature migration
-
-*~50+ `*TawkNow` and `*TawkAct` callbacks change signature to `(PLGparse *state, PLGitem *iTEM)`. Largest single piece of work in the arc.*
-
-- [ ] Inventory the callbacks — count, group by mechanical-vs-design
-- [ ] Decide session granularity (Tony + Clay)
-- [ ] Port callbacks (one or more Clod sessions)
-- [ ] If callbacks reference PLGsetParse → activate Phase Lazarus
-
-#### Phase Compile — First clean build
-
-- [ ] Build new TAWK against current support + revised PLG
-- [ ] Resolve unresolved references
-- [ ] If link errors point at PLGsetParse → activate Phase Lazarus
-- [ ] Clean compile achieved
+#### Phase Integrate — see Immediate (replaces Phase Port + Phase Compile)
 
 #### Phase Lazarus — PLGsetParse revival (STANDBY)
 
-#### Phase Sandbox — Tests/ verification vs ~/bin/tok
+#### Phase Sandbox — Tests/ verification vs ~/bin/tok (folded into Phase Integrate)
 
-#### Phase Promotion — Replace ~/bin/tok
+#### Phase Promotion — Replace ~/bin/tok (folded into Phase Integrate)
 
 #### Phase Loop — Self-host POP
+
+*`plg Tawk.g` regenerates Tawk.twk. New TAWK builds from regenerated source. Stretch POP.*
 
 ---
 
@@ -152,17 +179,19 @@
 
 ### TAWK
 
-- [ ] TAWK autopsy remainder (after Phase Triage)
+- [ ] TAWK autopsy remainder (after Phase Integrate)
 
 ### TOK Xcode project — yaml it (+ rename Groups → incant)
 
-### Cluster C — Buffer 3-arg + new idiom adoption
+### Cluster C — Buffer 3-arg + new idiom adoption ✅ effectively complete
+
+*Today's Buffer migration included re-toking Cluster C-affected files. The 3-arg method signatures (appendChar/appendInt/appendString) are now in regenerated artifacts via the same commit as the constructor migration.*
 
 ### Cluster D — Bytecode gating hook (PARKED)
 
 ### Cluster E — DEFINing flag / indent-as-structure (IN PROGRESS)
 
-*Comment handling fixed 2026-05-11. Code-block handling open. Dedent-half of defining branch needs implementation. Today's session sharply defined both remaining pieces.*
+*Comment handling fixed 2026-05-11. Code-block handling open. Dedent-half of defining branch needs implementation. Tony continues overnight design work.*
 
 ### Incant
 
@@ -181,7 +210,9 @@
 
 ### Maps → move to support source (Tony's note, deferred)
 
-*Maps directory (containing Segment.twk with bitMask and friends) currently lives in Groups but should be in support. Move when convenient. Doesn't matter for the inSet[256] rewrite since neither PLGset nor CharSet uses bitMask anymore — but Maps still has callers elsewhere presumably.*
+### TOK build machinery lives outside all four GitHub repos
+
+*Per today's recon: `~/data/InProcess/TOK/TOK.xcodeproj` is the build mechanism. No project.yml, no git tracking. Real exposure — if the build setup gets damaged, no remote backup. Worth eventual housekeeping.*
 
 ---
 
@@ -207,14 +238,12 @@
 - [ ] +1000 offset reporting quirk
 - [ ] Incant CLAUDE.md drift — settle accurate language now Phase Splice has landed
 - [ ] ~/bin/plg dated Nov 2024 — verify or rebuild
-- [ ] Bible safety-rule amendment (line 209) — clarify Phase 2 arc as explicit exception
 - [ ] Support repo update process — needs a look (drift between local and GitHub)
-- [ ] Bible update — TAWK Known Issues autopsy table item 12: post-increment-dereference on RHS of type-aware `+=` (parse.rtn:94 bisect 2026-05-10)
-- [ ] Bible update — add "Clay-designs-Clod-applies-Tony-reviews-before-tok-time" as named cha cha mode (2026-05-11)
-- [ ] Add "out-of-scope directories" standing rule to bible or CLAUDE.md
+- [ ] **PLGset/CharSet architectural note** (stashed bible amendment item 5 — pending decision on whether it warrants bible status)
+- [ ] **Phase Integrate detailed plan** (stashed bible amendment item 6 — landed in TODO Immediate above; bible amendment can come when phase is more concrete)
 - [ ] Move Groups/GUI/ to a Reference/ or Stealable/ sibling directory
 - [ ] Move Groups/Maps/ to support source
-- [ ] `git add <file> && git commit` discipline: confirm index contents before commit
+- [ ] Accumulated working-tree drift across plg class set (May 8-10), support Buffer/OCroutines/StringRoutines (May 8-10), KeyTable bulk-touch (May 8 12:12) — sort what should commit vs revert
 
 ---
 
@@ -222,22 +251,26 @@
 
 ### Recent (2026-05)
 
-- [x] **PLGset / CharSet rewrite (2026-05-12)** — replaced bit-packed `map[4]` representation with `unsigned char *inSet` (256-byte storage, one per codepoint). Trivially debuggable. Negation resolved at construction time. toText removed; toString rewritten with decimal-value output. Both compile clean. Morning ruleSkipSet corruption symptom is gone.
-- [x] **Phase Triage staged in Tokf/Tests/FormatC.twk (2026-05-11)** — three edits: GC inheritance, guardTokenFromName helper, close() emits include-guard prologue + `#endif`. Tony reviewed and approved 2026-05-12. Pending promotion.
-- [x] **checkSkip comment-in-define-block fix (commit a219689, 2026-05-11)** — line 159 over-advancement past `*/` close fixed; comment processing now correctly leaves cursor on the following newline so the newline handler can reset indent state.
-- [x] Xcode dev loop working (2026-05-11) — Tony got the build clean overnight.
-- [x] PLGset.addTest() removed (2026-05-11) — was never called. Stashed in Parse/BeforeRefactor/.
-- [x] RuleStuff fix (commit 0835c34, 2026-05-10) — parse.rtn:94 split-form workaround for tok post-increment-on-+= bug.
-- [x] Cluster B regen + revert (commit 6398920, 2026-05-10) — regenerated four .mm/.h pairs from .twk source-of-truth.
-- [x] Move five working files (commit fec9358, 2026-05-10).
-- [x] Buffer source-of-truth verified (2026-05-10).
-- [x] Phase Splice complete (commit ef2730d, 2026-05-09).
-- [x] PLG `process()` CWD-relative path contract (commit da51193).
-- [x] Bible May 7 polishes.
-- [x] Bible mirror sweep across all four repos.
-- [x] Incant repo cleanup commit (b5375e8).
-- [x] HWF.md trim ritual added.
-- [x] Verification protocol added.
+- [x] **Buffer migration to constructors (2026-05-13)** — replaced bufferFactory{1,2,3,4} free functions with three real C++ constructors (Buffer(), Buffer(name), Buffer(name, size)). Edits: Buffer.twk (add ctors, remove factories), Include/frame (add ctor decls, remove `new bufferFactory` alias, remove `external Buffer.h` block), frameIncludes (drop unused plg.ext include). Re-tok'd Buffer, CharSet, GroupControl, GroupRules. Tokf-side consumers (Instance, FormatC, Tawk) skipped pending Phase Integrate. plg-side consumers deferred. Bundled with Cluster C 3-arg method adoption in same commit.
+- [x] **Phase Triage promoted to live source (2026-05-13)** — Tokf/Tests/FormatC.twk → Tokf/FormatC.twk. MD5 882ea729454d29870d07238b799e5055. Sits uncommitted in working tree; runtime validation waits on Phase Integrate.
+- [x] **Include/changes restore (commit 17982d2, 2026-05-13)** — restored file inadvertently swept into commit 604ad09 by glance-and-proceed on staged deletion. Discipline lesson filed.
+- [x] **TODO mirror push for 2026-05-12 (commits 7707d2b incant, f6c27ff plg, 06992d2 tawk, 604ad09 support, 2026-05-13)** — yesterday's end-of-session TODO finally landed on all four repos.
+- [x] **PLGset / CharSet rewrite (2026-05-12)** — bit-packed `map[4]` → `unsigned char *inSet`. Trivially debuggable. Working tree, awaiting test against fixed Buffer.
+- [x] **Phase Triage staged & approved (2026-05-12)** — three edits to FormatC.twk: GC inheritance, guardTokenFromName helper, close() with guard emission.
+- [x] **checkSkip comment-in-define-block fix (commit a219689, 2026-05-11)**
+- [x] Xcode dev loop working (2026-05-11)
+- [x] PLGset.addTest() removed (2026-05-11)
+- [x] RuleStuff fix (commit 0835c34, 2026-05-10)
+- [x] Cluster B regen + revert (commit 6398920, 2026-05-10)
+- [x] Move five working files (commit fec9358, 2026-05-10)
+- [x] Buffer source-of-truth verified (2026-05-10)
+- [x] Phase Splice complete (commit ef2730d, 2026-05-09)
+- [x] PLG `process()` CWD-relative path contract (commit da51193)
+- [x] Bible May 7 polishes
+- [x] Bible mirror sweep across all four repos
+- [x] Incant repo cleanup commit (b5375e8)
+- [x] HWF.md trim ritual added
+- [x] Verification protocol added
 
 ### Earlier
 
@@ -245,7 +278,6 @@
 - [x] CLAUDE.md, TODO.md, projectBible.md present in all four repos
 - [x] "What Is Incant?" wiki page
 - [x] Support static library (libsupport.a)
-- [x] PLGset moved to support repo
 - [x] foundIn dependency cycle resolved
 - [x] addTest() implemented, setRules() 48% smaller
 - [x] Guards implemented — setGuard() howitzer fix
