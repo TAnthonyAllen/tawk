@@ -4,126 +4,110 @@
 
 ---
 
-## Tomorrow's wake-up (next session — may be later today after recess)
+## Tomorrow's wake-up
 
-**First work — Tony fixes the double-define bug.** Offline work. Should be short. The bug: testCodE parses correctly through aCTionCodE, but afterward the parse continues in a way that causes the field to be defined a second time. Hypothesis: testAction's two paths in parse.rtn — one for parseACTION/no-label, one for the older label-passed pattern — may both fire under some conditions, or the upstream parse loop misreads the post-parseAction state. Single-step through the debugger from just after aCTionCodE returns true.
+**First work — Tony's checkSkip double-define investigation.** Offline target. From earlier today's debugging: testCodE parses correctly through aCTionCodE, but the parser then rewinds back to the original cursor position and re-parses the same field, producing a duplicate definition. The synthetic `:` insertion in checkSkip's indent-mode handling appears to be the source — checkSkip is inserting a `:` where it shouldn't, the parser sees corrupted input, rewinds and replays. Possibly the same surface as 2026-05-11's comment-fix area, just for a different trigger. Tony's after-hours debugger work.
 
-**After Tony's fix lands, then session resumes for deferred tasks.**
+**After Tony's fix, session resumes for deferred tasks. Pick from:**
 
-**Deferred tasks (pick order in next session):**
+- **Bible refresh.** Tony reviewed bible-amendments.md, approved with caveat "may have glossed details." Clay drafts full revised projectBible.md incorporating Tony's edits AND today's flatten (directory map needs rewriting post-flatten, not just substitution — flatten landed mid-day so amendments file doesn't reflect it). Clod mirrors across four repos.
 
-- **plg directory flatten** — Tonto recon complete (see notes below). Move legacy Parse/* contents to Parse/Backup/, move Parse/Revision/* up to Parse/. Wrinkles: case-insensitivity collision (must sequence legacy-out before Revision-up), .git relocation, PLGrgx is active source despite living in legacy Parse/, PLGtester is dead-pending-Phase-Integrate (park in Parse/Backup/), plgDirectives in plg.xcodeproj needs path updates, doc references across 4 repos.
+- **Phase Integrate kickoff.** Recon Tokf/ for files using old Buffer/PLGitem/PLGset/PLGtester surfaces. Migrate file-by-file, build ~/bin/tokTemp. The big arc for the multi-week future.
 
-- **PLGset "put in its place"** — Content commit landed (today). Location question: PLGset stays in Parse/ alongside the rest of plg's new architecture after the flatten. The flatten task covers this.
+- **plg xcode link cleanup + yaml refresh.** Today's flatten left some broken file-references in the plg xcodeproj (PLGrevision, plgDirectives, Include-side tok externals). Tony will manually fix these in Xcode UI, then we yaml-refresh project.yml to make it source-of-truth for the post-flatten state. Low-priority cosmetic work; build is fine without it.
 
-- **Phase Integrate** — Recon Tokf/ for files using old Buffer/PLGitem/PLGset/PLGtester surfaces. Bigger arc; see Phase Integrate section below.
+- **documentation.md surfaces.** Tony's WIP file in plg root. Conversation-worthy when it comes up again.
 
-- **Bible refresh** — Tony reviews bible-amendments.md (in Downloads). Draft full bible incorporating Tony's edits. Mirror across all four repos.
+- **TOK Xcode yaml-from-scratch.** TOK.xcodeproj has no project.yml and lives outside all four GitHub repos. Reverse-engineering from existing .pbxproj is the work. May also benefit from rename (Groups target → incant). On housekeeping for whenever.
 
 **Reading targets:**
-- `Groups/grammar` (the file Tony pasted today) for CodE/DatA bootstrap rules
-- `Groups/GroupMain.twk` (bootstrapper changes for CodE/DatA)
-- `Groups/RuleStuff.twk` and `Groups/parse.rtn` (testAction change)
-- `Groups/ruleActions.rtn` (aCTionCodE method)
-- `Groups/GroupItem.twk` and `Groups/GroupRules.twk` (other overnight changes)
+- `Parse/` is now the plg repo root (formerly Parse/Revision/). All plg source lives here directly now.
+- `Parse/Backup/` holds parked legacy plg material (gitignored)
+- `Parse/plgDirectives` is the active debugging-directive file (untracked, kept in place)
+- `support/Frame/PLGset.{twk,C,h}` and `support/Frame/CharSet.{twk,C,h}` — both sisters live here as of 2026-05-14
 
 **Standing wake-up practice:**
-After reading the docs, Clod runs `git diff --stat HEAD` in each repo to surface what's changed in working source since last commit. Tony fills in context. This is part of the regular wake-up flow now.
+Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills context for anything significant.
 
-**Out of scope:**
-- `Groups/GUI/`, `Parse/BeforeRefactor/`, archive directories
+**Out of scope:** `Groups/GUI/`, `Parse/BeforeRefactor/`, `Parse/Backup/` (new today), archive directories.
 
 **Known current state:**
-- Today's overnight work committed (CodE/DatA parseAction approach in 5 incant files + grammar)
-- Yesterday's PLGset/CharSet rewrite committed today (was uncommitted in working tree until today's session)
-- Phase Triage FormatC.twk live source still uncommitted (waits on Phase Integrate)
-- Other accumulated drift from prior sessions still in working tree (Cluster C remnants, KeyTable May 8 bulk-touch, etc.)
-- POP partial: incant loads, first definition (testCodE) parses through aCTionCodE successfully, then incant bails silently after a double-define. Tony's after-hours fix target.
-- Xcode was updated overnight. Lesson filed: when Xcode does an update mid-project, **Clean Build Folder before anything else** when weird build/runtime behavior appears.
+- Today's plg flatten committed: Parse/Revision/ → Parse/. 2 commits in plg repo (PLGrgx add + flatten itself) plus today's broader work.
+- plgDirectives kept in Parse/ as live debugging tool, untracked-by-design
+- documentation.md remains untracked WIP (separate conversation pending)
+- Phase Triage FormatC.twk still uncommitted in tawk (waits on Phase Integrate)
+- POP partial state: incant loads, first testCodE parses through aCTionCodE successfully, then double-define bug fires. Tony's overnight target.
+- Bible amendments file in Tony's Downloads — reviewed, approved with glossing caveat
 
 ---
 
 ## 🔥 Immediate (current sprint)
 
-### CodE/DatA parseAction approach — committed today
+### plg directory flatten — COMPLETE today
 
-*Yesterday's checkSkip indent-as-structure problem (code blocks inside define mode mutating indent state) solved by going outside checkSkip entirely. New grammar rules CodE and DatA recognize `{ ... }` field values as atomic spans via parseAction mechanism — checkSkip never sees inside the code block.*
+*Parse/Revision/* contents promoted to Parse/. Legacy plg sources moved to Parse/Backup/. .git relocated. plgDirectives kept live in Parse/. Splitter symlinks deleted. PLGrgx tracked into plg repo (was previously untracked source-of-truth in legacy Parse/).*
 
-*Implementation: CodE is a parseAction rule with `{` and `}` as left/right attributes. aCTionCodE method scans the input from atRuleMark forward to find the delimiters and sets the label's token to the captured span. The parseAction modifier on the rule causes testAction (in parse.rtn) to dispatch instead of standard match logic. Existing parseAction infrastructure was dormant since the GroupItem parse rewrite; testAction needed a small fix to pass the rule (not the label) to aCTionCodE.*
+- [x] Pre-flight inventory
+- [x] PLGrgx moved into plg repo (commit 139064b)
+- [x] Parse/Backup/ created, dead legacy contents moved (plg.*, PLGitem, PLGlabel, PLGparse, PLGrule, PLGtester)
+- [x] Splitter symlinks deleted (saved .twk copy in Parse/BeforeRefactor/)
+- [x] Parse/Revision/* contents moved up to Parse/
+- [x] .git relocated to Parse/.git
+- [x] .gitignore audit: Backup/, BeforeRefactor/, Tests/, .claude/ all ignored
+- [x] project.yml path reference for plgDirectives updated
+- [x] plg.xcodeproj/project.pbxproj plgDirectives path updated
+- [x] Doc reference sweep attempted, reverted (broke prose in TODO planning sections and bible directory maps; deferred to TODO refresh + bible refresh which rewrite those sections wholesale)
+- [x] Commit ae06990 (flatten + drift cleanup)
+- [x] Tony build verify: core build clean, navigator shows some stale file references (PLGrevision, plgDirectives, Include tok externals) — cosmetic, deferred to yaml-refresh activity
 
-- [x] Add CodE rule to grammar (bootstrap section + grok registry definition in GroupMain.twk)
-- [x] Add CodE to DatA alternation in grammar (so field values can be code blocks)
-- [x] Fix testAction in parse.rtn to dispatch correctly for parseACTION rules
-- [x] aCTionCodE method in ruleActions.rtn
-- [x] All five touched .twk files re-tok'd to current .C/.mm artifacts
-- [x] Commit overnight work
-- [ ] **Tony's overnight fix:** double-define of testCodE after parseAction returns. Hypothesis: testAction's two dispatch paths may both fire, or upstream parse loop misreads post-parseAction state. Debug session needed.
+### CodE/DatA parseAction approach — committed yesterday
 
-### PLGset / CharSet — committed today (yesterday's rewrite)
+*Yesterday's grammar-level solution for code-block field values. testCodE = { maximus = 2; }; now parses through aCTionCodE atomically, bypassing checkSkip's indent-state issues. Implementation committed in a15471c.*
 
-*Yesterday's representation rewrite (bit-packed `map[4]` → `unsigned char *inSet`, 256 bytes, debuggable) sat uncommitted overnight. Today's POP validated the rewrite works through 5 successive PLGset instantiations in bootstrapper (the 6th caused trouble but turned out to be an unrelated Xcode-update-related stale build that resolved with clean build). Committed today.*
-
-- [x] Rewrite PLGset.twk with `unsigned char *inSet` storage
-- [x] Rewrite CharSet.twk with parallel representation
-- [x] Updated `support/Include/frame` external for CharSet
-- [x] Validated through POP (first 5 PLGset instantiations work cleanly post-Buffer-migration)
+- [x] All implementation
 - [x] Commit
+- [ ] **Tony's after-hours target:** double-define bug. testCodE defines correctly once, then parser rewinds and defines it again. Synthetic-`:` insertion in checkSkip indent-mode is the suspected source.
 
-### Phase Integrate — Tokf migration to new plg
+### PLGset/CharSet — sister classes in support/Frame, committed yesterday
 
-*The big arc. Today's POP exposes that incant runtime is workable enough to make progress on Phase Integrate. Approach: recon Tokf/ for old-API references, migrate file-by-file, build ~/bin/tokTemp, validate Phase Triage, eventually promote to ~/bin/tok.*
+*PLGset moved from legacy Parse/ (untracked) to support/Frame (tracked, sister to CharSet). Both use inSet[256] representation. Resolved months of source-of-truth ambiguity.*
 
-- [ ] **Recon:** survey Tokf/ for files referencing Buffer, PLGitem, PLGset, PLGtester. Categorize by migration shape.
-- [ ] **Sequence:** pick a small leaf-like Tokf file to migrate first as proof.
-- [ ] **Migrate file by file.** Each migration its own commit. Run TOK build after each.
-- [ ] **Reach compilation.** Build clean.
-- [ ] **Build ~/bin/tokTemp** (not ~/bin/tok — distinct binary).
-- [ ] **Smoke test (Phase Sandbox).** Run tokTemp against representative .twk corpus.
-- [ ] **Phase Triage validation.** Verify tokTemp output has include guards + `#include "gc/gc_cpp.h"` + `: public gc`.
-- [ ] **Phase Promotion.** When validated, ~/bin/tok ← tokTemp.
+- [x] All work committed yesterday (commit 8223af6)
 
-### Phase Triage — promoted to live source, blocked on Phase Integrate
+### Phase Integrate — Tokf migration to new plg (active arc)
 
-*FormatC.twk promoted from Tests/ to live Tokf/FormatC.twk (uncommitted, MD5 882ea729454d29870d07238b799e5055). Runtime validation waits on Phase Integrate.*
+*The big arc. Today's incant runtime works enough to make Phase Integrate the realistic next target. Migrate every Tokf source that uses old Buffer/PLGitem/PLGset/PLGtester surfaces to new ones. Build ~/bin/tokTemp. Validate Phase Triage. Eventually promote.*
 
-- [x] All design and staging work
-- [x] Promote Tests/FormatC.twk to live Tokf/FormatC.twk
-- [ ] Commit (deferred — sits in working tree pending Phase Integrate completion)
-- [ ] Runtime-validate via tokTemp once Phase Integrate produces a working binary
+- [ ] Recon: survey Tokf/ for files referencing old surfaces. Categorize migration shape.
+- [ ] Sequence: pick a leaf-like file first.
+- [ ] Migrate file by file, commit each.
+- [ ] Reach clean compile.
+- [ ] Build ~/bin/tokTemp.
+- [ ] Smoke test (Phase Sandbox).
+- [ ] Phase Triage runtime validation.
+- [ ] Phase Promotion: ~/bin/tok ← tokTemp.
 
-### plg directory flatten — recon complete, action deferred
+### Phase Triage — promoted to live source, awaiting Phase Integrate
 
-*Tonto recon completed 2026-05-13. Plan: move Parse/Revision/* up to Parse/, move legacy Parse/* contents to Parse/Backup/. Wrinkles surfaced:*
+*FormatC.twk lives in Tokf/. Uncommitted. Runtime validation waits on Phase Integrate producing a working binary.*
 
-- **Case-insensitivity collision** between legacy `plg.{C,h,twk}` and Revision `PLG.{C,h,twk}` — 12 file overlap. Must sequence: legacy files OUT first, then Revision UP.
-- **`.git` lives in Parse/Revision/** — needs `mv Revision/.git Parse/.git`. Parse/ itself is not a git repo currently.
-- **PLGrgx is active source** despite legacy location — referenced from incant (GroupItem, GroupBody, GroupRules) and support/Include (groups.ext, PLGrevision). Should move with Revision content, not to Backup.
-- **PLGtester is dead** — used only by old tok being phased out. Park in Parse/Backup/.
-- **plgDirectives in plg.xcodeproj** — references need path updates post-move.
-- **References to "Parse/Revision" across docs** — 4 each in projectBible.md (in 4 repos), TODO.md (in 4 repos), Sessions notes. Mechanical doc-update sweep post-move.
+- [x] Design, staging, promote
+- [ ] Commit (deferred)
+- [ ] Runtime-validate via tokTemp
 
-Sequence:
-- [ ] Verify PLGrgx/PLGtester usage paths
-- [ ] Move legacy Parse/* contents to Parse/Backup/ (preserves them, makes way for Revision contents)
-- [ ] Move Parse/Revision/* up to Parse/
-- [ ] Move Parse/Revision/.git to Parse/.git
-- [ ] Update plg.xcodeproj/project.yml path references
-- [ ] Update doc references across four repos
-- [ ] Verify plg repo still functional (build, push)
+### Bible refresh — deferred to next session
 
-### Bible refresh — deferred
+*Bible amendments file in Tony's Downloads, reviewed and approved with glossing caveat. Full bible draft incorporates: today's flatten (directory map rewrite), the amendments from earlier in week, today's PLGset-in-support resolution. Mirror across four repos when done.*
 
-*Bible amendments file lives in Tony's Downloads. Tony reviews when ready (was deferred from yesterday and today). When ready: Clay drafts full revised projectBible.md incorporating Tony's edits, Clod mirrors across all four repos.*
-
-- [ ] Tony reviews bible-amendments.md
-- [ ] Clay drafts full revised bible
+- [ ] Clay drafts full revised bible (with today's flatten + all amendments)
+- [ ] Tony reviews full bible draft
 - [ ] Clod mirrors across four repos
 
 ### TAWK — Back Up and Running
 
 #### Phase Splice ✅ COMPLETE (commit ef2730d, 2026-05-09)
 
-#### Phase Triage — promoted to live source (see Immediate above)
+#### Phase Triage — promoted to live source (see Immediate)
 
 #### Phase Integrate — see Immediate (replaces Phase Port + Phase Compile)
 
@@ -141,8 +125,7 @@ Sequence:
 ### Incant — testByteCode POP
 
 - [ ] Add `Bytecode.mm` to incantGUI Xcode target
-- [ ] Emitter rewrite: `gIF` — generate bytecodE attribute
-- [ ] Emitter rewrite: `gExpressioN` — same
+- [ ] Emitter rewrite: `gIF`, `gExpressioN`
 - [ ] Verify `gBlocK`, `gFOR`, `gWhilE`, `gDO`
 - [ ] Run testByteCode end-to-end
 
@@ -155,12 +138,15 @@ Sequence:
 - [ ] Wash & rinse cycle
 - [ ] Support/Frame audit
 - [ ] Xcode workspace (Shape B)
+- [ ] **plg xcode link cleanup + yaml refresh** (post-flatten cosmetic work; Tony manually cleans navigator, then yaml-regen)
 
 ### TAWK
 
 - [ ] TAWK autopsy remainder (after Phase Integrate)
 
-### TOK Xcode project — yaml it
+### TOK Xcode project — yaml it (+ rename Groups → incant)
+
+*Lives outside all four GitHub repos. No project.yml. Reverse-engineering from existing .pbxproj is the work. May also include renaming target.*
 
 ### Cluster C — Buffer 3-arg + new idiom adoption ✅ effectively complete
 
@@ -168,20 +154,22 @@ Sequence:
 
 ### Cluster E — DEFINing flag / indent-as-structure (IN PROGRESS)
 
-*Code-block-as-defining-region addressed via CodE/DatA parseAction (today). Dedent-half of defining branch still open from earlier sessions. Tony continues design work.*
+*Code-block-as-defining-region addressed via CodE/DatA parseAction (yesterday). Dedent-half of defining branch still open. Double-define bug from today's POP also lives here.*
 
 ### Incant
 
-- [ ] `gPrinT` — implement (stub)
-- [ ] `gXpress` — implement (stub)
-- [ ] `gDeclare` — verify correct
+- [ ] `gPrinT`, `gXpress`, `gDeclare`
 - [ ] `genPrint` in Generate.rtn — replace with bytecode equivalent
 - [ ] `runCall` handler
 - [ ] JSON rule — find in attic, POP
-- [ ] Bot messaging project — assess InProcess/Bot
+- [ ] Bot messaging project
 - [ ] Distributed GroupItem messaging design
 
-### GUI exploration recon (DEFERRED, by deliberate decision)
+### Incant documentation conversation
+
+*Tony's WIP on documentation.md surfaces in upcoming session. Untracked in plg repo working tree. Conversation-worthy.*
+
+### GUI exploration recon (DEFERRED)
 
 ### Maps → move to support source
 
@@ -212,11 +200,13 @@ Sequence:
 - [ ] Incant CLAUDE.md drift
 - [ ] ~/bin/plg dated Nov 2024 — verify or rebuild
 - [ ] Support repo update process — needs a look
-- [ ] PLGset/CharSet architectural note (stashed bible amendment)
+- [ ] PLGset/CharSet architectural note (stashed bible amendment — should now reflect today's support/Frame placement)
 - [ ] Move Groups/GUI/ to a Reference/ sibling directory
 - [ ] Move Groups/Maps/ to support source
-- [ ] Accumulated working-tree drift sort: what should commit vs revert
-- [ ] **Xcode-update discipline:** when Xcode does an update, **Clean Build Folder before debugging any weird runtime behavior**. Stale derived data can produce phantom bugs.
+- [ ] Accumulated working-tree drift sort: GroupDraw (parked, 76 lines), GroupControl (2), GroupItem (3), Stylish (2), KeyTable May 8 bulk-touch
+- [ ] **Xcode-update discipline:** Clean Build Folder before debugging weird runtime behavior after Xcode update.
+- [ ] **Visibility-gap discipline:** source-of-truth files MUST live in tracked locations. Today's PLGrgx (and yesterday's PLGset) resolutions exemplify the fix.
+- [ ] **Tests/ just-in-case stash** — Parse/Tests/ contents are mostly dangling symlinks post-flatten. Tony may want a copy stashed somewhere just-in-case before fully forgetting about it.
 
 ---
 
@@ -224,14 +214,16 @@ Sequence:
 
 ### Recent (2026-05)
 
-- [x] **CodE/DatA parseAction approach (2026-05-14)** — grammar change to handle `{ ... }` field values atomically, sidestepping checkSkip's indent-state corruption issue from prior sessions. Touched: grammar, GroupMain.twk (bootstrapper), RuleStuff.twk, parse.rtn (testAction fix), ruleActions.rtn (aCTionCodE), GroupItem.twk, GroupRules.twk.
-- [x] **PLGset/CharSet rewrite committed (2026-05-14)** — yesterday's representation rewrite was uncommitted; today's POP validated and committed.
-- [x] **Buffer migration to constructors (2026-05-13)** — bufferFactory{1,2,3,4} → three real C++ constructors. Edits across Buffer.twk, Include/frame, frameIncludes; re-tok'd Buffer, CharSet, GroupControl, GroupRules.
-- [x] **Phase Triage promoted to live source (2026-05-13)** — Tokf/Tests/FormatC.twk → Tokf/FormatC.twk. Uncommitted pending Phase Integrate.
-- [x] **Include/changes restore (commit 17982d2, 2026-05-13)** — restored file inadvertently swept into commit 604ad09.
-- [x] **TODO mirror push (commits 7707d2b/f6c27ff/06992d2/604ad09, 2026-05-13)** — yesterday's TODO finally landed on all four repos.
-- [x] **PLGset / CharSet representation rewrite (2026-05-12)** — bit-packed `map[4]` → `unsigned char *inSet`.
-- [x] **Phase Triage staged & approved (2026-05-12)** — three edits to FormatC.twk.
+- [x] **plg directory flatten (2026-05-14)** — Parse/Revision/* promoted to Parse/, legacy material moved to Parse/Backup/, .git relocated, plgDirectives kept in place. PLGrgx tracked into plg repo as pre-flatten step (139064b). Flatten commit ae06990. Build clean for core code; navigator shows some stale file references for cosmetic cleanup later.
+- [x] **CodE/DatA parseAction approach (2026-05-14, commit a15471c)** — grammar change to handle `{ ... }` field values atomically.
+- [x] **PLGset migrated to support/Frame (2026-05-14, commit 8223af6)** — resolved months of source-of-truth confusion.
+- [x] **CharSet rewrite committed (2026-05-14)** — landed with PLGset migration.
+- [x] **Buffer migration to constructors (2026-05-13)** — bufferFactory{1,2,3,4} → three real C++ constructors.
+- [x] **Phase Triage promoted to live source (2026-05-13)** — Tokf/Tests/FormatC.twk → Tokf/FormatC.twk.
+- [x] **Include/changes restore (commit 17982d2, 2026-05-13)**
+- [x] **TODO mirror push (2026-05-13)**
+- [x] **PLGset / CharSet representation rewrite (2026-05-12)**
+- [x] **Phase Triage staged & approved (2026-05-12)**
 - [x] **checkSkip comment-in-define-block fix (commit a219689, 2026-05-11)**
 - [x] Xcode dev loop working (2026-05-11)
 - [x] PLGset.addTest() removed (2026-05-11)
