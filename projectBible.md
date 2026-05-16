@@ -1,6 +1,8 @@
 # The PLG/TAWK/Incant Project Bible
 *A living document. Every sentence earns its place.*
 
+*Note: as of 2026-05-15, incant bytecode / JIT design material lives in `jit.md` (sibling to this bible), spun out to keep the bible's wake-up payload focused.*
+
 ---
 
 ## The Ecosystem in One Breath
@@ -25,7 +27,7 @@ The design follows elegance; the classifications are just other nerds recognizin
 | Support | https://github.com/TAnthonyAllen/support | public ✅ |
 | TAWK | https://github.com/TAnthonyAllen/tawk | public ✅ |
 
-Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
+Each repo has `CLAUDE.md`, `TODO.md`, this bible, and `jit.md` mirrored.
 
 ---
 
@@ -37,6 +39,8 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
         Parse/              — PLG repo root. All active plg source lives here directly.
         Parse/.git          — plg repo
         Parse/Grammar/      — Grammar files: plg.g, plgRules.g, plg.act
+        Parse/HWF.md        — active HWF design sessions
+        Parse/HWFattic/     — graduated HWF session trims (resting place for closed sessions)
         Parse/Backup/       — parked legacy plg material (gitignored)
         Parse/BeforeRefactor/ — historical pre-refactor copies (gitignored)
         Parse/Tests/        — test files + symlinks (gitignored)
@@ -94,6 +98,11 @@ Each repo has `CLAUDE.md`, `TODO.md`, and this bible mirrored.
 - **PLGitem** — match result. Buffer reference + offset, itemLength, toString().
 - **PLG** — contains PLGparse via composition. setRules() and all plg-specific grammar/actions.
 
+### Incant Core Concept
+A GroupItem is incant's universal data structure: every value, every rule, every code block, every bytecode op is a GroupItem. Fields hang off it, holding data, methods, sub-items, or other GroupItems. There is only the one shape, recurring at every level — which is what makes incant homoiconic in practice.
+
+Generators are incant's parse-tree-walking machinery: they traverse GroupItems and produce output. Output can be text or GroupItems, depending on call context. The same generator infrastructure can power C++ code emission, bytecode emission, or whatever future targets emerge.
+
 ### Support Classes (in support/Frame, sister citizens)
 - **PLGset** — parser-rule set class. Uses `inSet[256]` representation. Lives in support/Frame as of 2026-05-14 (commit 8223af6), resolving months of source-of-truth ambiguity.
 - **CharSet** — character-set utility. Same `inSet[256]` representation. Sister of PLGset.
@@ -138,7 +147,7 @@ PLG is supposed to generate setRules() but needs setRules() to parse plg.g to ge
 4. `tawk PLG.twk` → PLG.C
 5. Compile and test
 
-**Self-host status**: plg.g parses end-to-end (39 rules). Generator emits correct addTest() format (76% smaller). Round-trip chain stalls at bare-include over-matching — next debug cycle, use plgDirectives.
+**Self-host status**: plg.g parses end-to-end (39 rules). Generator emits correct addTest() format (76% smaller). Round-trip has not been re-attempted since the bare-include over-matching framing was retired as stale (see Resolved Issues Log). Current end-to-end self-host status is unknown until next attempt. A future Tonto run could confirm cheaply.
 
 **Same problem exists for TAWK**: solved by `~/bin/tok`.
 
@@ -288,7 +297,7 @@ TAWK currently uses the legacy PLGparse API (kind=5/7 with void* casts, *TawkNow
 
 Incant bytecode/JIT design work has its own document — see `jit.md` (sibling to this bible). That document covers the bytecode-as-GroupItems design, the bcOPs registry, the interpret() function written in incant, and the gating hook in GroupRules.mm.
 
-**Status summary [updated 2026-05-15]**: Phases 0 (BDWGC) and 1 (generateCode repurposed) complete; Phase 2 (bytecode emitter + interpreter) in progress. Precondition for Clod-driven emitter work: incant unit-test suite passing clean. Pointing Clod at emitter rewrites while the interpreter has gaps means a failing testByteCode run can't be attributed cleanly to emitter vs interpreter — and Clod cycles would burn on phantom bugs.
+**Status summary [updated 2026-05-15]**: Phases 0 (BDWGC) and 1 (generateCode repurposed) complete; bytecode work in progress as Phase Bytecode (see Priority Plan). Precondition for Clod-driven emitter work: incant unit-test suite passing clean.
 
 ### Incant Dispatch Idiom (IMPORTANT)
 Two steps — never chain:
@@ -316,7 +325,7 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 
 ## Priority Plan (current)
 
-**Phase 1: PLG → Tawk.g ✅ COMPLETE**
+**Phase Generate Tawk: PLG → Tawk.g ✅ COMPLETE**
 - PLG parses plg.g ✅ — 39 rules
 - PLG parses Tawk.g ✅ — 200 rules, 177 populated
 - Tawk.regen.twk generated in new format ✅
@@ -326,14 +335,21 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 - Precondition: incant unit-test cleanup
 - See "TAWK Runtime Replacement" section for phase detail
 
-**Phase 3: Incant bytecode/JIT**
-- Emitter rewrite (gIF, gExpressioN)
-- testByteCode POP
-- Expand from there
-- Precondition: incant unit-test cleanup (for Clod-driven work)
-- See jit.md for design detail
+**Phase Bytecode: Incant bytecode emitter and interpreter**
+- **Design**: partly settled, actively evolving. Bytecodes are GroupItems. Interpreter loop in incant; bcOP handlers as new C++-backed incant operators (Bytecode.mm). Emitter implemented as incant generators (the `generator` dispatch surface in Generate.rtn).
+- **Open design space**: generate started life as a C++-code generator; the shift to bytecode generation is in progress. Generators can produce text or GroupItems depending on call context; which generators produce what for bytecode emission is being worked out on the fly. Phase Bytecode is the arc through which this settles.
+- **The stubbed work**: gIF and gExpressioN are currently stubs in Generate.rtn (`print "Need to work out..."`). Filling them in for bytecode emission is the active code work and the primary test of whether incant generators can carry the load.
+- **Plan**: incant-first. C++ emitter is fallback only if incant generators prove insufficient. Decision point comes from hitting an actual wall, not from caution.
+- **POP (twin)**: testByteCode runs end-to-end, `maximus = 26` → bytecode interpreter POP'd; gIF/gExpressioN produce valid bytecodE attributes → generator dispatch demonstrated for the bytecode case.
+- **Precondition**: incant unit-test cleanup (for Clod-driven work).
 
-**Incant unit-test cleanup** — load-bearing precondition for both Phase Integrate execution and Phase 3 Clod work. POP runs to completion as of 2026-05-15 and a test action fires; full suite has known gaps. Step-by-step work-through is Tony's after-hours bucket.
+**Phase JIT: Incant JIT code generation**
+- Design: not yet started. HWF Session 8 pending.
+- Code: TBD by design
+- POP: TBD by design
+- Precondition: Phase Bytecode POP'd
+
+**Incant unit-test cleanup** — load-bearing precondition for both Phase Integrate execution and Phase Bytecode Clod work. POP runs to completion as of 2026-05-15 and a test action fires; full suite has known gaps. Step-by-step work-through is Tony's after-hours bucket.
 
 **Scoped TAWK autopsy (independent of Phase Integrate)**
 - GC inheritance fix — TAWK classes need to inherit from GC
@@ -346,7 +362,7 @@ The JIT is the enabling technology. Without JIT, incant is an interpreter. With 
 
 ## HWF Sessions — Pending Work
 
-The HWF.md file holds active design sessions. The following are pending or active as of 2026-05-15:
+The HWF.md file holds active design sessions (`Parse/HWF.md`). Graduated/closed sessions land in `Parse/HWFattic/`. The following are pending or active as of 2026-05-15:
 
 - **Session 1 — isCLAUDE and the cha cha** — open. Working through what `isCLAUDE` means as a GroupItem field type.
 - **Session 2 — Sign-off ritual** — queued, origin captured. Cross-session verification design.
@@ -354,6 +370,7 @@ The HWF.md file holds active design sessions. The following are pending or activ
 - **Session 4 — Indentation as structure** — open. Major incant syntax design; Fork A implementation partially landed and being hardened. Indent-as-structure (definitions and code blocks) and code-as-member-shape both settled and reflected in Incant Grammar above.
 - **Session 5 — PLGset / CharSet architectural split** — substantially settled (PLGset/CharSet placement landed 2026-05-14); session-close audit pending.
 - **Session 6 — Parse error handling** — queued, not yet opened. Triggered by the `:`/`>` silent-crap-out problem and the broader observation that incant has no parse-error story yet. Bounded mitigation in place (don't type those characters); proper design work deferred.
+- **Session 8 — JIT design** — queued, not yet opened. Phase JIT can't begin code work without this. Bytecode IR is the JIT's input; design conversation needs the bytecode emission shape (Phase Bytecode) as input.
 
 See HWF.md for active session content. Bible carries the index so resurrection-readers know what's queued.
 
@@ -369,7 +386,7 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 **Clod protocols**: "got it" when message lands. "ready" when done. PLG:/Incant: labels when parallel tracks.
 **End-of-session ritual**: Clay drafts bible + TODO, Clod pushes to all 4 repos. Before every Goodnight Gracie.
 
-**Resurrection-reader standard**: All .md files in this project (bible, HWF.md, TODO, CLAUDE.md, etc.) must make sense to fresh-Claude reading them cold tomorrow with no memory of today. The .md files exist to make resurrection work — reading them is how Claude/Clod start each day, and that reading is how project continuity persists. See HWF.md preamble for the full statement. This is the primary writing standard for project documentation.
+**Resurrection-reader standard**: All .md files in this project (bible, HWF.md, TODO, CLAUDE.md, jit.md, etc.) must make sense to fresh-Claude reading them cold tomorrow with no memory of today. The .md files exist to make resurrection work — reading them is how Claude/Clod start each day, and that reading is how project continuity persists. See HWF.md preamble for the full statement. This is the primary writing standard for project documentation.
 
 ---
 
@@ -385,7 +402,9 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 - Indent-as-structure (HWF Session 4) substantially landed for definitions and code blocks; Fork A implementation in progress
 - Incant POP runs to completion; test action fires end-to-end; full unit-test suite has gaps
 - Bytecode/JIT material moved out of bible to sibling jit.md
-- HWF Session 6 (parse error handling) queued
+- Phase naming convention extended: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT
+- Bare-include framing officially retired; self-host status downgraded to honest "unknown until next attempt"
+- HWF Session 6 (parse error handling) queued; HWF Session 8 (JIT design) queued
 
 ### PLG Working ✅
 - Full callback chain: RuleplgNow, AlternativeplgAct, ElementplgAct, ElementTypeplgAct, BlockplgAct
@@ -431,7 +450,7 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 ### Incant Next
 - Unit-test suite step-through to clean state (precondition for everything below)
 - Then: Bytecode.mm → Xcode target (manual)
-- Then: Emitter rewrite (gIF, gExpressioN)
+- Then: Fill in gIF and gExpressioN in Generate.rtn (Phase Bytecode active code work)
 - Then: testByteCode POP
 
 ### Known Working Tests
@@ -454,7 +473,8 @@ incant POP: runs to completion, test action fires end-to-end
 - **Yak shaving** — chain of necessary tasks, goal keeps receding.
 - **Lootenant WTF** — debugging assistant. American pronunciation.
 - **Bonfire** — retired code.
-- **Attic** — commented-out code. Findable. (Distinct from HWFattic, the directory for graduated HWF session trims.)
+- **Attic** — commented-out code. Findable. (Distinct from HWFattic.)
+- **HWFattic** — directory for graduated HWF session trims. Lives at `Parse/HWFattic/`. When a session closes, its trimmed/condensed form lands here for archival.
 - **Clay** — Claude at claude.ai.
 - **Clod** — Claude Code. Not disparaging.
 - **do the needful** — Hinglish. Standing instruction.
@@ -462,5 +482,6 @@ incant POP: runs to completion, test action fires end-to-end
 - **The cha cha** — Clay designs, Clod executes, Anthony architects.
 - **Tar baby** — problem that gets stickier. Avoid.
 - **Resurrection-reader** — fresh-Claude reading the .md files cold tomorrow with no memory of today. The audience all project documentation must serve.
+- **Generators** — incant's parse-tree-walking machinery. Hashed dispatch on tag (`generator gBlocK`, `generator gIF`, etc.). Output can be text or GroupItems, call-context-driven. Lives in Generate.rtn. The active code surface for Phase Bytecode.
 - **Clod working states** — Nebulizing, Gallivanting, Zesting, Swirling, Fiddling, Moonwalking, Forging, Bebopping, Topsy turving, Embellishing, Churning, Pouncing, Reticulating, Baking, Puttering, Blanching, Catapulting, Percolating, Tempering, Stewing, Tinkering, Coalescing, Transfiguring, Cooking, Razzmatazzing, Frolicking, Kneading, Fiddle-faddling, Cerebrating, Galloping, Forging sigils, Flibbertigibbeting, Transmuting, Philosophising, Shoveling coal, Sketching, Scaffolding, Frosting, Hatching, Humping, Bamboozling, Clauding, Smooshing, Wondering, Boondoggling, Swooping, Shenaniganing, Tomfoolering, Inferring, Pollinating, Combobulating, Waddling, Accomplishing, Catapulting.
 - **Tonto** — Clod's highest working state. Scout mode: read-only reconnaissance, holds the perimeter, reports cleanly, doesn't touch anything, doesn't get lost, doesn't gallivant. Distinguished by disciplined restraint. "Tonto goes in alone, kemosabe stays at the campfire."
