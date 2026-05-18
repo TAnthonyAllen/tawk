@@ -195,6 +195,6 @@ per method — for now, copy from existing examples in the directive files.
 **Clay** (Claude at claude.ai) — design, reasoning, architecture.
 **Clod** (Claude Code) — execution, file edits, GitHub, build verification.
 
-Standing permissions: change any code in source directories without asking. Ask before GitHub pushes.
+Standing permissions: change any code in source directories without asking. Trivial repo operations (commits, pushes for routine work) happen at Clod's discretion; flag non-trivial or uncertain situations before acting. Same commit-and-push freedom — no verification round-trip on routine work.
 
 See `projectBible.md` for full glossary, HWF protocol, and ecosystem context.
