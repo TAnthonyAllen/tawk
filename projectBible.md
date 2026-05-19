@@ -175,6 +175,8 @@ Action actionName { TAWK body } ;
 Would generate: `void actionName(PLGparse *state, PLGitem *item) { body }`.
 Inline action-block syntax was approved as a future plg feature in earlier discussion, but Session 9 (2026-05-18) chose a different path: .act files preserved and repurposed as splice-verbatim content (same pipeline as .rtn). The .act-as-splice model means plg doesn't need new grammar work for action definitions — actions live in .act files in tok-style, plg concatenates them into generated output. Inline action blocks remain available as a future option if .act-as-splice ever proves awkward, but they're off the active design surface.
 
+**Tok directive invocation — positional second arg required.** To bake directives into a generated .C, tok must be invoked as `tok File.twk plgDirectives`. Bare `tok File.twk` produces directive-free output silently — no warning that directives weren't applied. This is a silent-staleness pattern: the output looks structurally right but is missing the directive injections. Surfaced during Session 9 Brief 6 closeout (2026-05-19). Cousin of bible #12 (hand-maintained external-mirror trap) — both are silent failures in the tok ecosystem. Belongs in resurrection-reader awareness for anyone re-tokking files that depend on plgDirectives (currently PLGrule.twk and Alternative.twk).
+
 ---
 
 ## Incant Grammar
@@ -402,11 +404,20 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 
 **Resurrection-reader standard**: All .md files in this project (bible, HWF.md, TODO, CLAUDE.md, jit.md, etc.) must make sense to fresh-Claude reading them cold tomorrow with no memory of today. The .md files exist to make resurrection work — *Claude* reads them as the day's starting move, not Tony. That asymmetry shapes how the files are written: for Claude/Clod's resurrection, not for Tony's review. See HWF.md preamble for the full statement.
 
+**.md file location convention (2026-05-19)**: All four repos (Parse, Tokf, Groups, support) carry the same layout. Resurrection-reader documents live at repo root — CLAUDE.md, projectBible.md, TODO.md, HWF.md — plus jit.md as a sibling design document consulted on demand. Graduated HWF session trims live in `HWFattic/` with runtogether-name convention (`sessionNtopicName.md` — e.g. `session9plgDebugAndActions.md`). All other work-related .md files (session plans, briefs, drafts, future design docs) live in `docs/`. Tokf, Groups, and support carry `docs/` directories seeded with `.gitkeep` placeholders awaiting content. The split: anything read as part of wake-up routine stays at root; anything work-related but not morning-routine goes into `docs/`; anything that's a graduated session record goes into `HWFattic/` with the runtogether name. Future graduation trims should use the runtogether convention from the start (Clay-side miss during Session 9's first graduation: drafted as `Session9.md`, renamed at commit time).
+
 ---
 
-## Current State (last updated: May 15 2026)
+## Current State (last updated: May 19 2026)
 
-**Deltas since previous mark (May 7):**
+**Deltas since previous mark (May 15):**
+- **Session 9 closed and graduated (2026-05-18 / 2026-05-19).** plg gained the incant idiom in two places it didn't have it: parse debug machinery via tok directives on named hook sites in PLGrule::match + Alternative::match (Track A), and rule actions via labels-as-locals shorthand with .act files repurposed as splice-verbatim content (Track B). Testing.g → Testing.twk → Testing.C → Testing.o pipeline works. PLGitem grew `getLabel(name)` accessor; PLGrule grew four hook sites + a debug field; IncludeplgNow routes by extension; generateRules emits the new file shape `[includes] [externs] [.act splice] [class <BaseName> extends PLGparse { setRules() }]`. 21 commits across four repos. Trim at `Parse/HWFattic/session9plgDebugAndActions.md`; working-level plan at `Parse/docs/Session9plan.md`.
+- **Bible item #12 (trap pattern) earned its keep in real-time** — documented 2026-05-17, fired and caught 2026-05-18 during Session 9 Brief 7. Real-instance note in Housekeeping.
+- **plg's output naming retired the `.regen.twk` convention** — now writes `<base>.twk` to CWD, same as old plg. Discipline replaces the safety rail.
+- **Author-writes .act-as-splice model proven** — .act files contain author-written declarations line + action methods, plg concatenates verbatim into generated output. No new plg grammar work needed. Inline action-blocks syntax parked as considered-not-chosen alternative.
+- **Out-to-the-woodshed planning pattern formalized in Working Relationship section** — morning design discipline before Clod wakes up, for execution-flavored sessions. The pattern shaped both days of Session 9 execution and earned its name.
+
+**Deltas since 2026-05-07 (earlier mark, retained for context):**
 - plg directory flatten landed (Parse/Revision/ → Parse/)
 - PLGset / CharSet placed as sisters in support/Frame
 - PLGrgx tracked into plg repo
@@ -414,7 +425,7 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 - checkSkip double-define bug fixed; `;;` runtogether and `:`/`>` non-user-facing rules earned
 - PLGmain split from PLGparse
 - Indent-as-structure (HWF Session 4) substantially landed for definitions and code blocks; Fork A implementation in progress
-- Incant POP runs to completion; test action fires end-to-end; full unit-test suite has gaps
+- Incant POP runs to completion; test action fires end-to-end; full unit-test suite passes (2026-05-16)
 - Bytecode/JIT material moved out of bible to sibling jit.md
 - Phase naming convention extended: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT
 - Bare-include framing officially retired; self-host status downgraded to honest "unknown until next attempt"
@@ -431,10 +442,18 @@ See HWF.md for active session content. Bible carries the index so resurrection-r
 - Paren-alt decomposition working — BlockplgAct, recursive parent-prefix naming
 - Set declarations require `;` terminator
 - Pre-parse comment stripping — stripComments() in PLGparse
-- PLG.process() output path fixed — regen goes to `<base>.regen.twk` in CWD
+- PLG.process() output path: `<base>.twk` in CWD (2026-05-18 rename; was `<base>.regen.twk`)
 - Support static library (libsupport.a)
-- TAWK Directives used in anger — proved their value
+- TAWK Directives used in anger — proved their value across PLGrule::match and Alternative::match in Session 9
 - All 4 GitHub repos public
+- **Session 9 additions (2026-05-18 / 2026-05-19):**
+  - PLGitem.getLabel(name) accessor
+  - PLGrule four hook sites (parseAttempt, matchSucceeded, matched/matchSucceeded, matchFailed) + debug field
+  - Alternative two hook sites (elementSuccess, elementFail)
+  - IncludeplgNow extension-routes .g vs .rtn/.act (splice-verbatim path for non-.g)
+  - generateRules emits new file shape with externs + .act splice + class wrapper around setRules
+  - Author-writes .act-as-splice model: declarations line at top, action methods extern at top-level
+  - plgDirectives drives parse-time debug output via tok directives (Track A complete)
 
 ### PLG Next (status as of 2026-05-07, not re-verified)
 - alt 7 min=0 quirk, ActionRule wired-but-deferred, Set spec-content capture, kUpTo escape-aware bracket

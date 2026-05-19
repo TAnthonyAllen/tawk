@@ -6,30 +6,30 @@
 
 ## Tomorrow's wake-up
 
-**Current state (end of 2026-05-18, Session 9 victory day):**
-- **Session 9 Track B complete end-to-end.** plg parses Testing.g → emits Testing.twk → tok compiles Testing.twk → clang++ compiles Testing.C. 13 commits across Parse + support during the day. Testing.twk now has the full new shape: includes / externs / .act splice / class wrapper around setRules. Author-writes .act-as-splice model proven; labels-as-locals shorthand working via PLGitem.getLabel.
-- **Session 9 Track A 50% complete.** Brief 5 (hook sites in PLGrule::match) ✅ landed (dc5118f). Brief 6 (plgDirectives entries) is Tony's seat, after-hours. Two findings from Brief 5 worth carrying: `debug` field already exists on PLGrule (not `debugged`), and `parseReturn` fires fail-only (path α split with `matched` doing success-branch debug).
-- **bible item #12 (trap pattern) earned its keep mid-session.** Documented 2026-05-17, fired and caught fast 2026-05-18 when Brief 2's PLGitem.getLabel omission from PLGrevision surfaced at Brief 7's tok parse. Real-instance note landed in Housekeeping (0baf44b).
-- **Phase Integrate Tawk.twk migration still pending** — ~587 sites across 5 surface types. Untouched today; resumes when Session 9 fully graduates.
+**Current state (end of 2026-05-19, Session 9 graduated):**
+- **Session 9 closed and graduated to attic.** Both tracks complete. Track B (.act-as-splice + labels-as-locals shorthand) closed 2026-05-18 end-to-end; Track A (parse debug via tok directives on named hook sites) closed 2026-05-19 with Brief 6's plgDirectives entries and the staged-verification POP. Trim at `Parse/HWFattic/session9plgDebugAndActions.md`. First successful run of the graduation ritual.
+- **Three findings from Brief 6's verification carried forward** (all parked as Session 9 follow-up items below): tok directives are positional, not auto-discovered (`tok File.twk plgDirectives` required); #PLG and #PLGparse directive blocks unbaked (out of Brief 6 scope); no CLI/env toggle for `debugRulePLG` (used PLG.C one-line patch + revert for Step 3 POP).
+- **bible item #12 (trap pattern) earned its keep mid-session 2026-05-18.** Documented 2026-05-17, fired and caught fast next day when Brief 2's PLGitem.getLabel omission from PLGrevision surfaced at Brief 7's tok parse. Real-instance note in Housekeeping (0baf44b).
+- **Phase Integrate Tawk.twk migration still pending** — ~587 sites across 5 surface types. Resumes now that Session 9 graduates.
 
 **First work options after wake-up read:**
 
-- **Brief 6 — plgDirectives entries.** Tony's seat. Closes Session 9 Track A. Estimated <1 hour. Mirror incant's groupDirectives shape; consume `rule.debug` (not `rule.debugged`); path α split between `matched` and `parseReturn` directives.
-
-- **Session 9 graduation.** When Brief 6 lands, Session 9 graduates: trim refresh, move to HWFattic/Session9.md, remove from active HWF.md sessions index. Counts as the first real test of the graduation ritual.
-
-- **Tawk.twk migration arc.** ~587 sites; the bigger Phase Integrate piece. Likely starts with a recon-shape brief enumerating per-surface migration patterns, then mechanical migration in passes.
+- **Tawk.twk migration arc.** ~587 sites; the bigger Phase Integrate piece. Likely starts with a recon-shape brief enumerating per-surface migration patterns, then mechanical migration in passes. The natural successor to Session 9 now that the new plg toolchain is proven end-to-end.
 
 - **TOK xcode reconfig + build attempt.** Tony's seat. Validates the Tests/-derived build path against the migration state. Cheap to try; Session 9's binary-producing path through Testing.twk → Testing.C → Testing.o demonstrates the .twk → tok → .C → clang path works.
 
+- **Session 9 follow-up items** (small, can interleave): Stak[] operator, PLGmain.twk modification to accept grammar filename, hard-coded include paths portability item, plg modifier coverage audit vs incant, tok positional-directive-arg CLAUDE.md note, #PLG/#PLGparse directive blocks bake at next regen, CLI toggle for debugRulePLG.
+
 - **CLAUDE.md drift fix.** Partial mid-session update happened (relaxed repo-maintenance protocol added). Broader drift may still need handling.
 
-- **HWF graduation ritual for Sessions 4 and 5.** Still pending. Session 9 graduation may pre-empt or join.
+- **HWF graduation ritual for Sessions 4 and 5.** Still pending. Session 9 graduation just proved the ritual works.
+
+- **Old plg done-summary resurrection.** Tony's parking thought from 2026-05-19 — old plg printed a nice summary on completion; existing `summary()` method exists but isn't at the level wanted. Tony works out the spec offline; lands as a brief when ready.
 
 **Reading targets:**
 - `Parse/` — plg repo root. All plg source lives here directly.
-- `Parse/Session9plan.md` — Session 9 working-level plan. Current as of session-end; status markers reflect what landed.
-- `Parse/HWFattic/` — graduated HWF session trims. Empty as of 2026-05-18; Session 9 graduation will be the first occupant (when Brief 6 lands).
+- `Parse/HWFattic/session9plgDebugAndActions.md` — graduated Session 9 trim, durable record of the design + execution + closeout arc.
+- `Parse/docs/Session9plan.md` — Session 9 working-level plan, kept alongside the trim as the executable structure.
 - `Parse/Tests/Testing.g` + `Parse/Tests/Testing.act` — Session 9 test fixtures, tracked as of af39a11.
 - `Parse/PLGitem.twk` — source of truth for the PLGitem interface.
 - `support/Frame/PLGset.{twk,C,h}` and `support/Frame/CharSet.{twk,C,h}` — sister classes, source of truth.
@@ -45,7 +45,7 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 
 **Known current state:**
 - Bible v2 mirrored across all four repos. Phase naming: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT.
-- Session 9 work in Parse + support has TODO.md and projectBible.md updates that may not yet be mirrored to Tokf and Groups — end-of-day mirror task possibly pending.
+- Session 9 closed 2026-05-19. 21 commits total across four repos for Session 9 (Track B's 13 + Track A's 4 + the 4 end-of-2026-05-18 mirror commits). Today's two closeout commits 07b4ba3 and a03764a plus the graduation file mirrors to land at sign-off.
 - Incant POP fully working as of 2026-05-16: unit-test suite passes clean.
 
 ---
@@ -122,23 +122,26 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 
 ## 📋 Next Up
 
-### Session 9 follow-up items (2026-05-18)
+### Session 9 follow-up items (2026-05-18 / 2026-05-19)
 
-*Tracking items surfaced during Session 9 (plg debug + actions, incant-mirrored). Each is non-blocking and can land as a standalone brief or be folded into adjacent work.*
+*Tracking items surfaced during Session 9 (plg debug + actions, incant-mirrored). Each is non-blocking and can land as a standalone brief or be folded into adjacent work. Session 9 closed and graduated 2026-05-19; these items remain as the trailing tasks.*
 
 - [ ] **Stak[] operator** — Stak lacks a by-index accessor. Clod hit this in Brief 3's parseActDeclarations — worked around without it, but the gap surfaced. Small Stak addition in support/Frame. Standalone Clod brief.
 - [ ] **PLGmain.twk modification** — accept grammar filename as input, become linkable entry point for generated parsers (e.g., Testing). Brief 8 explicitly deferred main from the class wrapper; PLGmain.twk gets paired with generated `<BaseName>.twk` at link time. Small scope.
 - [ ] **Hard-coded include paths in generated output** — plg's generateRules emits `include /Users/anthony/Dropbox/data/InProcess/Include/globals` etc. Tony-specific paths baked into generated files. Portability tracking item; not blocking but worth surfacing for someone else's eventual environment.
 - [ ] **Auto-generate class fields from Set/KeyWord declarations** — future plg feature. If action code ever needs per-set field references by name (e.g., `state.excludeSet` rather than `state.setTable["excludeSet"]`), plg would need to auto-generate field declarations in the wrapper class. Not blocking until action code patterns require it.
 - [ ] **plg modifier coverage audit vs incant** — modifier table divergence noted: `&` is `isPointer` in incant, `noSkip` in plg. Other modifiers likely overlap but unaudited. Worth a side-by-side audit at some point.
-- [ ] **Session 9 graduation** — when Brief 6 lands, Session 9 trim moves to HWFattic/. First real test of the graduation ritual alongside Sessions 4 and 5.
+- [ ] **Tok positional directive arg** — `tok File.twk plgDirectives` is the invocation that bakes directives in; `tok File.twk` alone silently produces directive-free output. Failure mode is silent — output looks right but lacks directive injections. Worth a CLAUDE.md note in Parse so anyone re-tokking later knows the second arg is required. Cousin of bible #12: silent staleness in the tok ecosystem.
+- [ ] **#PLG and #PLGparse directive blocks unbaked** — plgDirectives has blocks for both that aren't currently active because PLG.twk and PLGparse.twk haven't been re-tok'd with plgDirectives. Bake at next regen of those files. Includes the dumpRules diagnostic from `process "if result"` and the debugRulePLG-flip from `parse return before` — though see next item on the latter.
+- [ ] **CLI/env toggle for debugRulePLG** — currently no way to flip the debug flag without a code edit. Clod used a one-line PLG.C patch + revert for Brief 6's Step 3 POP. Two future moves: a CLI flag (`plg -d Testing.g`), or a parse-entry directive once #PLGparse blocks bake. Note the existing `parse return before` directive fires at end-of-parse — too late for parse-time tracing.
+- [ ] **Old plg done-summary resurrection** — old plg printed a nice summary on completion. Current `summary()` method exists but isn't at the level Tony wants. Tony works out the spec offline; lands as a brief when ready.
+- [x] **Session 9 graduation** — done 2026-05-19. Trim at `Parse/HWFattic/session9plgDebugAndActions.md`. First successful run of the graduation ritual.
 
 ### Bible refresh — minor sync passes (after major arcs settle)
 
 *The bible v2 from 2026-05-15 is substantially current. Small drift items accumulate:*
 
 - [ ] Session 6 (parse error handling) — add to bible's HWF Sessions Pending Work index when refresh happens
-- [ ] **Session 9 disambiguation** — the original May 16 Session 9 reference (wake-up scripts) was folded into Session 1. The *current* Session 9 (opened 2026-05-18, plg debug + actions, incant-mirrored) is the live one. Bible's HWF Sessions index needs both the May-16-Session-9 removal AND the May-18-Session-9 addition reflected.
 - [ ] PLG self-host status — currently hedged "unknown until next attempt." A future Tonto run could confirm cheaply. Worth doing during a low-stakes Tonto window.
 - [ ] PLG Next items status pass — happens when Phase Integrate brings us back deep into plg work
 
