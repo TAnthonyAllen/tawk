@@ -6,50 +6,47 @@
 
 ## Tomorrow's wake-up
 
-**Current state (end of 2026-05-16):**
-- Incant unit-test suite passes clean. Overnight victory closed the precondition for Phase Integrate execution and Phase Bytecode Clod work.
-- Phase Integrate Tonto recon 1, 2, and 3 all complete. Recon 3 produced the comprehensive migration scope: 5 files needing migration against current PLGitem interface, identified via direct comparison to PLGitem source.
-- Phase Integrate migration 1 done: `.string()/.unString() → .toString()` mechanical pass across SymbolType.twk, Types.twk, Tawk.twk. Style upgrade, not compile-required — recon 3 revealed both methods still exist on current PLGitem.
-- Phase Integrate migration 2 done: PLGitem invalid-surface migration (`iTEM[s] → iTEM.children[s]` and `iTEM.get(s) → iTEM.children[s]`) across the 4 small files: Symbol.twk (1 site), Directive.twk (2 sites), Instance.twk (1 site), SymbolType.twk (8 sites). 12 sites total, mechanical.
-- **Tawk.twk's ~587-site invalid-surface arc remains.** 5 surface types: `iTEM[..]` indexing (264), `.testParser` (176), `.get(..)` (97), `.find(..)` (27), `.run()` (23). Asymmetric work — patterns vary per surface, design discussion likely needed before mechanical migration.
-- BeforeRefactor/ is the FileMerge baseline. Frozen by design, not maintained as current. FormatC.twk and Tawk.twk show stale snapshots and that's *correct* — reflects prior in-flight work as the diff baseline.
-- TOK xcode reconfig (point at Tests/-derived sources) is Tony's seat. Pending; waits on either completion of Tawk.twk migration or Tony's call that it's time to test-build against the 4-small-files migration.
+**Current state (end of 2026-05-18, Session 9 victory day):**
+- **Session 9 Track B complete end-to-end.** plg parses Testing.g → emits Testing.twk → tok compiles Testing.twk → clang++ compiles Testing.C. 13 commits across Parse + support during the day. Testing.twk now has the full new shape: includes / externs / .act splice / class wrapper around setRules. Author-writes .act-as-splice model proven; labels-as-locals shorthand working via PLGitem.getLabel.
+- **Session 9 Track A 50% complete.** Brief 5 (hook sites in PLGrule::match) ✅ landed (dc5118f). Brief 6 (plgDirectives entries) is Tony's seat, after-hours. Two findings from Brief 5 worth carrying: `debug` field already exists on PLGrule (not `debugged`), and `parseReturn` fires fail-only (path α split with `matched` doing success-branch debug).
+- **bible item #12 (trap pattern) earned its keep mid-session.** Documented 2026-05-17, fired and caught fast 2026-05-18 when Brief 2's PLGitem.getLabel omission from PLGrevision surfaced at Brief 7's tok parse. Real-instance note landed in Housekeeping (0baf44b).
+- **Phase Integrate Tawk.twk migration still pending** — ~587 sites across 5 surface types. Untouched today; resumes when Session 9 fully graduates.
 
 **First work options after wake-up read:**
 
-- **Tawk.twk migration arc.** ~587 sites across 5 surface types. Likely starts with a recon-shape brief enumerating per-surface migration patterns (similar to recon 2 for `.string()/.unString()`), then mechanical migration in passes. The scale and asymmetry warrant a design conversation before committing Clod to mechanical work.
+- **Brief 6 — plgDirectives entries.** Tony's seat. Closes Session 9 Track A. Estimated <1 hour. Mirror incant's groupDirectives shape; consume `rule.debug` (not `rule.debugged`); path α split between `matched` and `parseReturn` directives.
 
-- **TOK xcode reconfig + build attempt.** Tony's seat. Validates the build path (Tests/ → tok → .C → Xcode compile) against the 4-small-files migration before committing to Tawk.twk. Cheap to try; reveals whatever's broken in the path before scope grows. Could happen before *or* after Tawk.twk arc — Tony's call.
+- **Session 9 graduation.** When Brief 6 lands, Session 9 graduates: trim refresh, move to HWFattic/Session9.md, remove from active HWF.md sessions index. Counts as the first real test of the graduation ritual.
 
-- **Phase Bytecode start.** Unit-test gate cleared, Phase Integrate not blocking. Filling in gIF and gExpressioN as incant generators producing bytecodE attributes. Twin POP: testByteCode runs end-to-end with `maximus = 26` AND generator dispatch demonstrated for the bytecode case.
+- **Tawk.twk migration arc.** ~587 sites; the bigger Phase Integrate piece. Likely starts with a recon-shape brief enumerating per-surface migration patterns, then mechanical migration in passes.
 
-- **CLAUDE.md drift fix.** Promoted to Immediate. Hasn't happened yet. Could be done before any of the above; mostly mechanical alignment with bible v2.
+- **TOK xcode reconfig + build attempt.** Tony's seat. Validates the Tests/-derived build path against the migration state. Cheap to try; Session 9's binary-producing path through Testing.twk → Testing.C → Testing.o demonstrates the .twk → tok → .C → clang path works.
 
-- **HWF graduation ritual for Sessions 4 and 5.** First real test of the ritual. Material settled; needs proper trim drafting.
+- **CLAUDE.md drift fix.** Partial mid-session update happened (relaxed repo-maintenance protocol added). Broader drift may still need handling.
 
-- **Cha cha session work** — Session 1 (isCLAUDE plus wake-up scripts thread plus the operational patterns accumulating). Whenever appetite supports it.
+- **HWF graduation ritual for Sessions 4 and 5.** Still pending. Session 9 graduation may pre-empt or join.
 
 **Reading targets:**
 - `Parse/` — plg repo root. All plg source lives here directly.
-- `Parse/Backup/` — parked legacy plg material (gitignored)
-- `Parse/PLGitem.twk` — source of truth for the PLGitem interface. Recon 3 referenced this directly.
-- `Parse/HWFattic/` — graduated HWF session trims. Empty as of 2026-05-16; Session 4 and 5 graduation pending.
-- `support/Frame/PLGset.{twk,C,h}` and `support/Frame/CharSet.{twk,C,h}` — sister classes, source of truth
+- `Parse/Session9plan.md` — Session 9 working-level plan. Current as of session-end; status markers reflect what landed.
+- `Parse/HWFattic/` — graduated HWF session trims. Empty as of 2026-05-18; Session 9 graduation will be the first occupant (when Brief 6 lands).
+- `Parse/Tests/Testing.g` + `Parse/Tests/Testing.act` — Session 9 test fixtures, tracked as of af39a11.
+- `Parse/PLGitem.twk` — source of truth for the PLGitem interface.
+- `support/Frame/PLGset.{twk,C,h}` and `support/Frame/CharSet.{twk,C,h}` — sister classes, source of truth.
+- `support/Include/PLGrevision` — load-bearing tok schema; tracked as of e026ade.
 - `Tokf/` — TAWK source. Originals; not edited directly during Phase Integrate.
-- **`Tokf/Tests/`** — where Phase Integrate migration edits actually land. Symlinks-back-to-Tokf/ by default; replaced with real-file copies on a per-file basis as migration touches each file. As of end-of-2026-05-16, real-file copies exist for: FormatC.twk (predates), SymbolType.twk, Types.twk, Tawk.twk (migration 1), Symbol.twk, Directive.twk, Instance.twk (migration 2). Remaining files are still symlinks.
-- `Tokf/BeforeRefactor/` — FileMerge baseline. **Frozen by design, do not update.** Stale entries are expected and correct.
+- **`Tokf/Tests/`** — where Phase Integrate migration edits land. Real-file copies exist for: FormatC.twk, SymbolType.twk, Types.twk, Tawk.twk (migration 1), Symbol.twk, Directive.twk, Instance.twk (migration 2). Remaining files are still symlinks.
+- `Tokf/BeforeRefactor/` — FileMerge baseline. **Frozen by design, do not update.**
 
 **Standing wake-up practice:**
 Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills context for anything significant.
 
-**Out of scope for current Phase Integrate arc:** `Parse/BeforeRefactor/`, `Tokf/BeforeRefactor/`, archive directories, `Groups/GUI/` (GUI work deferred; incant CLAUDE.md still covers its general role).
+**Out of scope for current Phase Integrate arc:** `Parse/BeforeRefactor/`, `Tokf/BeforeRefactor/`, archive directories, `Groups/GUI/`.
 
 **Known current state:**
-- Bible v2 mirrored across all four repos (2026-05-15). Phase naming: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT.
-- jit.md mirrored across all four repos as sibling to bible (2026-05-15).
-- Incant POP fully working as of 2026-05-16: runs to completion, test action fires end-to-end, full unit-test suite passes.
-- Phase Triage FormatC.twk still uncommitted in tawk (waits on Phase Integrate to produce a working binary).
-- Tests/ working-tree state (the 7 real-file copies) is the deliverable for the migration work to date. Tests/ is gitignored; no commits.
+- Bible v2 mirrored across all four repos. Phase naming: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT.
+- Session 9 work in Parse + support has TODO.md and projectBible.md updates that may not yet be mirrored to Tokf and Groups — end-of-day mirror task possibly pending.
+- Incant POP fully working as of 2026-05-16: unit-test suite passes clean.
 
 ---
 
@@ -125,12 +122,23 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 
 ## 📋 Next Up
 
+### Session 9 follow-up items (2026-05-18)
+
+*Tracking items surfaced during Session 9 (plg debug + actions, incant-mirrored). Each is non-blocking and can land as a standalone brief or be folded into adjacent work.*
+
+- [ ] **Stak[] operator** — Stak lacks a by-index accessor. Clod hit this in Brief 3's parseActDeclarations — worked around without it, but the gap surfaced. Small Stak addition in support/Frame. Standalone Clod brief.
+- [ ] **PLGmain.twk modification** — accept grammar filename as input, become linkable entry point for generated parsers (e.g., Testing). Brief 8 explicitly deferred main from the class wrapper; PLGmain.twk gets paired with generated `<BaseName>.twk` at link time. Small scope.
+- [ ] **Hard-coded include paths in generated output** — plg's generateRules emits `include /Users/anthony/Dropbox/data/InProcess/Include/globals` etc. Tony-specific paths baked into generated files. Portability tracking item; not blocking but worth surfacing for someone else's eventual environment.
+- [ ] **Auto-generate class fields from Set/KeyWord declarations** — future plg feature. If action code ever needs per-set field references by name (e.g., `state.excludeSet` rather than `state.setTable["excludeSet"]`), plg would need to auto-generate field declarations in the wrapper class. Not blocking until action code patterns require it.
+- [ ] **plg modifier coverage audit vs incant** — modifier table divergence noted: `&` is `isPointer` in incant, `noSkip` in plg. Other modifiers likely overlap but unaudited. Worth a side-by-side audit at some point.
+- [ ] **Session 9 graduation** — when Brief 6 lands, Session 9 trim moves to HWFattic/. First real test of the graduation ritual alongside Sessions 4 and 5.
+
 ### Bible refresh — minor sync passes (after major arcs settle)
 
 *The bible v2 from 2026-05-15 is substantially current. Small drift items accumulate:*
 
 - [ ] Session 6 (parse error handling) — add to bible's HWF Sessions Pending Work index when refresh happens
-- [ ] Session 9 status — Session 9 (wake-up scripts) was originally queued as a separate session; per 2026-05-16 cha cha discussion, folded into Session 1 as a sub-thread rather than separate session. Bible's HWF index needs to reflect this (no Session 9; Session 1 expanded to cover wake-up scripts thread).
+- [ ] **Session 9 disambiguation** — the original May 16 Session 9 reference (wake-up scripts) was folded into Session 1. The *current* Session 9 (opened 2026-05-18, plg debug + actions, incant-mirrored) is the live one. Bible's HWF Sessions index needs both the May-16-Session-9 removal AND the May-18-Session-9 addition reflected.
 - [ ] PLG self-host status — currently hedged "unknown until next attempt." A future Tonto run could confirm cheaply. Worth doing during a low-stakes Tonto window.
 - [ ] PLG Next items status pass — happens when Phase Integrate brings us back deep into plg work
 
