@@ -645,14 +645,41 @@ shows how Instances aggregate. `getWidth()` (line 106) walks statements to
 compute declaration-name indentation width — uses `getType()` on each statement
 subject.
 
-### Expression.twk (427 lines, partial read)
+### Expression.twk (427 lines)
 
-Bridge between Instance and the verb-subject-object model. Resolution-relevant:
+The verb-subject-object node. Holds `verb` (an Operate), `subject` (Instance),
+`object` (Instance), plus `full`/`checked`/`hasParens`/`reordered` flags.
 
-- `getType()` (line 260) — defers to object/subject types
-- `convert()` and related — uses `subject.getSymbol()` / `subject.findGetterOrSetter`
-  to wire up implicit conversions and getter/setter dispatch (lines 114–155)
-- Heavy interaction with Instance.checkOverload (§5.7)
+Resolution-relevant:
+
+- `getType()` (line 260) — result-type computation. Comparison verb → intType,
+  `?` verb → object's type, pointer arithmetic (`+`/`-` with direct subject &
+  same types) → intType, default → subject type.
+- `checkExpression(formatter)` (line 71) — the heavy lifter. In a single pass:
+  - resolves both subject and object types
+  - calls `formatter.convert(this)` to insert implicit type conversions
+  - **rewrites assignment to setter calls**: for `obj.foo = v` where `foo` has a
+    setter, replaces the whole expression with a method-call Instance to
+    `obj.setFoo(v)` (lines 108–164). Uses `subject.findGetterOrSetter(name)`
+    to find the setter's parent in chain, attaches it as `instance.parent`.
+  - **rewrites getter access**: similar treatment for the read side.
+  - skips setter rewrite if enclosing method is itself a setter/getter/
+    constructor (line 132) — important to avoid infinite recursion.
+  - calls `subject.checkCast(target)` for type-coercion. If subject types are
+    parent of object types via `hasParent`, casts object to subject.
+- `convertBoolean(item, setterFlag)` (line 187) — jit-mode bit manipulation;
+  replaces field access of boolean/button with method call to
+  `globalType.ownMethod("setBoolean")` / `buttonIsSet` / etc.
+- `handleButtons()` / `handleBooleans()` (lines 287, 316) — call sites for the
+  above. Triggered when subject or object is boolean/button type.
+- `reorder()` (line 397) — operator precedence rotation. Not resolution; pure
+  tree manipulation (subject/verb/object swap when rank < object.rank).
+
+**Field-resolution note**: Expression.checkExpression is the *other* place
+(besides Instance.checkOverload) where resolution does in-place tree rewriting.
+Both replace the current node with the resolved/coerced version. Anyone
+refactoring will need to preserve this "Instance is a mutable cell that gets
+patched" contract.
 
 ### Tawk.twk (7325 lines, NOT deeply read — per brief scope)
 
@@ -665,8 +692,27 @@ from outside.
 ### Other files in Tokf
 
 Not deeply read (recon scope limited): FormatC.twk (code gen — touches
-resolution only via `getSymbol`/`findGetterOrSetter` at a handful of sites),
-Directive.twk (debug-injection feature; not resolution), Block.twk above.
+resolution only via `getSymbol` / `findGetterOrSetter` at a handful of sites:
+lines 81, 416, 818, 1184, 1487, 1796), Directive.twk (debug-injection feature;
+not resolution), Block.twk above.
+
+### .act files (PLG action hooks — parser-to-resolution bridge)
+
+declare.act, expression.act, generate.act, parts.act, Tawk.act are PLG action
+files. They fire during parse and call directly into the resolution machinery.
+
+Selected resolution-relevant call patterns observed:
+- declare.act `ButtonArray!` — `currentClass.getLocal(text)` then `currentClass.add(symbol)`
+- expression.act `CastExpression!` — builds Instance with type via `setIndirectItem`
+- generate.act `AliasItem!` — wires `getter`/`setter` between Symbol pairs
+
+These are the *callers* of the resolution APIs documented above. They're worth
+opening when chasing "where does this name first get registered?" — usually
+the answer is a declare.act handler that calls `currentClass.add()` or
+`currentSymbols.add()`.
+
+Not deeply mined; the resolution layer (Instance / InstanceTable / Symbol /
+SymbolType) is internally consistent without needing to read the callers.
 
 ---
 
