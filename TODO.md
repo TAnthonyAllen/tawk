@@ -6,47 +6,92 @@
 
 ## Tomorrow's wake-up
 
-**Current state (end of 2026-05-19, Session 9 graduated):**
-- **Session 9 closed and graduated to attic.** Both tracks complete. Track B (.act-as-splice + labels-as-locals shorthand) closed 2026-05-18 end-to-end; Track A (parse debug via tok directives on named hook sites) closed 2026-05-19 with Brief 6's plgDirectives entries and the staged-verification POP. Trim at `Parse/HWFattic/session9plgDebugAndActions.md`. First successful run of the graduation ritual.
-- **Three findings from Brief 6's verification carried forward** (all parked as Session 9 follow-up items below): tok directives are positional, not auto-discovered (`tok File.twk plgDirectives` required); #PLG and #PLGparse directive blocks unbaked (out of Brief 6 scope); no CLI/env toggle for `debugRulePLG` (used PLG.C one-line patch + revert for Step 3 POP).
-- **bible item #12 (trap pattern) earned its keep mid-session 2026-05-18.** Documented 2026-05-17, fired and caught fast next day when Brief 2's PLGitem.getLabel omission from PLGrevision surfaced at Brief 7's tok parse. Real-instance note in Housekeeping (0baf44b).
-- **Phase Integrate Tawk.twk migration still pending** — ~587 sites across 5 surface types. Resumes now that Session 9 graduates.
+**Current state (end of 2026-05-24, Phase Bytecode arc mid-flight):**
+- **Phase Bytecode Brief 3 verification advanced but not closed.** Today's session produced three concrete fixes and surfaced two specific remaining questions:
+  - Three overnight bug fixes landed (2026-05-24 Tony work): runAction double-unwrap removed (runOP already unwraps; runAction was doing it again), printField zero-result handled (dot-op returning 0 was crashing printField; now substitutes falseResult global), bcLIST linkage fix (local bcLIST.group now points at the real bcLIST rather than receiving setContent of it).
+  - First gating attempt at invokE during generation broke runGenerated dispatch — `runGenerated: action is: Token` instead of `gIF`/`gBlocK`. Root cause identified: lazy parsing of generator method bodies (gIF, gBlocK, gXpress) was happening *under* the gating flag, so their statement-Tokens didn't get invokE set during their first parse, breaking dispatch.
+  - Refactor fix landed (2026-05-24 Tony work): `generating` flag moved from GroupRules global to GroupBody per-action; set in generateCode() against the action being generated; checked by TokenXP and ExpressioN actions via currentMETHOD. Dispatch regression cleared.
+  - bcLIST linkage fix's effect is visible in testByteCode (six entries, pair pattern) but NOT in testEmitBC or testGXLeaf (still showing `single field xp`). Asymmetry across the three tests is the new finding.
+- **Two open questions parked for Tony's after-hours / next-session investigation:**
+  - **isLiteraL=1 on operator Tokens.** `>` token reads as isLiteraL=1 in gXpress, hitting the leaf-emit branch instead of operator-descent. Either legitimate ("isLiteraL means matched-as-literal-text," so `>` correctly carries it and gXpress needs a different operator-discriminator like `Operators[token.taG]`) or misclassification (flag should only be on value-literals; bug upstream of gXpress). Clod tasked 2026-05-24 with locating where isLiteraL is read in the generate-action layer to give Tony location data for debugger investigation.
+  - **bcLIST scope-resolution asymmetry.** emitBC's `:generator bcLIST` reaches the right bcLIST when emitBC fires inside a for-loop body (testByteCode case) but not when it fires outside one (testEmitBC, testGXLeaf cases). Also "two entries per emit" inside the for-loop case is a separate sub-puzzle. Tony to investigate.
+- **Cha-cha practice update 2026-05-24:** Finding-location reporting refined. When generator-side or parse-action-side findings surface, Clod's report names file path, action/method name, line number, and conditions. C++ layer archaeology (GroupRules.mm, Parser, Tokenizer) stays in Tony's lane unless explicitly delegated. Reason: Tony needs location data to debug efficiently; broad symptom descriptions force re-investigation. For Clay: when summarizing findings for Tony, flag location-unknown items explicitly rather than handing them over as if settled.
+- **Lucky-coincidence trap caught us three times this week.** testGXLeaf "passing" was leaf-fallthrough on single-Token ExpressioN (May 22), "works as intended" overnight (May 23) didn't survive dumpBC walk on Brief 3 verification (May 24 morning), and bcLIST `single field xp` symptom on May 23 was masked by emit lines visible in trace. Pattern of "appears to work" diverging from "bones-confirmed" earns its place in bible Working Relationship section at next refresh.
+- **Wiki first-pass restructure landed 2026-05-24.** What-Is-Incant page revised: bootstrap section moved to Appendix B, For the Nerds moved to Appendix A, JSON/YAML progression moved earlier in flow. Tone preserved. Weekly cadence proposed for ongoing wiki refinement. Features+working-examples list as separate destination (rather than single illustrative program).
+- **Tawk recon graduated 2026-05-20** as durable reference at `Tokf/docs/fieldResolutionRecon.md`. Six findings tracked in TODO. First Tonto-shaped commander-discretion archaeological recon in the cha cha — pattern worked.
+- **docs/ convention landed 2026-05-19** across all four repos. Working-level plans and design docs live in `docs/`. Graduated session trims live in `HWFattic/`.
+- **Three cha-cha modes now demonstrated in practice**: woodshed (Clay+Tony plan-shape), brief-execute (Clod mechanical-shape), commander-discretion (Tonto archaeological-shape).
 
 **First work options after wake-up read:**
 
-- **Tawk.twk migration arc.** ~587 sites; the bigger Phase Integrate piece. Likely starts with a recon-shape brief enumerating per-surface migration patterns, then mechanical migration in passes. The natural successor to Session 9 now that the new plg toolchain is proven end-to-end.
-
-- **TOK xcode reconfig + build attempt.** Tony's seat. Validates the Tests/-derived build path against the migration state. Cheap to try; Session 9's binary-producing path through Testing.twk → Testing.C → Testing.o demonstrates the .twk → tok → .C → clang path works.
-
-- **Session 9 follow-up items** (small, can interleave): Stak[] operator, PLGmain.twk modification to accept grammar filename, hard-coded include paths portability item, plg modifier coverage audit vs incant, tok positional-directive-arg CLAUDE.md note, #PLG/#PLGparse directive blocks bake at next regen, CLI toggle for debugRulePLG.
-
-- **CLAUDE.md drift fix.** Partial mid-session update happened (relaxed repo-maintenance protocol added). Broader drift may still need handling.
-
-- **HWF graduation ritual for Sessions 4 and 5.** Still pending. Session 9 graduation just proved the ritual works.
-
-- **Old plg done-summary resurrection.** Tony's parking thought from 2026-05-19 — old plg printed a nice summary on completion; existing `summary()` method exists but isn't at the level wanted. Tony works out the spec offline; lands as a brief when ready.
+- **Brief 3 verification finish line** — two open questions parked from yesterday's session, both Tony-seat: (a) isLiteraL=1 on operator Tokens — Clod's location-report from 2026-05-24 should make this debuggable from Tony's side; once root cause is settled, either fix isLiteraL upstream or change gXpress discriminator to Operators[token.taG]; (b) bcLIST scope-resolution asymmetry across the three tests — investigate why `:generator bcLIST` reaches the right bcLIST inside for-loop body but not outside. Both questions cleanly characterized; not stuck. Once both settle, re-run all three tests for clean Brief 3 close. Then Brief 4 (gIF branch+marker) becomes the natural next move.
+- **Print bytecode plan document** — `Groups/docs/printGenerationPlan.md`. Substantial design work surfaced during 2026-05-21 woodshed: print machinery covers PrinT and StringXP via aCTionPrinT; bytecode design has bcPrintShortcut/bcPrintField/bcPrintEmit/bcStringEmit; `=:` operator parked as future grammar change to collapse `string` keyword. Worth a session to write up as durable artifact.
+- **`=:` operator grammar-change design** — assignment operator with string-build semantics on RHS, replaces `string` keyword usage. Open question: Path A (operator in ExpressioN with sub-grammar switch) vs Path B (separate statement form). plg conditions may be the parser-switch mechanism. Parallel design, not blocking gPrint.
+- **Wiki weekly refinement** — first-pass restructure landed 2026-05-24. Weekly cadence proposed. Next pass candidates: features-and-working-examples list (incant-by-Clod-discovery list from yesterday is the first-cut source — but only language *features*, not collaborator-level idioms); polish notes from first pass (CodE bootstrap rule paste artifact, methods/actions reconciliation, field/GroupItem terminology consistency).
+- **Tawk.twk migration arc** — 587 sites across 5 surface types. Now informed by Tonto's recon. Could start with a follow-on recon-shape brief enumerating per-surface migration patterns.
+- **Session 9 follow-up items** (small, can interleave): Stak[] operator, PLGmain.twk modification, hard-coded include paths, plg modifier coverage audit vs incant, etc.
+- **HWF graduation ritual for Sessions 4 and 5** — still pending. Sessions 9 and Phase Bytecode (when it closes) both prove the ritual works.
 
 **Reading targets:**
-- `Parse/` — plg repo root. All plg source lives here directly.
-- `Parse/HWFattic/session9plgDebugAndActions.md` — graduated Session 9 trim, durable record of the design + execution + closeout arc.
-- `Parse/docs/Session9plan.md` — Session 9 working-level plan, kept alongside the trim as the executable structure.
-- `Parse/Tests/Testing.g` + `Parse/Tests/Testing.act` — Session 9 test fixtures, tracked as of af39a11.
-- `Parse/PLGitem.twk` — source of truth for the PLGitem interface.
-- `support/Frame/PLGset.{twk,C,h}` and `support/Frame/CharSet.{twk,C,h}` — sister classes, source of truth.
-- `support/Include/PLGrevision` — load-bearing tok schema; tracked as of e026ade.
+- `Groups/` — incant repo root. Phase Bytecode work lives here.
+- `Groups/XML/WorkingOn/generate` — incant generator actions including gXpress, gIF, emitBC. Active file.
+- `Groups/XML/WorkingOn/oneTest` — test harness with testByteCode invocation.
+- `Groups/ruleActions.rtn` — aCTionExpressioN, aCTionTokenXP, opDot machinery. Touched during the 2026-05-21→22 incant-machinery investigations (now resolved).
+- `Groups/Instruct.rtn` — opDot machinery. Unwrap change resolved 2026-05-22.
+- `Tokf/docs/fieldResolutionRecon.md` — Tawk field resolution recon, durable reference.
+- `Parse/HWFattic/session9plgDebugAndActions.md` — graduated Session 9 trim.
+- `Parse/docs/Session9plan.md` — Session 9 working-level plan.
 - `Tokf/` — TAWK source. Originals; not edited directly during Phase Integrate.
-- **`Tokf/Tests/`** — where Phase Integrate migration edits land. Real-file copies exist for: FormatC.twk, SymbolType.twk, Types.twk, Tawk.twk (migration 1), Symbol.twk, Directive.twk, Instance.twk (migration 2). Remaining files are still symlinks.
-- `Tokf/BeforeRefactor/` — FileMerge baseline. **Frozen by design, do not update.**
+- **`Tokf/Tests/`** — where Phase Integrate migration edits land when that arc resumes.
 
 **Standing wake-up practice:**
 Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills context for anything significant.
 
-**Out of scope for current Phase Integrate arc:** `Parse/BeforeRefactor/`, `Tokf/BeforeRefactor/`, archive directories, `Groups/GUI/`.
+**Standing uploads for Clay (added 2026-05-23):**
+Clay (claude.ai) has no filesystem access — works from `.md` files and any code Tony uploads. Repo fetches from GitHub lag working-tree state, sometimes badly. Tony's standing practice: upload working-tree of active-surface files at session start. For Phase Bytecode, that's currently: `Groups/XML/WorkingOn/generate`, `Groups/Generate.rtn`, `Groups/XML/WorkingOn/grammar` (when grammar shape comes up), `Groups/XML/WorkingOn/setup`, `Groups/XML/WorkingOn/unitTests`, `Groups/XML/WorkingOn/oneTest`, `Groups/Bytecode.mm`, `Groups/Bytecode.h`. List shifts when arc shifts. Pattern: review repos as background orientation; uploads provide current-state ground truth. Clay's discipline: when reasoning about specific source content, ask for current version rather than reason from memory or GitHub fetch.
+
+**Finding-location standing practice (added 2026-05-24):**
+When a generator-side or parse-action-side finding surfaces, Clod's report names:
+- File path
+- Action/method name
+- Line number or distinctive context
+- Conditions under which the behavior fires
+
+Within the incant/twk/tok layer. C++ archaeology (GroupRules.mm, Parser, Tokenizer) is Tony's seat — Clod doesn't dive in unless explicitly asked. Reason: Tony needs location info to debug efficiently; "the surface fires somewhere in gXpress" is too broad; "gXpress line 285 in the `or token.isLiteraL;` branch" lets Tony go directly to source. When source-reading doesn't reveal the location, Clod surfaces "I looked and couldn't find where X is set" explicitly rather than producing a finding with no anchor.
+
+For Clay: when summarizing findings for Tony, flag location-unknown items explicitly rather than handing them over as if settled. Today's `>` isLiteraL=1 finding was an example — should have prompted "locate this" as a follow-up to Clod before being handed to Tony as a design question.
+
+**Out of scope for current Phase Bytecode arc:** `Parse/BeforeRefactor/`, `Tokf/BeforeRefactor/`, archive directories, `Groups/GUI/`, incantGUI Xcode target.
 
 **Known current state:**
 - Bible v2 mirrored across all four repos. Phase naming: Phase Generate Tawk, Phase Integrate, Phase Bytecode, Phase JIT.
-- Session 9 closed 2026-05-19. 21 commits total across four repos for Session 9 (Track B's 13 + Track A's 4 + the 4 end-of-2026-05-18 mirror commits). Today's two closeout commits 07b4ba3 and a03764a plus the graduation file mirrors to land at sign-off.
-- Incant POP fully working as of 2026-05-16: unit-test suite passes clean.
+- Session 9 closed 2026-05-19. Tawk recon graduated 2026-05-20. Phase Bytecode arc opened 2026-05-21.
+- Incant POP fully working as of 2026-05-16: unit-test suite passes clean (pre-Phase-Bytecode baseline at commit eee6a5a).
+- `incant` CLI: symlinked at `~/bin/incant` to the Groups debug binary built by TOK Xcode. Standing invocation: `incant <path-to-incant-file>` from anywhere.
+
+
+---
+
+## Development directives need replace/delete — buffer span vocabulary is the substrate
+
+*Held finding (2026-05-28). Filed so it doesn't evaporate. Not opened as HWF; arc opens when directive work moves past Feature A. Buffer-span-vocabulary is Phase 1.*
+
+**The arc, both ends:**
+- **Morning (offline, parked):** buffer/string manipulation — incant can append a field to a buffer but cannot insert a string at an arbitrary point; Buffer has the machinery (`insertIntoBuffer`, `setMark`, `getMarkedString`) but incant can't reach it. Sketch: `setMark` with optional offset, find-string-in-buffer-set-mark, `insertAtMark(GroupItem field)`, remove-at-mark. The pattern: teach Buffer what an incant field is, add incant extern methods to support classes (mirrors Session 9's plg-side support-class extern pattern).
+- **Evening (2026-05-28 session's finding):** tok directives are insert-only; development directives (the thing we want — directives that carry real source changes) need replace and delete; replace = remove-span + insert; that is span/extent addressing, not point addressing.
+
+**The convergence:** the buffer span vocabulary (set mark, find span, insert, remove) IS the operation set development directives need. Buffer-knows-what-an-incant-field-is externs ARE the bridge a directive-written-in-incant would call to edit an artifact. The morning's parked buffer work is the foundation layer for development directives, not isolated ergonomics. Same span-vs-point addressing question at two levels.
+
+**Stack, bottom-up:**
+1. Buffer gains span vocabulary + incant-field externs (Tony's next offline task).
+2. incant directives gain replace/delete, expressed as buffer span ops on the artifact (in incant).
+3. Idempotent development — directives have the full edit vocabulary, source changes capturable as reproducible transformations.
+
+**Idempotent-programming through-line:** the goal is source changes expressible as reproducible transformations so the artifact is derivable from `source-plus-transformation`. Hard parts are not the replace operator itself but: edit-vocabulary closure (tractable), determinism (tok mostly has it), and composition/conflict semantics (the tar — overlapping replace/delete spans need resolution; "last wins" or "overlap is error" are legitimate small answers). incant is well-positioned because GroupItem-as-universal-shape and code-is-data mean "transformation over source" is incant operating on incant — homoiconicity cashing out as a practical capability rather than a philosophical claim.
+
+**One leftover feeds the next task:** the DiR dispatch landed clean 2026-05-28 via `head(argument.tag,3)`, but the broader string-matching idiom (`beginsWith` / tag-matching) is exactly what the offline buffer/string pass will design properly. The string facility is the common dependency under both the leftover idiom and the development-directive substrate.
+
+**Not opened as HWF now.** Directive Feature A (insert-only, load-time instrumentation) ships as-is and needs none of this. This arc opens when directive work moves past Feature A, with buffer-span-vocabulary as Phase 1.
 
 ---
 
@@ -82,7 +127,7 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 
 *Twin POP: testByteCode runs end-to-end with `maximus = 26` AND generator dispatch demonstrated for the bytecode case.*
 
-- [ ] Bytecode.mm → Xcode target (manual: drag into incantGUI)
+- [ ] Bytecode.mm → Xcode target (manual: drag into the incant build target, currently named incantGUI — see glossary)
 - [ ] Fill in gIF in Generate.rtn — produce bytecodE attributes
 - [ ] Fill in gExpressioN in Generate.rtn — produce bytecodE attributes
 - [ ] Verify gBlocK, gFOR, gWhilE, gDO interact correctly with new gIF/gExpressioN output
@@ -137,6 +182,57 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 - [ ] **Old plg done-summary resurrection** — old plg printed a nice summary on completion. Current `summary()` method exists but isn't at the level Tony wants. Tony works out the spec offline; lands as a brief when ready.
 - [x] **Session 9 graduation** — done 2026-05-19. Trim at `Parse/HWFattic/session9plgDebugAndActions.md`. First successful run of the graduation ritual.
 
+### Tawk field resolution recon findings (2026-05-20)
+
+*Tracking items surfaced during the Tawk field resolution recon (Tonto-shaped archaeological recon, first of its kind in the cha cha). Recon document lives at `Tokf/docs/fieldResolutionRecon.md` — read that for full context on any item below.*
+
+- [ ] **InstanceTable.findSymbol probable bug** — `Tokf/InstanceTable.twk:305-326`. Three branches that look like they should `return field.symbol` but actually `return symbol` (the unassigned local). Tonto's headline finding from recon §5.4. Not load-bearing today because `findSymbol` is rarely called — but would bite if usage grows. Tony to confirm vs `use field` semantics he might have overlooked, then fix (or comment as known-broken if the read turns out wrong). Recon section: `Tokf/docs/fieldResolutionRecon.md` §5.4.
+- [ ] **foundAncestor shared mutable state** — `Tokf/InstanceTable.twk:241, 248, 262, 270, 280, 292, 298, 170`. `foundAncestor` is a field on InstanceTable mutated during `findInstance` and consumed by `find` after the call returns. Single-threaded non-reentrant assumption is implicit. Resolution doesn't appear reentrant in current call paths, but the contract is fragile. Refactor candidate — see recon §5.1 and §6.2 for the consumer/producer coupling that would need updating in tandem.
+- [ ] **fillComponentFields nullInstance negative cache** — `Tokf/SymbolType.twk:564-565`. Negative lookups cached as nullInstance; no invalidation story. Fine if types complete their definition before resolution starts, fragile if anything interleaves type-extension and resolution. Order-of-operations dependency is undocumented; worth confirming before any refactor that changes the ordering. Recon §5.3.
+- [ ] **searchForField macro locked-in closure** — `Tokf/InstanceTable.twk:214-227`. The `#searchForField-` macro depends on a four-variable local closure (`field`, `symbol`, `currentLevel`, `lowest`, `last`, `lastParent`). Blocks method-extraction. Refactor candidate — would need return-tuple/struct pattern. Recon §5.2 and §6.8.
+- [ ] **checkOverload is 170-line goto-heavy** — `Tokf/Instance.twk:326-500`. Method name suggests yes/no check; behavior is full resolution-and-transformation. Modifies `this` in place. Worth splitting into per-case methods at some point. Recon §5.7.
+- [ ] **Method dual-registration in InstanceTable.instances** — methods registered under bare name AND mangled `gitMethodName()` AND for OC, `getOCmethodName()`. Comment on `Tokf/InstanceTable.twk:25-27` flags as known smell. Hazard is theoretical (mangled names contain parens, real collisions unlikely). Worth a refactor if lookup strategy ever consolidates. Recon §5.5 and §6.3.
+
+### Phase Bytecode session findings (2026-05-21, extended through 2026-05-23)
+
+*Items surfaced during the Phase Bytecode design and execution work. Yak shave POP'd through runGenerated dispatch overnight 2026-05-20→21; Brief 3 (gXpress invoke-true) design landed; three incant-machinery questions resolved 2026-05-22; gXpress Option A descent committed 2026-05-23 and parked on listLengtH discriminator question.*
+
+- [x] **listLengtH on `:=`-extracted fields** — investigated 2026-05-23 via three `**` breakpoints; root cause turned out to be a separate bcLIST linkage issue (local bcLIST being populated via setContent rather than bcLIST.group binding to the real bcLIST). Fixed 2026-05-24 overnight. Effect of fix visible in testByteCode (six bcLIST entries) but NOT in testEmitBC or testGXLeaf (still single field xp) — leading to the bcLIST scope-resolution asymmetry finding below.
+- [ ] **bcLIST scope-resolution asymmetry across the three tests** — current Brief 3 blocker. emitBC's `:generator bcLIST` reaches the right bcLIST when emitBC fires inside a for-loop body (testByteCode case) but not when it fires outside one (testEmitBC, testGXLeaf cases). Also "two entries per emit" inside the for-loop case is a separate sub-puzzle within the same finding. Tony's seat — incant-machinery, scope-expression semantics around `:generator` resolution.
+- [ ] **isLiteraL=1 on operator Tokens** — current Brief 3 blocker. `>` token reads isLiteraL=1 in gXpress, hitting the leaf-emit branch instead of operator-descent. Either legitimate ("matched-as-literal-text" framing — fix is gXpress discriminator change) or misclassification ("value-literal only" framing — fix is upstream in parse). Clod tasked 2026-05-24 with locating where isLiteraL is read in the generate-action layer; Tony reads C++ side once location is pinned.
+- [x] **invokE-during-generation gating, first attempt** — broke runGenerated dispatch (`action is: Token` instead of `gIF`/`gBlocK`). Root cause: lazy parsing of generator method bodies happened under the gating flag because the flag was global. Refactored 2026-05-24: `generating` flag moved from GroupRules global to GroupBody per-action; set in generateCode() against the action being generated; TokenXP and ExpressioN actions check via currentMETHOD. Dispatch restored.
+- [x] **Three overnight bug fixes 2026-05-24** — (1) runAction double-unwrap removed (runOP already unwraps; runAction was doing it again, breaking generation in subtle ways). (2) printField zero-result handler (dot-op returning 0 was crashing printField; now substitutes falseResult global). (3) bcLIST linkage fix (local bcLIST.group now points at the real bcLIST rather than receiving setContent of it).
+- [ ] **Six parse-time errors at gXpress load** — `nextGroup: ERROR true does not contain a list` and `nextGroup: ERROR lines does not contain a list`, three pairs alternating during parse-load of gXpress's definition. Independent of gXpress's body content (errors didn't change when body changed substantially). Doesn't crash the parse. Tony to investigate when convenient — parse-machinery, not blocking.
+- [ ] **`**target;` debug breakpoint syntax** — runtime breakpoint primitive. Plants opDebug at runtime; Tony inspects GroupItem in Xcode debugger when execution reaches that line. Worth a CLAUDE.md note and an entry in eventual incant-idioms.md. Today's example: three breakpoints in working-tree generate for listLengtH investigation.
+- [ ] **Clay/Clod lane division — Xcode debugger is Tony's seat** — Clod can place `**` breakpoints in source, but inspecting GroupItem state via Xcode debugger requires Tony at the desktop. Pattern: Clod prepares experimental setup, Tony runs the experiment. Worth pinning in bible Working Relationship section. Cousin to "Tony with the C++ debugger" rail named in Phase Integrate.
+- [ ] **Bytecode.mm rewrite into tok** — convert hand-written Bytecode.mm to Bytecode.twk source, generate .mm via tok. Matches visibility-gap discipline (source-of-truth tracked, generated artifacts derived) and the mirror principle (incant rule actions live in .twk like their siblings). Off-hours candidate for Tony — familiarity-with-the-runX-handlers payoff alongside the mechanical work. Design calls Tony owns: one .twk for both .h and .mm or split, extern "C" shape, .act-splice pattern adoption. Sequencing: after Phase Bytecode current arc closes; don't blend into active gXpress work.
+- [ ] **ifTest modified to exercise gXpress nesting shape** — committed 2026-05-23 to unitTests. Exercises outer if/or/else around inner if/or/or/else inside a for-loop. Durable test-suite value — don't revert. If oneTest's downstream cares about prior simpler shape, that's where any breakage would surface.
+- [ ] **Incant style/semantics discoveries 2026-05-23** — six idioms surfaced in one session, all candidates for incant-idioms.md or bible Architecture entry:
+  - Field accessors return text-snapshot temporaries, not aliases (`field.taG`, `field.texT` — each access is a fresh temp; mutation doesn't propagate; identity comparison is text-equality only)
+  - Cap-on-last-letter convention: `.texT` works, `.text` crashes parse. Convention is "texT=4" in setup.txt
+  - No dot-chaining: `.` accesses or tests one attribute, `[]` is the structural accessor. Near-motto: "keep tokens simple." Reason: no incant debugger, short expressions stay reason-aboutable line-by-line
+  - C++ GroupField pointers (opFields and family) are not incant-visible. Refer to registries by their incant name: Operators, bcOPs, Grokking
+  - Labels-in-labels go as attributes; labels don't have members. `for x in field;` without qualifier walks the right axis for parser-built children
+  - listLengtH is a boolean-presence test, not a count comparison. Returns null if no list, count if list present (always > 0 when present). `if X.listLengtH;` is the right idiom; `if X.listLengtH > N;` is wrong-shape.
+- [ ] **Incant field semantics — bible Architecture entry pending** — Tony's 2026-05-23 explanation: an incant field is declared in C++ as a pointer but doesn't behave as a C++ pointer. Assignment (`A = B`) copies B's content into A; A and B remain distinct fields. Pointer-shaped storage is structural (uniform field-passing); operations have value-content semantics. `:=` (opSetGroup) is the group-binding variant, distinct from `=` (opAssign, value-copy). This is a foundational concept that several idioms follow from. Worth bible Architecture entry alongside "Incant Core Concept" and "Incant Dispatch Idiom" — current draft in this session's discussion. (Bible draft pending in next session.)
+- [ ] **Brief verification rigor — durable lesson** — "Shape-reading isn't verification; running and sifting the bones is." Surfaced 2026-05-22 (testGXLeaf "passing" turned out to be lucky-coincidence pass-through twice — once via empty-bcLIST, once via single-Token-ExpressioN fallthrough in gXpress). Cousin of TODO's existing "Brief 2 verification too loose" lesson. Worth bible Working Relationship section at next refresh.
+- [ ] **incant-idioms.md as a doc — sequencing** — TODO has it as a Clod-discovery destination. Today (2026-05-23) accumulated enough idioms to warrant drafting v0. Proposed structure: (1) bible Architecture entry for field semantics — the foundational concept (`=` vs `:=`, pointer-storage-vs-value-semantics); (2) incant-idioms.md for the consequences (snapshot accessors, no dot-chaining, registry-by-name-only, listLengtH as boolean test, runAction parameter binding quirks, etc.). Draft when Phase Bytecode current arc closes; not now (momentum).
+
+### Phase Bytecode session findings (earlier items)
+ — resolved 2026-05-22 (Tony work). Root cause: incomplete definition of the group field `isLiteraL` itself, not a setContent/opDot late-binding issue as initially suspected. With the definition completed, righty no longer picks up isLiteraL spuriously.
+- [x] **opDot late-binding unwrap unitTest failures** — resolved 2026-05-22 (Tony work). Root cause: the unwrapping code added to opDot was unnecessary. `runOP()` (the caller of opDot) had already done the unwrapping; the second unwrap in opDot never hit during normal generator runs. Removed from opDot. UnitTests pass clean.
+- [ ] **argument[N] on +=-stored children** — Q3 of Clod's Brief 3 findings. `xl` built with `xl += op; xl += target; xl += arg;` — accessing children from incant via `argument[1]` returns falsy. The `[N]` accessor works for parser-built children (gFOR uses argument[1] on FOR rule and works) — difference is `+%` vs `+=` storage. Needs different accessor for `+=`-added children, OR `[N]` needs to walk `+=` storage too. May be related to invokE getter / opDot chase question.
+- [ ] **emitBC parameter naming convention** — `runAction` (GroupRules.mm:2933) only binds to a parameter literally named `argument`. emitBC's previous `operand` parameter was getting empty values because of this. Worth a CLAUDE.md note in incant so future generators don't hit this. Cousin of bible #12 (silent-staleness in tok ecosystem) — code looks right, runs without complaint, but parameter binding silently empty.
+- [ ] **Brief 2 verification too loose** — Lesson: Brief 2's "verification" passed with both bcLIST entries empty (due to the emitBC parameter-binding bug). The loose-verification bar let a real bug ship in the commit. Worth thinking about: when verification is loose, what trust does that buy, and what doesn't it buy? Lesson candidate for cha-cha-assessment beat or bible Working Relationship section.
+- [x] **ElsE forward-reference grammar fix** — resolved 2026-05-22 (Tony work). The if/or/else pattern error was caused by a missing rowradr declaration of the ElsE rule in the incant grammar. With the declaration added, the three-way if/or/else chain works correctly. Worth a CLAUDE.md note for future grammar-rule additions: "grammar rules referenced before their full definition need a rowradr forward declaration."
+- [ ] **Three-way if/or/or chain in generator actions** — Clod's Brief 3 first blocker. Resolved by the ElsE forward-ref fix. Worth confirming via a deliberate three-way-chain test in unitTests so the regression-protection is durable. Existing testInterpret uses two-branch only.
+- [ ] **`=:` operator design** — future grammar-change session. Goal: collapse `string` keyword. `whatsIt =: 'is what I am talking about':;` — assignment with string-build semantics, using print machinery for shortcut+expression handling on the RHS. Open design question: where `=:` lives in grammar (Path A: operator inside ExpressioN with sub-grammar switch for RHS; Path B: separate statement form parallel to PrinT). Tony favored Path A direction (preserving assignment-flavor); plg conditions may be the parser-switch mechanism. Not blocking gPrint bytecode work; parallel design.
+- [ ] **Grammar-change discussion template** — Tony has multiple grammar ideas percolating beyond `=:`. Worth developing a standard format for these discussions: what's the current grammar, what's the proposed change, what's the minimal-impact path, what ripples to design around. Lands as `Groups/docs/grammarChangeTemplate.md` or similar when format settles.
+- [ ] **Print bytecode plan document** — `Groups/docs/printGenerationPlan.md`. Drafted in chat during 2026-05-21 woodshed. Pending: write up as durable artifact, fold in `=:` interaction notes. Covers: print's interpret-time semantics (aCTionPrinT + appendGroup + printField), grammar handoff (PrinT/StringXP/PrintXP/FormaT), bytecode design (bcPrintShortcut/bcPrintField/bcPrintEmit/bcStringEmit), brief sequencing for gPrint implementation. Substantial enough to warrant a session of its own.
+- [ ] **Three cha-cha modes pinned** — woodshed (Clay+Tony, plan-shape work), brief-execute (Clod, mechanical-shape work), commander-discretion (Tonto, archaeological-shape work). All three demonstrated in practice during 2026-05-19/20/21 sessions. Worth marking in bible Working Relationship section at next refresh. Pattern surfaced naturally during Tawk recon (first commander-discretion) and Phase Bytecode briefs (brief-execute formalized further).
+- [ ] **Avoid duplicate unwrap across caller/callee** — design heuristic surfaced during the opDot resolution. Before adding unwrap code in a consumer (opDot), check whether the caller (runOP) is already unwrapping. The original "fix consumer not producer" framing held, but the specific opDot unwrap turned out to be the duplicate-and-removable one because runOP already unwrapped upstream. Worth pinning: when nested-group handling is in play, audit the full call chain for who unwraps where before adding new unwrap code.
+- [ ] **Incant by Clod-discovery as documentation pattern** — Lessons section observation. Clod's findings about incant idiom (canonical-vs-instance, setContent semantics, scope expressions, runAction parameter binding) become durable documentation when captured. Worth eventually folding into an incant-idioms.md in `Groups/docs/` once enough findings accumulate. Not yet, but the pattern is real.
+
 ### Bible refresh — minor sync passes (after major arcs settle)
 
 *The bible v2 from 2026-05-15 is substantially current. Small drift items accumulate:*
@@ -156,9 +252,9 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 - [ ] TAWK autopsy remainder (after Phase Integrate completes)
 - [ ] Scoped TAWK autopsy (independent): GC inheritance fix, include guard fix — go into legacy Tokf/Tawk.twk directly
 
-### TOK Xcode project — yaml it (+ rename Groups → incant)
+### TOK Xcode project — yaml it (+ rename Groups → incant, rename incantGUI target → incant)
 
-*Lives outside all four GitHub repos. No project.yml. Reverse-engineering from existing .pbxproj is the work. May also include renaming target. Housekeeping for whenever.*
+*Lives outside all four GitHub repos. No project.yml. Reverse-engineering from existing .pbxproj is the work. May also include renaming target. Housekeeping for whenever. The "incantGUI" target name is vestigial from when GUI work was active — see bible glossary.*
 
 ### plg xcode link cleanup + yaml refresh
 
@@ -226,6 +322,17 @@ Clod runs `git diff --stat HEAD` in each repo after reading docs. Tony fills con
 
 ### Recent (2026-05)
 
+- [x] **GroupRules.twk restored as source of truth (2026-05-28)** — 2026-05-26 .mm hand-edits now fully reproducible from bare `tok GroupRules.twk`. Triage: ~37/40 hunks were regeneration lag (.rtn already ahead of stale .mm); 2 functions (`applyDirectives`, `spliceDirectives`) moved .mm→Instruct.rtn as native source; `groups.ext` externs added; `+=` DiR dispatch landed in `opPlusEQ` (`head(argument.tag,3)` match → `applyDirectives`); debug scaffolding stripped to `groupDirectives`. Directive round-trip route explored, set aside as unnecessary (changes already in .rtn). Surfaced the tok-directives-insert-only finding.
+- [x] **Wiki first-pass restructure (2026-05-24)** — What-Is-Incant page revised: bootstrap section moved to Appendix B with framing intro, For the Nerds moved to Appendix A, JSON/YAML progression moved earlier in the flow (placed right after Foundation: What Is a Field?). The reflexive/homoiconic incant-grammar example folded into "What Is a Rule?" where it earns its place. Tone preserved. Weekly cadence proposed for ongoing wiki refinement. Features+working-examples list as next destination (rather than single illustrative program). Pushed to incant.wiki by Clod 2026-05-24.
+- [x] **Per-action `generating` flag (2026-05-24, Tony work)** — Refactored from GroupRules global to GroupBody per-action. Set in generateCode() against the action being generated; TokenXP and ExpressioN actions check via currentMETHOD. Fixes the dispatch regression caused by the first gating attempt (which broke runGenerated because lazy parses of generator method bodies happened under the global flag). Clean fix; no other implementation changes needed.
+- [x] **Three overnight bug fixes (2026-05-24, Tony work)** — runAction double-unwrap removed (runOP already unwraps); printField zero-result handler (substitutes falseResult global); bcLIST linkage fix (bcLIST.group points at the real bcLIST rather than setContent copy).
+- [x] **Cha-cha finding-location practice pinned (2026-05-24)** — Clod's reports include file/method/line/conditions for generator-side findings. C++ layer stays in Tony's lane unless explicitly delegated. Clay flags location-unknown items explicitly rather than treating them as settled.
+- [x] **ifTest modified to exercise gXpress nesting (2026-05-23)** — outer if/or/else around inner if/or/or/else inside a for-loop. Falsified Clod's nesting concern via standalone run. Durable test-suite value for the gXpress shape going forward.
+- [x] **runAction unwrap-at-parse-time bug fixed (2026-05-23, Tony work)** — runAction was setting argument before code parse, so argument got unwrapped at parse time and the value (not the parameter reference) got baked into the code. Fixed. Didn't entirely fix runGenerated (something is still pointing at a stale argument there), so the `dummy = argument; action(dummy)` hack at runGenerated lines 201-205 is the residual workaround.
+- [x] **Incant style/semantics discoveries surfaced (2026-05-23)** — six idioms pinned for future incant-idioms.md draft. See Phase Bytecode session findings for the full list.
+
+- [x] **Incant bytecode short-doc written and pasted atop XML/WorkingOn/generate (2026-05-22)** — structure, registries (bcOPs and Operators), emit-side mechanics, Generating registry layout, and a paragraph contrasting incant bytecodes (GroupItems, attribute-lookup dispatch, interpreter writable in incant) with standard bytecodes (opaque tuples, switch-decode). Surfaces the bcPushLit/bcPushField/bcStoreField/bcMul registration gap as an explicit open question. Drafted by Clay in 2026-05-22 morning session in response to Tony's question about `bcPushField`. Pasted as comment block at top of generate file.
+- [x] **Three incant-machinery investigations resolved (2026-05-22, Tony work)** — righty/isLiteraL (incomplete group-field definition), opDot late-binding unwrap (unnecessary code in opDot, removed since runOP already unwraps), if/or/else pattern (missing rowradr declaration of ElsE rule in incant grammar). All three closed the gating set for Brief 3 verification.
 - [x] **Phase Integrate migration 2 (2026-05-16)** — PLGitem invalid-surface migration (`iTEM[s] → iTEM.children[s]` and `iTEM.get(s) → iTEM.children[s]`) across 4 small files in Tokf/Tests/. 12 sites total: Symbol.twk (1), Directive.twk (2), Instance.twk (1), SymbolType.twk (8). All sites clean, receiver-type sanity check passed across all 12.
 - [x] **Phase Integrate Tonto recon 3 (2026-05-16)** — comprehensive migration scope against current PLGitem interface. 5 files need migration: Symbol, Directive, Instance, SymbolType (the 4 small files migrated in migration 2), plus Tawk.twk (587 invalid-surface sites across 5 types, separate arc). Surfaced that `.string()/.unString()` are still valid on current PLGitem — migration 1 was a style upgrade, not a compile-required fix. BeforeRefactor/ verified: 11 of 13 files current, 2 expected-stale.
 - [x] **Phase Integrate migration 1 (2026-05-16)** — `.string()/.unString() → .toString()` style migration in Tokf/Tests/ across SymbolType.twk (1 site), Types.twk (1 site), Tawk.twk (79 sites). Symlinks replaced with real copies. Tests/ stays gitignored — working-tree state is the deliverable.
