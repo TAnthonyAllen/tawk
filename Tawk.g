@@ -523,31 +523,7 @@ Try			:   'try'
 				;
 %%
 
-void assignFailed(PLGtester t)
-{
-Tawk    tOK = (Tawk)testParser;
-    if assigning
-        {
-        assigning = false;
-        cout "Assigning turned off":;
-        }
-}
-
-void caseLabelFail(PLGtester t)
-{
-Tawk    tOK = (Tawk)testParser;
-    assuming = false;
-}
-
-void expressPartFailed(PLGtester t)
-{
-Tawk    tOK = (Tawk)testParser;
-   popVirtuals();
-}
-
-void instanceTailFail(PLGtester t)
-{
-Tawk    tOK = (Tawk)testParser;
-    noShortcuts = false;
-    printErrorMessage();
-}
+// Rule FAIL handlers (assignFailed, caseLabelFail, expressPartFailed,
+// instanceTailFail) moved to Tok.twk as file-scope externals. They were
+// free functions, not Tawk methods, and plg's regen does not carry the
+// %% epilogue. Wired by name via the FAIL directives in the grammar.

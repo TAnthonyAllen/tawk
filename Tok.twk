@@ -9,6 +9,7 @@ class Tok
 int	dummy;
 static Tape     globalLinkTape;
 static Tawk     tawking;
+static Tawk     testParser;     // set-and-forget parser handle for the FAIL handlers
 
 void run()
 {
@@ -23,6 +24,7 @@ int main( int argc, char **argv )
 {
 String sourceFile = argv[1];
     tawking	= new();
+    testParser = tawking;
     if argc == 3 directivesFile = argv[2];
     if sourceFile
 		{
@@ -35,4 +37,40 @@ String sourceFile = argv[1];
 		exit(1);
 		}
     exit(0);
+}
+
+/*****************************************************************************
+	Rule FAIL handlers. These were free functions in Tawk.g's %% epilogue
+	(which plg's regen does not carry). Moved here as file-scope externals;
+	wired by name in setRules via the grammar's FAIL directives. The parser
+	is the set-and-forget Tok::testParser static (was reached via the
+	PLGtester chain iTEM.test.testParser in the old model).
+*****************************************************************************/
+void assignFailed(PLGitem iTEM)
+{
+Tawk    tOK = testParser;
+    if tOK.assigning
+        {
+        tOK.assigning = false;
+        cout "Assigning turned off":;
+        }
+}
+
+void caseLabelFail(PLGitem iTEM)
+{
+Tawk    tOK = testParser;
+    tOK.assuming = false;
+}
+
+void expressPartFailed(PLGitem iTEM)
+{
+Tawk    tOK = testParser;
+    tOK.popVirtuals();
+}
+
+void instanceTailFail(PLGitem iTEM)
+{
+Tawk    tOK = testParser;
+    tOK.noShortcuts = false;
+    tOK.printErrorMessage();
 }
