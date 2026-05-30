@@ -1095,7 +1095,7 @@ DoubleLinkList  list = parameters;
                         PLGitem inst,
                                 exp = divertInput(arg.comment,"Expression");
                         if exp
-                            if inst = exp["instance"]
+                            if inst = exp.children["instance"]
                                 instance = inst.value;
                             else cerr "Instance setDefaults: could not get expression instance for",arg.comment:;
                         else cerr "Instance setDefaults: alias argument parse failed for",arg.comment:;

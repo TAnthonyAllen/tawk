@@ -172,15 +172,42 @@ Symbol      field;
 }
 
 /*****************************************************************************
+    Convert a .h filename like "GroupItem.h" or "Cocoa/Cocoa.h" into an
+    include-guard token like "GroupItem_h" or "Cocoa_Cocoa_h".
+*****************************************************************************/
+String guardTokenFromName(String filename)
+{
+String  result;
+char    *atContent = filename;
+    while *atContent
+        {
+        if *atContent == '/'    result += "_";
+        or *atContent == '.'    result += "_";
+        else                    result += *atContent;
+        atContent++;
+        }
+    return result;
+}
+
+/*****************************************************************************
 	Close the formatter and print the formatted files
 *****************************************************************************/
 void close()
 {
+String  guardName,
+        guardText;
     forwardBuffer.append(headerBuffer.string());
     headerBuffer.reset();
-	forwardBuffer.closeFile();
-	if buffer != forwardBuffer && buffer.file
-		buffer.closeFile();
+    if forwardBuffer.file
+        {
+        guardName = guardTokenFromName(dotHname);
+        guardText = "#ifndef " guardName "\n#define " guardName "\n#include \"gc/gc_cpp.h\"\n\n";
+        forwardBuffer.insertIntoBuffer(guardText, 0);
+        forwardBuffer.appendString("\n#endif\n", "", 0);
+        }
+    forwardBuffer.closeFile();
+    if buffer != forwardBuffer && buffer.file
+        buffer.closeFile();
     if suppressedDeclarations
         cout "Declarations ignored because not used:",suppressedDeclarations:;
 }
@@ -623,7 +650,8 @@ use type
 	else {
 		if type.comment print comment "\n";
         print "class " name;
-        if parent print " : public " parent.name;
+        if parent print " : public gc, public " parent.name;
+        else      print " : public gc";
         print "\n{\npublic:\n";
 		}
 	while structType = types.next()

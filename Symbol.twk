@@ -133,7 +133,7 @@ Symbol      argument,symbolParameter;
         }
     for atItem = parameter
         {
-        item = atItem.get("type");
+        item = atItem.children["type"];
         for item = item.value
             {
             argument = item.value;

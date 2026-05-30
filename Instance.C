@@ -2,15 +2,15 @@
 #include <string.h>
 #include <stdio.h>
 #include "StringRoutines.h"
-#include "Buffer.h"
 #include "PLGparse.h"
 #include "Symbol.h"
 #include "SymbolType.h"
 #include "Operate.h"
 #include "DoubleLinkList.h"
 #include "DoubleLink.h"
-#include "PLGitem.h"
 #include "BaseHash.h"
+#include "Buffer.h"
+#include "PLGitem.h"
 #include "BlockTok.h"
 #include "Expression.h"
 #include "Statement.h"
@@ -918,7 +918,7 @@ Instance 	*instance = 0;
 char *Instance::getCast()
 {
 char 	*castText = 0;
-Buffer 	*buffer = ::bufferFactory1();
+Buffer 	*buffer = new Buffer();
 	getCast(buffer);
 	castText = buffer->toString();
 	delete buffer;
@@ -936,17 +936,17 @@ int 		i = 0;
 		{
 		error("Instance getCast: bogus type");
 		::printf("%s",postfix);
-		buffer->appendString(postfix);
+		buffer->appendString(postfix,0,0);
 		}
 	else
 	if ( symbol && isMethod && (isLambda || reference) )
-		buffer->appendString(symbol->getSignature(1));
+		buffer->appendString(symbol->getSignature(1),0,0);
 	else {
-		buffer->appendString(castType->name);
+		buffer->appendString(castType->name,0,0);
 		for ( i = getDirect(); i > 0; i-- )
-			buffer->appendString("*");
+			buffer->appendString("*",0,0);
 		for ( i = reference; i; i-- )
-			buffer->appendString("&");
+			buffer->appendString("&",0,0);
 		}
 }
 
@@ -1442,8 +1442,8 @@ DoubleLinkList 	*list = parameters;
 						PLGitem 	*inst = 0;
 						PLGitem 	*exp = tok->divertInput(arg->comment,"Expression");
 						if ( exp )
-							if ( inst = exp->get("instance") )
-								instance = (Instance*)inst->value;
+							if ( inst = (PLGitem*)exp->children->get("instance") )
+								instance = (Instance*)inst->itemValue;
 							else	::fprintf(stderr,"Instance setDefaults: could not get expression instance for %s\n",arg->comment);
 						else	::fprintf(stderr,"Instance setDefaults: alias argument parse failed for %s\n",arg->comment);
 						}

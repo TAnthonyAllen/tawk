@@ -5,6 +5,7 @@
 #include "FormatC.h"
 #include "SymbolType.h"
 #include "DoubleLinkList.h"
+#include "BaseHash.h"
 #include "PLGitem.h"
 #include "Statement.h"
 #include "Tawk.h"
@@ -18,11 +19,11 @@ void Directive::emitDirective()
 {
 PLGitem 	*item = 0;
 Statement 	*statement = 0;
-	for ( ; line; line = line->next )
+	for ( ; line; line = line->itemNext )
 		{
-		if ( !(item = line->get("statement")) )
+		if ( !(item = (PLGitem*)line->children->get("statement")) )
 			continue;
-		if ( statement = (Statement*)item->value )
+		if ( statement = (Statement*)item->itemValue )
 			Tok::tawking->formatter->writeStatement(statement);
 		}
 	isDirected = 1;
@@ -37,7 +38,7 @@ void Directive::parseDirective()
 PLGitem 	*item = 0;
 	isDirected = 1;
 	if ( item = Tok::tawking->divertInput(codeToAdd,"Directivise") )
-		line = item->get("line");
+		line = (PLGitem*)item->children->get("line");
 	if ( !line )
 		::printf("parseDirective: failed for %s %s\n",method->name,codeMatch);
 }

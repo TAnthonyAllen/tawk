@@ -7,8 +7,8 @@
 #include "SymbolType.h"
 #include "DoubleLinkList.h"
 #include "DoubleLink.h"
-#include "PLGitem.h"
 #include "InstanceTable.h"
+#include "PLGitem.h"
 #include "BlockTok.h"
 #include "Instance.h"
 #include "Symbol.h"
@@ -225,12 +225,12 @@ Symbol 		*symbolParameter = 0;
 		if ( parentClass->isC && link )
 			link = link->next;
 		}
-	for ( atItem = parameter; atItem; atItem = atItem->next )
+	for ( atItem = parameter; atItem; atItem = atItem->itemNext )
 		{
-		item = atItem->get("type");
-		for ( item = (PLGitem*)item->value; item; item = item->next )
+		item = (PLGitem*)atItem->children->get("type");
+		for ( item = (PLGitem*)item->itemValue; item; item = item->itemNext )
 			{
-			argument = (Symbol*)item->value;
+			argument = (Symbol*)item->itemValue;
 			if ( link )
 				{
 				symbolParameter = (Symbol*)link->value;

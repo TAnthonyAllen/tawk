@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include "StringRoutines.h"
 #include "SearchTree.h"
-#include "Buffer.h"
 #include "PLGparse.h"
 #include "BaseHash.h"
 #include "Types.h"
@@ -13,8 +12,9 @@
 #include "Operate.h"
 #include "DoubleLinkList.h"
 #include "DoubleLink.h"
-#include "PLGitem.h"
 #include "InstanceTable.h"
+#include "Buffer.h"
+#include "PLGitem.h"
 #include "BlockTok.h"
 #include "Expression.h"
 #include "Instance.h"
@@ -41,12 +41,12 @@ FormatC::FormatC()
 	makeOCfile = 0;
 	processingGlobalMethods = 0;
 	writingParameters = 0;
-	forwardBuffer = ::bufferFactory2("forward");
-	headerBuffer = ::bufferFactory2("header");
-	includeText = ::bufferFactory2("include");
-	junkBuffer = ::bufferFactory2("junk");
+	forwardBuffer = new Buffer("forward");
+	headerBuffer = new Buffer("header");
+	includeText = new Buffer("include");
+	junkBuffer = new Buffer("junk");
 	staticBlock = new BlockTok();
-	structBuffer = ::bufferFactory2("struct");
+	structBuffer = new Buffer("struct");
 	mStak = new Stak();
 	buffer = junkBuffer;
 }
@@ -183,8 +183,17 @@ Symbol 		*field = 0;
 *****************************************************************************/
 void FormatC::close()
 {
-	forwardBuffer->appendString(headerBuffer->string());
+char 	*guardName = 0;
+char 	*guardText = 0;
+	forwardBuffer->appendString(headerBuffer->string(),0,0);
 	headerBuffer->reset();
+	if ( forwardBuffer->file )
+		{
+		guardName = guardTokenFromName(currentType->dotHname);
+		guardText = ::concat(5,"#ifndef ",guardName,"\n#define ",guardName,"\n#include \"gc/gc_cpp.h\"\n\n");
+		forwardBuffer->insertIntoBuffer(guardText,0);
+		forwardBuffer->appendString("\n#endif\n","",0);
+		}
 	forwardBuffer->closeFile();
 	if ( buffer != forwardBuffer && buffer->file )
 		buffer->closeFile();
@@ -346,7 +355,7 @@ Instance 	*instance = 0;
 		instance = (Instance*)line->value;
 		instance->statement->first->isDeclaration = 1;
 		declare(instance->statement->first,0);
-		buffer->appendString(";\n");
+		buffer->appendString(";\n",0,0);
 		}
 }
 
@@ -363,7 +372,7 @@ char 	*atArray = 0;
 Buffer 	*saveBuffer = 0;
 	symbol->setRefer();
 	if ( flag && symbol->isStatic )
-		buffer->appendString("static ");
+		buffer->appendString("static ",0,0);
 	if ( symbol->type->structure )
 		{
 		/**********************************************************************
@@ -395,61 +404,61 @@ Buffer 	*saveBuffer = 0;
 normal:
 		if ( !symbol->type )
 			{
-			buffer->appendString("missing type for ");
-			buffer->appendString(symbol->name);
+			buffer->appendString("missing type for ",0,0);
+			buffer->appendString(symbol->name,0,0);
 			return 1;
 			}
 		if ( !(symbol->isItem && isEnumerator(symbol->parentClass->structure)) )
 			{
 			if ( symbol->isConst )
-				buffer->appendString("const ");
+				buffer->appendString("const ",0,0);
 			if ( symbol->isOutlet && currentType->isOC )
-				buffer->appendString("IBOutlet ");
+				buffer->appendString("IBOutlet ",0,0);
 			if ( symbol->type->nameSpace )
 				{
-				buffer->appendString(symbol->type->nameSpace);
-				buffer->appendString("::");
+				buffer->appendString(symbol->type->nameSpace,0,0);
+				buffer->appendString("::",0,0);
 				}
 			if ( symbol->type == SymbolType::stringType )
 				{
 				isString = 1;
-				buffer->appendString("char ");
+				buffer->appendString("char ",0,0);
 				}
 			else
 			if ( symbol->type != SymbolType::nullType )
 				if ( symbol->isItem && symbol->structType && isBoolean(symbol->structType->structure) && currentType->isOC )
-					buffer->appendString("BOOL ");
+					buffer->appendString("BOOL ",0,0);
 				else {
-					buffer->appendString(symbol->type->name);
-					buffer->appendString(" ");
+					buffer->appendString(symbol->type->name,0,0);
+					buffer->appendString(" ",0,0);
 					}
 			for ( j = width - (1 + (int)::strlen(symbol->type->name)) / 4; j > 0; j-- )
-				buffer->appendString("\t");
+				buffer->appendString("\t",0,0);
 			if ( symbol->indirect )
 				for ( j = symbol->indirect - symbol->isArray; j > 0; j-- )
-					buffer->appendString("*");
+					buffer->appendString("*",0,0);
 			else
 			if ( !symbol->type->isDirect && !symbol->isConstructor )
-				buffer->appendString(::toStringFromChar('*'));
+				buffer->appendChar('*',0,0);
 			for ( j = symbol->reference; j; j-- )
-				buffer->appendString(::toStringFromChar('&'));
+				buffer->appendChar('&',0,0);
 			if ( !flag && symbol->isStatic && !currentType->isOC )
 				{
-				buffer->appendString(symbol->parentClass->name);
-				buffer->appendString("::");
+				buffer->appendString(symbol->parentClass->name,0,0);
+				buffer->appendString("::",0,0);
 				}
 			}
-		buffer->appendString(symbol->name);
+		buffer->appendString(symbol->name,0,0);
 		if ( !symbol->isArray && flag && symbol->array && !currentType->isOC )
-			buffer->appendString(symbol->array);
+			buffer->appendString(symbol->array,0,0);
 		else
 		if ( symbol->isArray && symbol->array )
 			if ( flag )
-				buffer->appendString(symbol->array);
+				buffer->appendString(symbol->array,0,0);
 			else
 			for ( atArray = symbol->array; *atArray; atArray++ )
 				if ( *atArray == '[' )
-					buffer->appendString("[]");
+					buffer->appendString("[]",0,0);
 		return 1;
 		}
 }
@@ -476,22 +485,22 @@ int 	width = 0;
 			{
 			Buffer 	*saveBuffer = buffer;
 			if ( !errorBuffer )
-				errorBuffer = ::bufferFactory2("errors");
+				errorBuffer = new Buffer("errors");
 			buffer = errorBuffer;
-			buffer->appendString("// Ignoring declaration of unused variable");
-			buffer->appendString(" ");
+			buffer->appendString("// Ignoring declaration of unused variable",0,0);
+			buffer->appendString(" ",0,0);
 			if ( enclosingMethod )
 				{
-				buffer->appendString(instance->getSymbol()->name);
-				buffer->appendString(" ");
-				buffer->appendString("in method:");
-				buffer->appendString(" ");
-				buffer->appendString(enclosingMethod->methodName);
-				buffer->appendString("\n");
+				buffer->appendString(instance->getSymbol()->name,0,0);
+				buffer->appendString(" ",0,0);
+				buffer->appendString("in method:",0,0);
+				buffer->appendString(" ",0,0);
+				buffer->appendString(enclosingMethod->methodName,0,0);
+				buffer->appendString("\n",0,0);
 				}
 			else {
-				buffer->appendString(instance->getSymbol()->name);
-				buffer->appendString("\n");
+				buffer->appendString(instance->getSymbol()->name,0,0);
+				buffer->appendString("\n",0,0);
 				}
 			suppressedDeclarations++;
 			buffer = saveBuffer;
@@ -530,19 +539,19 @@ int 	j = 0;
 			if ( expression->verb->compare(",") == 0 )
 				{
 				if ( expression->subject && expression->subject->symbol )
-					buffer->appendString(" = 0,\n");
-				else	buffer->appendString(",\n");
+					buffer->appendString(" = 0,\n",0,0);
+				else	buffer->appendString(",\n",0,0);
 				if ( expression->object->block )
 					for ( j = expression->object->block->width; j > 0; j-- )
-						buffer->appendString("\t");
+						buffer->appendString("\t",0,0);
 				expression->object->isDeclaration = 1;
 				writeIndirect(expression->object);
 				expression->object->isDeclaration = 0;
 				}
 			else {
-				buffer->appendString(" ");
-				buffer->appendString(expression->verb->op);
-				buffer->appendString(" ");
+				buffer->appendString(" ",0,0);
+				buffer->appendString(expression->verb->op,0,0);
+				buffer->appendString(" ",0,0);
 				}
 		declareTail(expression->object,1);
 		}
@@ -559,7 +568,7 @@ DoubleLink 	*entry = 0;
 char 		*codeName = ::concat(2,type->name,"code");
 	//cout "Declare class body for " type.name:;
 	if ( !type->codeBuffer )
-		type->codeBuffer = ::bufferFactory2(codeName);
+		type->codeBuffer = new Buffer(codeName);
 	buffer = type->codeBuffer;
 	checkSort(type);
 	if ( type->sortedComponents )
@@ -569,7 +578,7 @@ char 		*codeName = ::concat(2,type->name,"code");
 			if ( field->isStatic && !field->isMethod && !field->isInitialized )
 				{
 				declare(field,0,0);
-				buffer->appendString(";\n");
+				buffer->appendString(";\n",0,0);
 				}
 			}
 	if ( type->sortedMethods )
@@ -611,12 +620,12 @@ char 		*codeName = ::concat(2,type->name,"code");
 		{
 		saveBuffer = buffer;
 		buffer = headerBuffer;
-		buffer->appendString("@protocol ");
-		buffer->appendString(type->name);
-		buffer->appendString("\n");
+		buffer->appendString("@protocol ",0,0);
+		buffer->appendString(type->name,0,0);
+		buffer->appendString("\n",0,0);
 		if ( type->sortedMethods )
 			declareMethods(type,0);
-		buffer->appendString("@end\n");
+		buffer->appendString("@end\n",0,0);
 		buffer = saveBuffer;
 		return;
 		}
@@ -657,49 +666,50 @@ char 		*codeName = ::concat(2,type->name,"code");
 		{
 		if ( includeText->length() > 0 )
 			{
-			buffer->appendString(includeText->string());
+			buffer->appendString(includeText->string(),0,0);
 			includeText->reset();
 			}
 		if ( type->comment )
-			buffer->appendString(type->comment);
-		buffer->appendString("@interface ");
-		buffer->appendString(type->name);
+			buffer->appendString(type->comment,0,0);
+		buffer->appendString("@interface ",0,0);
+		buffer->appendString(type->name,0,0);
 		if ( type->parent )
 			{
-			buffer->appendString(" : ");
-			buffer->appendString(type->parent->name);
+			buffer->appendString(" : ",0,0);
+			buffer->appendString(type->parent->name,0,0);
 			}
-		else	buffer->appendString(" : NSObject");
+		else	buffer->appendString(" : NSObject",0,0);
 		if ( type->protocols )
 			{
 			int 	flag = 0;
 			type->protocols->entry = 0;
-			buffer->appendString(" <");
+			buffer->appendString(" <",0,0);
 			while ( structType = (SymbolType*)type->protocols->next() )
 				{
 				if ( flag )
-					buffer->appendString(",");
+					buffer->appendString(",",0,0);
 				else	flag = 1;
-				buffer->appendString(structType->name);
+				buffer->appendString(structType->name,0,0);
 				}
-			buffer->appendString(">");
+			buffer->appendString(">",0,0);
 			}
-		buffer->appendString("\n{\n@public\n");
+		buffer->appendString("\n{\n@public\n",0,0);
 		}
 	else {
 		if ( type->comment )
 			{
-			buffer->appendString(type->comment);
-			buffer->appendString("\n");
+			buffer->appendString(type->comment,0,0);
+			buffer->appendString("\n",0,0);
 			}
-		buffer->appendString("class ");
-		buffer->appendString(type->name);
+		buffer->appendString("class ",0,0);
+		buffer->appendString(type->name,0,0);
 		if ( type->parent )
 			{
-			buffer->appendString(" : public ");
-			buffer->appendString(type->parent->name);
+			buffer->appendString(" : public gc, public ",0,0);
+			buffer->appendString(type->parent->name,0,0);
 			}
-		buffer->appendString("\n{\npublic:\n");
+		else	buffer->appendString(" : public gc",0,0);
+		buffer->appendString("\n{\npublic:\n",0,0);
 		}
 	while ( structType = (SymbolType*)SymbolType::types->hashList->next() )
 		if ( structType->mustDeclare )
@@ -707,16 +717,16 @@ char 		*codeName = ::concat(2,type->name,"code");
 	declareHeaders(type);
 	if ( !type->isC )
 		if ( type->isOC )
-			buffer->appendString("@end\n");
-		else	buffer->appendString("};\n");
+			buffer->appendString("@end\n",0,0);
+		else	buffer->appendString("};\n",0,0);
 	saveBuffer = buffer;
 	buffer = forwardBuffer;
 	while ( currentNameSpace = (char*)mStak->pop() )
 		{
-		buffer->appendString("namespace ");
-		buffer->appendString(currentNameSpace);
-		buffer->appendString(" {");
-		buffer->appendString("\n");
+		buffer->appendString("namespace ",0,0);
+		buffer->appendString(currentNameSpace,0,0);
+		buffer->appendString(" {",0,0);
+		buffer->appendString("\n",0,0);
 		while ( structType = (SymbolType*)SymbolType::types->hashList->next() )
 			if ( structType->isReferenced && structType->nameSpace && ::compare(structType->nameSpace,currentNameSpace) == 0 )
 				{
@@ -725,14 +735,14 @@ char 		*codeName = ::concat(2,type->name,"code");
 				flagType(structType);
 				structType->noClassForward = save;
 				}
-		buffer->appendString("}");
-		buffer->appendString("\n");
+		buffer->appendString("}",0,0);
+		buffer->appendString("\n",0,0);
 		}
 	buffer = saveBuffer;
 	if ( structBuffer->length() )
 		{
-		forwardBuffer->appendString(structBuffer->string());
-		forwardBuffer->appendString("\n");
+		forwardBuffer->appendString(structBuffer->string(),0,0);
+		forwardBuffer->appendString("\n",0,0);
 		structBuffer->reset();
 		}
 	forwardBuffer->setFile(type->dotHname);
@@ -740,13 +750,13 @@ char 		*codeName = ::concat(2,type->name,"code");
 	Write codeBuffer
 	**************************************************************************/
 	if ( !type->codeBuffer )
-		type->codeBuffer = ::bufferFactory2(codeName);
+		type->codeBuffer = new Buffer(codeName);
 	buffer = type->codeBuffer;
 	if ( type->isOC )
 		{
-		buffer->appendString("\n@implementation ");
-		buffer->appendString(type->name);
-		buffer->appendString("\n");
+		buffer->appendString("\n@implementation ",0,0);
+		buffer->appendString(type->name,0,0);
+		buffer->appendString("\n",0,0);
 		}
 	if ( staticBlock->length() )
 		{
@@ -755,7 +765,7 @@ char 		*codeName = ::concat(2,type->name,"code");
 		}
 	declareBody(type);
 	if ( type->isOC )
-		buffer->appendString("@end\n");
+		buffer->appendString("@end\n",0,0);
 }
 
 /******************************************************************************
@@ -779,33 +789,33 @@ Symbol 	*field = 0;
 			if ( declare(field,1,0) )
 				{
 				if ( !(field->isItem && isEnumerator(field->parentClass->structure)) )
-					buffer->appendString(";");
+					buffer->appendString(";",0,0);
 				else
 				if ( type->sortedComponents->entry->next )
-					buffer->appendString(",");
-				buffer->appendString("\n");
+					buffer->appendString(",",0,0);
+				buffer->appendString("\n",0,0);
 				}
 			}
 		}
 	if ( type->isOC )
-		buffer->appendString("}\n");
+		buffer->appendString("}\n",0,0);
 	else
 	if ( type->isC )
-		buffer->appendString("};\n");
+		buffer->appendString("};\n",0,0);
 	if ( type->sortedMethods )
 		if ( type->isC )
 			{
-			buffer->appendString("extern \"C\"\n{\n");
+			buffer->appendString("extern \"C\"\n{\n",0,0);
 			declareMethods(type,0);
-			buffer->appendString("}\n");
+			buffer->appendString("}\n",0,0);
 			}
 		else
 		if ( type->hasExtern )
 			{
 			declareMethods(type,1);
-			buffer->appendString("extern \"C\"\n{\n");
+			buffer->appendString("extern \"C\"\n{\n",0,0);
 			declareMethods(type,2);
-			buffer->appendString("}\n");
+			buffer->appendString("}\n",0,0);
 			}
 		else	declareMethods(type,0);
 }
@@ -830,14 +840,14 @@ Symbol 	*field = 0;
 		if ( field->isAlias || field->isHidden )
 			continue;
 		if ( field->isVirtual )
-			buffer->appendString("virtual ");
+			buffer->appendString("virtual ",0,0);
 		else
 		if ( field->isInline )
-			buffer->appendString("inline ");
+			buffer->appendString("inline ",0,0);
 		if ( type->structure )
 			::indent(BlockTok::indentCount,"\t",buffer);
 		writeSignature(field,0);
-		buffer->appendString(";\n");
+		buffer->appendString(";\n",0,0);
 		}
 }
 
@@ -868,34 +878,34 @@ Symbol 	*field = 0;
 	if ( BlockTok::indentCount > 1 )
 		::indent(BlockTok::indentCount,"\t",buffer);
 	if ( isBoolean(type->structure) || isStruct(type->structure) )
-		buffer->appendString("struct ");
+		buffer->appendString("struct ",0,0);
 	else
 	if ( isEnumerator(type->structure) )
-		buffer->appendString("enum ");
-	else	buffer->appendString("union ");
+		buffer->appendString("enum ",0,0);
+	else	buffer->appendString("union ",0,0);
 	if ( type->nameLess )
-		buffer->appendString("\n");
+		buffer->appendString("\n",0,0);
 	else {
-		buffer->appendString(type->name);
-		buffer->appendString("\n");
+		buffer->appendString(type->name,0,0);
+		buffer->appendString("\n",0,0);
 		}
 	BlockTok::indentCount++;
 	::indent(BlockTok::indentCount,"\t",buffer);
-	buffer->appendString("{\n");
+	buffer->appendString("{\n",0,0);
 	declareHeaders(type);
 	::indent(BlockTok::indentCount,"\t",buffer);
-	buffer->appendString("};\n");
+	buffer->appendString("};\n",0,0);
 	if ( isBoolean(type->structure) )
 		while ( field = (Symbol*)type->components->hashList->next() )
 			if ( field->isButton )
 				{
-				buffer->appendString("#define");
-				buffer->appendString(" ");
-				buffer->appendString(field->name);
-				buffer->appendString("(button) (button == ");
-				buffer->appendString(field->array);
-				buffer->appendString(")");
-				buffer->appendString("\n");
+				buffer->appendString("#define",0,0);
+				buffer->appendString(" ",0,0);
+				buffer->appendString(field->name,0,0);
+				buffer->appendString("(button) (button == ",0,0);
+				buffer->appendString(field->array,0,0);
+				buffer->appendString(")",0,0);
+				buffer->appendString("\n",0,0);
 				}
 	BlockTok::indentCount--;
 }
@@ -928,12 +938,12 @@ void FormatC::declareTail(Instance *instance, int flag)
 					if ( !instance->express->subject->isComment )
 						if ( instance->express->subject->symbol && ((!instance->express->subject->isMethod && !instance->express->subject->symbol->type->structure) || instance->express->subject->howDirect()) )
 							{
-							buffer->appendString(" = 0;");
-							buffer->appendString("\n");
+							buffer->appendString(" = 0;",0,0);
+							buffer->appendString("\n",0,0);
 							}
 						else {
-							buffer->appendString(";");
-							buffer->appendString("\n");
+							buffer->appendString(";",0,0);
+							buffer->appendString("\n",0,0);
 							}
 					writeInstance(instance->express->object);
 					}
@@ -942,9 +952,9 @@ void FormatC::declareTail(Instance *instance, int flag)
 					{
 					if ( instance->express->verb )
 						{
-						buffer->appendString(" ");
-						buffer->appendString(instance->express->verb->op);
-						buffer->appendString(" ");
+						buffer->appendString(" ",0,0);
+						buffer->appendString(instance->express->verb->op,0,0);
+						buffer->appendString(" ",0,0);
 						}
 					writeInstance(instance->express->object);
 					}
@@ -966,10 +976,10 @@ void FormatC::flagType(SymbolType *type)
 		return;
 	if ( type->isOC )
 		{
-		buffer->appendString("@class ");
-		buffer->appendString(type->name);
-		buffer->appendString(";");
-		buffer->appendString("\n");
+		buffer->appendString("@class ",0,0);
+		buffer->appendString(type->name,0,0);
+		buffer->appendString(";",0,0);
+		buffer->appendString("\n",0,0);
 		if ( ::compare(type->dotHname,"Cocoa/Cocoa.h") == 0 )
 			{
 			type->noClassForward = 1;
@@ -980,11 +990,11 @@ void FormatC::flagType(SymbolType *type)
 		if ( type->nameSpace && ::compare(currentNameSpace,type->nameSpace) != 0 )
 			return;
 		if ( type->isTemplate )
-			buffer->appendString("template<> ");
-		buffer->appendString("class ");
-		buffer->appendString(type->name);
-		buffer->appendString(";");
-		buffer->appendString("\n");
+			buffer->appendString("template<> ",0,0);
+		buffer->appendString("class ",0,0);
+		buffer->appendString(type->name,0,0);
+		buffer->appendString(";",0,0);
+		buffer->appendString("\n",0,0);
 		}
 	type->noClassForward = 1;
 }
@@ -1023,6 +1033,27 @@ Buffer 	*saveBuffer = buffer;
 	buffer = saveBuffer;
 }
 
+/*****************************************************************************
+    Convert a .h filename like "GroupItem.h" or "Cocoa/Cocoa.h" into an
+    include-guard token like "GroupItem_h" or "Cocoa_Cocoa_h".
+*****************************************************************************/
+char *FormatC::guardTokenFromName(char *filename)
+{
+char 	*result = 0;
+char 	*atContent = filename;
+	while ( *atContent )
+		{
+		if ( *atContent == '/' )
+			result = ::concat(2,result,"_");
+		else
+		if ( *atContent == '.' )
+			result = ::concat(2,result,"_");
+		else	result += *atContent;
+		atContent++;
+		}
+	return result;
+}
+
 /*******************************************************************************
         Write out indent
 *******************************************************************************/
@@ -1030,7 +1061,7 @@ void FormatC::indent()
 {
 int 	i = 0;
 	for ( i = BlockTok::indentCount; i > 0; i-- )
-		buffer->appendString("\t");
+		buffer->appendString("\t",0,0);
 }
 
 /*******************************************************************************
@@ -1063,7 +1094,7 @@ int 	flag = 0;
 			::indent(BlockTok::indentCount,"\t",buffer);
 			}
 		}
-	buffer->appendString("\n");
+	buffer->appendString("\n",0,0);
 }
 
 /*******************************************************************************
@@ -1167,7 +1198,7 @@ Buffer 		*saveBuffer = buffer;
 SearchTree 	*tree = new SearchTree();
 	if ( !currentType->isOC && includeText->length() > 0 )
 		{
-		buffer->appendString(includeText->string());
+		buffer->appendString(includeText->string(),0,0);
 		includeText->reset();
 		}
 	buffer = includeText;
@@ -1203,20 +1234,20 @@ SearchTree 	*tree = new SearchTree();
 			{
 			if ( !makeOCfile && (type->isOC || type->hasOC) )
 				{
-				buffer->appendString(includeString);
-				buffer->appendString("<");
-				buffer->appendString(cocoaString);
-				buffer->appendString(">");
-				buffer->appendString("\n");
+				buffer->appendString(includeString,0,0);
+				buffer->appendString("<",0,0);
+				buffer->appendString(cocoaString,0,0);
+				buffer->appendString(">",0,0);
+				buffer->appendString("\n",0,0);
 				tree->add(cocoaString);
 				makeOCfile = 1;
 				}
 			if ( type->dotHname && !tree->find(type->dotHname) && type->isLocal )
 				{
-				buffer->appendString(includeString);
-				buffer->appendString("<");
-				buffer->appendString(type->dotHname);
-				buffer->appendString(">\n");
+				buffer->appendString(includeString,0,0);
+				buffer->appendString("<",0,0);
+				buffer->appendString(type->dotHname,0,0);
+				buffer->appendString(">\n",0,0);
 				tree->add(type->dotHname);
 				type->isReferenced = 0;
 				}
@@ -1246,32 +1277,32 @@ SearchTree 	*tree = new SearchTree();
 						ancestor->isReferenced = 0;
 						if ( !ancestor->noDotH && ancestor != SymbolType::globalType )
 							{
-							buffer->appendString(includeString);
-							buffer->appendString("\"");
-							buffer->appendString(ancestor->dotHname);
-							buffer->appendString("\"\n");
+							buffer->appendString(includeString,0,0);
+							buffer->appendString("\"",0,0);
+							buffer->appendString(ancestor->dotHname,0,0);
+							buffer->appendString("\"\n",0,0);
 							tree->add(ancestor->dotHname);
 							}
 						}
 					ancestor = ancestor->parent;
 					}
-				buffer->appendString(includeString);
-				buffer->appendString("\"");
-				buffer->appendString(type->dotHname);
-				buffer->appendString("\"\n");
+				buffer->appendString(includeString,0,0);
+				buffer->appendString("\"",0,0);
+				buffer->appendString(type->dotHname,0,0);
+				buffer->appendString("\"\n",0,0);
 				tree->add(type->dotHname);
 				}
 			}
 		}
 	if ( !tree->find(currentType->dotHname) )
 		{
-		buffer->appendString(includeString);
-		buffer->appendString("\"");
-		buffer->appendString(currentType->dotHname);
-		buffer->appendString("\"\n");
+		buffer->appendString(includeString,0,0);
+		buffer->appendString("\"",0,0);
+		buffer->appendString(currentType->dotHname,0,0);
+		buffer->appendString("\"\n",0,0);
 		}
 	if ( junkBuffer->length() )
-		buffer->appendString(junkBuffer->string());
+		buffer->appendString(junkBuffer->string(),0,0);
 	junkBuffer->reset();
 	buffer = saveBuffer;
 }
@@ -1289,13 +1320,13 @@ int 	ocMethodRef = 0;
 			{
 			if ( instance->parent->indirection )
 				{
-				buffer->appendString("(");
+				buffer->appendString("(",0,0);
 				writeIndirect(instance->parent);
 				}
 			printQualified(instance->parent);
 			if ( instance->parent->indirection )
-				buffer->appendString(")");
-			buffer->appendString("->");
+				buffer->appendString(")",0,0);
+			buffer->appendString("->",0,0);
 			}
 		writeExpression(instance->express);
 		return;
@@ -1305,22 +1336,22 @@ int 	ocMethodRef = 0;
 		{
 		if ( instance->prefix && instance->parent && instance->parent->getType()->isOC )
 			{
-			buffer->appendString("[");
+			buffer->appendString("[",0,0);
 			if ( instance->parent )
 				{
 				printQualified(instance->parent);
-				buffer->appendString(" ");
+				buffer->appendString(" ",0,0);
 				}
-			buffer->appendString(instance->prefix);
-			buffer->appendString("]");
+			buffer->appendString(instance->prefix,0,0);
+			buffer->appendString("]",0,0);
 			}
 		else
 		if ( instance->type )
 			if ( instance->type->isOC )
-				buffer->appendString(instance->type->name);
+				buffer->appendString(instance->type->name,0,0);
 			else {
-				buffer->appendString(instance->type->name);
-				buffer->appendString("::");
+				buffer->appendString(instance->type->name,0,0);
+				buffer->appendString("::",0,0);
 				}
 		else {
 			instance->error("Expected a symbol");
@@ -1356,23 +1387,23 @@ int 	ocMethodRef = 0;
 		ocParent = instance->parent->instanceOC();
 	if ( !instance->symbol->isStatic && instance->symbol->isOCfield && instance->isNew && instance->symbol->type->isOC )
 		{
-		buffer->appendString("[[");
-		buffer->appendString(instance->symbol->type->name);
-		buffer->appendString(" alloc] ");
+		buffer->appendString("[[",0,0);
+		buffer->appendString(instance->symbol->type->name,0,0);
+		buffer->appendString(" alloc] ",0,0);
 		ocFlag = 1;
 		}
 	if ( !argumentIsOC && !instance->symbol->isStatic && instance->symbol->isMethod && instance->symbol->parentClass && instance->symbol->parentClass->isGlobal && !instance->parent )
-		buffer->appendString("::");
+		buffer->appendString("::",0,0);
 	if ( instance->parent && !(instance->symbol->isItem && isEnumerator(instance->symbol->parentClass->structure)) && !(instance->parent->type && instance->symbol->isStatic) )
 		{
 		if ( instance->symbol->isProper || instance->symbol->isMethod && instance->symbol->isOCfield )
 			{
 			ocFlag = 1;
-			buffer->appendString("[");
+			buffer->appendString("[",0,0);
 			}
 		if ( instance->parent->indirection )
 			{
-			buffer->appendString("(");
+			buffer->appendString("(",0,0);
 			writeIndirect(instance->parent);
 			}
 		if ( instance->parent->cast )
@@ -1381,36 +1412,36 @@ int 	ocMethodRef = 0;
 			printQualified(instance->parent);
 		else	printQualified(instance->parent->castAlias());
 		if ( instance->parent->indirection )
-			buffer->appendString(")");
+			buffer->appendString(")",0,0);
 		if ( instance->symbol->isOCfield && (instance->symbol->isMethod || instance->symbol->isProper) )
-			buffer->appendString(" ");
+			buffer->appendString(" ",0,0);
 		else
 		if ( instance->parent->howDirect() )
-			buffer->appendString("->");
+			buffer->appendString("->",0,0);
 		else
 		if ( !instance->parent->type )
-			buffer->appendString(".");
+			buffer->appendString(".",0,0);
 		}
 	if ( !instance->qualified() )
 		if ( instance->symbol->isOCfield && !isType(instance->symbol->parentClass->structure) && !instance->isNew && !instance->symbol->isStatic && !instance->symbol->isVirtual && !instance->symbol->parentClass->isGlobal && ((instance->isMethod && !instance->reference) || instance->symbol->parentClass->proper) )
 			{
 			ocFlag = 1;
-			buffer->appendString("[self ");
+			buffer->appendString("[self ",0,0);
 			}
 		else
 		if ( currentType->isC && (instance->symbol->parentClass == currentType || (instance->symbol->parentClass && instance->symbol->parentClass->hasParent(currentType))) && (!instance->isMethod || (instance->isMethod && instance->reference)) && !instance->symbol->isThis && !instance->symbol->isStatic )
-			buffer->appendString("tHIS->");
+			buffer->appendString("tHIS->",0,0);
 	ocMethodRef = instance->isMethod && instance->reference && instance->instanceOC();
 	if ( printQualified(instance,ocParent,ocMethodRef) )
 		ocFlag = 1;
 	if ( instance->isMethod || instance->parameters )
 		{
 		if ( ocFlag && instance->isMethod && instance->parameters )
-			buffer->appendString(":");
+			buffer->appendString(":",0,0);
 		writeParameters(instance);
 		}
 	if ( ocFlag )
-		buffer->appendString("]");
+		buffer->appendString("]",0,0);
 }
 
 /*******************************************************************************
@@ -1425,28 +1456,28 @@ Symbol 	*symbol = instance->symbol;
 	if ( symbol->isStatic && symbol->parentClass )
 		if ( symbol->parentClass->isOC )
 			{
-			buffer->appendString("[");
-			buffer->appendString(symbol->parentClass->name);
-			buffer->appendString(" ");
-			buffer->appendString(symbol->name);
+			buffer->appendString("[",0,0);
+			buffer->appendString(symbol->parentClass->name,0,0);
+			buffer->appendString(" ",0,0);
+			buffer->appendString(symbol->name,0,0);
 			}
 		else {
-			buffer->appendString(symbol->parentClass->name);
-			buffer->appendString("::");
-			buffer->appendString(symbol->name);
+			buffer->appendString(symbol->parentClass->name,0,0);
+			buffer->appendString("::",0,0);
+			buffer->appendString(symbol->name,0,0);
 			ocFlag = 0;
 			}
 	else {
 		ocFlag = 0;
 		if ( ocMethodRef )
-			buffer->appendString(symbol->getOCmethodName());
-		else	buffer->appendString(symbol->name);
+			buffer->appendString(symbol->getOCmethodName(),0,0);
+		else	buffer->appendString(symbol->name,0,0);
 		if ( symbol->isMethod && !symbol->reference && symbol->parentClass && symbol->parentClass->addClassNameToMethods )
-			buffer->appendString(symbol->parentClass->name);
+			buffer->appendString(symbol->parentClass->name,0,0);
 		}
 	if ( ocFlag )
 		if ( !symbol->parameters )
-			buffer->appendString("]");
+			buffer->appendString("]",0,0);
 		else	return 1;
 	return 0;
 }
@@ -1477,11 +1508,11 @@ int 		isLabel = 0;
 Statement 	*stating = 0;
 Directive 	*directive = 0;
 	if ( block->isArrayInitializer )
-		buffer->appendString("{");
+		buffer->appendString("{",0,0);
 	else
 	if ( block->isBlock )
 		{
-		buffer->appendString("{\n");
+		buffer->appendString("{\n",0,0);
 		if ( BlockTok::indentCount == 0 )
 			BlockTok::indentCount++;
 		block->indenting = 1;
@@ -1507,11 +1538,11 @@ Directive 	*directive = 0;
 			if ( block->isSwitch && !isLabel )
 				BlockTok::indentCount--;
 			if ( block->isArrayInitializer && line->next )
-				buffer->appendString(",");
+				buffer->appendString(",",0,0);
 			}
 		}
 	if ( block->isArrayInitializer )
-		buffer->appendString("}");
+		buffer->appendString("}",0,0);
 	else
 	if ( block->isBlock )
 		{
@@ -1525,8 +1556,8 @@ Directive 	*directive = 0;
 			BlockTok::indentCount--;
 		::indent(BlockTok::indentCount,"\t",buffer);
 		if ( block->isLambda )
-			buffer->appendString("}");
-		else	buffer->appendString("}\n");
+			buffer->appendString("}",0,0);
+		else	buffer->appendString("}\n",0,0);
 		}
 }
 
@@ -1543,7 +1574,7 @@ DoubleLink 	*link = 0;
 		return;
 		}
 	if ( expression->hasParens )
-		buffer->appendString("(");
+		buffer->appendString("(",0,0);
 	if ( expression->subject )
 		{
 		if ( expression->verb && expression->verb->assign )
@@ -1555,30 +1586,30 @@ DoubleLink 	*link = 0;
 		if ( expression->subject && expression->verb->assign )
 			expression->subject->noGetter = 0;
 		if ( !expression->subject )
-			buffer->appendString(expression->verb->op);
+			buffer->appendString(expression->verb->op,0,0);
 		else
 		if ( expression->verb->compare(",") == 0 )
 			{
-			buffer->appendString(expression->verb->op);
-			buffer->appendString(" ");
+			buffer->appendString(expression->verb->op,0,0);
+			buffer->appendString(" ",0,0);
 			}
 		else
 		if ( expression->verb->unary )
-			buffer->appendString(expression->verb->op);
+			buffer->appendString(expression->verb->op,0,0);
 		else {
-			buffer->appendString(" ");
-			buffer->appendString(expression->verb->op);
-			buffer->appendString(" ");
+			buffer->appendString(" ",0,0);
+			buffer->appendString(expression->verb->op,0,0);
+			buffer->appendString(" ",0,0);
 			}
 		/***********************************************************************
 		Lambda assignment parameters are written here
 		***********************************************************************/
 		if ( expression->subject && expression->subject->symbol && expression->subject->isLambda )
 			{
-			buffer->appendString("^");
+			buffer->appendString("^",0,0);
 			if ( expression->subject->symbol->parameters )
 				{
-				buffer->appendString("(");
+				buffer->appendString("(",0,0);
 				for ( link = expression->subject->symbol->parameters->first; link; link = link->next )
 					{
 					Symbol 	*symbol = (Symbol*)link->value;
@@ -1586,11 +1617,11 @@ DoubleLink 	*link = 0;
 					if ( symbol->isMethod )
 						buffer->current -= 2;
 					if ( link->next )
-						buffer->appendString(", ");
+						buffer->appendString(", ",0,0);
 					}
-				buffer->appendString(")\n");
+				buffer->appendString(")\n",0,0);
 				}
-			else	buffer->appendString("\n");
+			else	buffer->appendString("\n",0,0);
 			BlockTok::indentCount++;
 			::indent(BlockTok::indentCount,"\t",buffer);
 			}
@@ -1598,7 +1629,7 @@ DoubleLink 	*link = 0;
 	if ( expression->object )
 		writeInstance(expression->object);
 	if ( expression->hasParens )
-		buffer->appendString(")");
+		buffer->appendString(")",0,0);
 	if ( expression->verb && expression->verb->compare("=") == 0 && expression->subject && expression->subject->symbol && expression->subject->isLambda )
 		BlockTok::indentCount--;
 }
@@ -1610,10 +1641,10 @@ void FormatC::writeIndirect(Instance *instance)
 {
 int 	i = instance->isDeclaration ? instance->howDirect() : (int)instance->indirection;
 	for ( ; i > 0; i-- )
-		buffer->appendString("*");
+		buffer->appendString("*",0,0);
 	if ( instance->reference && !instance->isMethod )
 		for ( i = instance->reference; i; i-- )
-			buffer->appendString("&");
+			buffer->appendString("&",0,0);
 }
 
 /*******************************************************************************
@@ -1627,11 +1658,11 @@ void FormatC::writeInstance(Instance *instance)
 			::indent(BlockTok::indentCount,"\t",buffer);
 		declare(instance,0);
 		if ( !instance->isComment && instance->symbol && ((!instance->isMethod && !instance->symbol->type->structure) || instance->howDirect()) )
-			buffer->appendString(" = 0");
+			buffer->appendString(" = 0",0,0);
 		return;
 		}
 	if ( instance->atString )
-		buffer->appendString("@");
+		buffer->appendString("@",0,0);
 	if ( instance->cast )
 		{
 		writeInstance(instance->cast);
@@ -1642,33 +1673,33 @@ void FormatC::writeInstance(Instance *instance)
 		if ( instance->isCast )
 			{
 			if ( instance->prefix )
-				buffer->appendString(instance->prefix);
-			buffer->appendString("(");
+				buffer->appendString(instance->prefix,0,0);
+			buffer->appendString("(",0,0);
 			}
 		if ( instance->isCast && instance->isMethod && instance->symbol )
-			buffer->appendString(instance->symbol->getSignature(1));
+			buffer->appendString(instance->symbol->getSignature(1),0,0);
 		else {
 			if ( instance->type && !instance->isConstant )
 				{
-				buffer->appendString(instance->type->name);
+				buffer->appendString(instance->type->name,0,0);
 				writeIndirect(instance);
 				}
 			if ( instance->isConstant && (instance->type == SymbolType::stringType || instance->atString) )
 				if ( instance->parent && instance->parent->getType()->isOC )
 					printQualified(instance);
 				else {
-					buffer->appendString("\"");
-					buffer->appendString(instance->prefix);
-					buffer->appendString("\"");
+					buffer->appendString("\"",0,0);
+					buffer->appendString(instance->prefix,0,0);
+					buffer->appendString("\"",0,0);
 					}
 			else
 			if ( !instance->isCast && instance->prefix )
-				buffer->appendString(instance->prefix);
+				buffer->appendString(instance->prefix,0,0);
 			if ( instance->isMethod && (instance->isLambda || instance->reference) )
 				{
 				if ( instance->isLambda )
-					buffer->appendString("(^)(");
-				else	buffer->appendString("(*)(");
+					buffer->appendString("(^)(",0,0);
+				else	buffer->appendString("(*)(",0,0);
 				if ( instance->parameters )
 					{
 					Instance 	*argument = 0;
@@ -1676,21 +1707,21 @@ void FormatC::writeInstance(Instance *instance)
 					while ( argument = (Instance*)instance->parameters->next() )
 						{
 						writeInstance(argument);
-						buffer->appendString(",");
+						buffer->appendString(",",0,0);
 						}
 					buffer->current--;
 					}
-				buffer->appendString(")");
+				buffer->appendString(")",0,0);
 				}
 			if ( instance->postfix )
-				buffer->appendString(instance->postfix);
+				buffer->appendString(instance->postfix,0,0);
 			}
 		if ( instance->isCast )
-			buffer->appendString(")");
+			buffer->appendString(")",0,0);
 		}
 	else
 	if ( instance->isComment && !instance->isLabel && instance->prefix )
-		buffer->appendString(instance->prefix);
+		buffer->appendString(instance->prefix,0,0);
 	else
 	if ( instance->symbol )
 		{
@@ -1698,10 +1729,10 @@ void FormatC::writeInstance(Instance *instance)
 		if ( !instance->isNew )
 			writeIndirect(instance);
 		if ( instance->prefix )
-			buffer->appendString(instance->prefix);
+			buffer->appendString(instance->prefix,0,0);
 		printQualified(instance);
 		if ( instance->postfix )
-			buffer->appendString(instance->postfix);
+			buffer->appendString(instance->postfix,0,0);
 		}
 	else {
 		if ( instance->express )
@@ -1710,7 +1741,7 @@ void FormatC::writeInstance(Instance *instance)
 				writeInstance(instance);
 			else {
 				if ( instance->prefix )
-					buffer->appendString(instance->prefix);
+					buffer->appendString(instance->prefix,0,0);
 				if ( instance->indirection )
 					writeIndirect(instance);
 				writeExpression(instance->express);
@@ -1728,25 +1759,25 @@ void FormatC::writeInstance(Instance *instance)
 				{
 				SymbolType 	*type = (SymbolType*)SymbolType::types->get(instance->prefix);
 				if ( type && isProtocol(type->structure) )
-					buffer->appendString("@protocol(");
-				else	buffer->appendString("@selector(");
+					buffer->appendString("@protocol(",0,0);
+				else	buffer->appendString("@selector(",0,0);
 				if ( type )
 					type->setRefer();
-				buffer->appendString(instance->prefix);
-				buffer->appendString(")");
+				buffer->appendString(instance->prefix,0,0);
+				buffer->appendString(")",0,0);
 				}
 			else {
 				if ( instance->isConstant && instance->type == SymbolType::stringType )
 					{
-					buffer->appendString("\"");
-					buffer->appendString(instance->prefix);
-					buffer->appendString("\"");
+					buffer->appendString("\"",0,0);
+					buffer->appendString(instance->prefix,0,0);
+					buffer->appendString("\"",0,0);
 					}
-				else	buffer->appendString(instance->prefix);
+				else	buffer->appendString(instance->prefix,0,0);
 				writeParameters(instance);
 				}
 		if ( instance->postfix )
-			buffer->appendString(instance->postfix);
+			buffer->appendString(instance->postfix,0,0);
 		}
 }
 
@@ -1759,36 +1790,36 @@ DoubleLink 	*link = 0;
 Symbol 		*parameter = 0;
 	statement->first->symbol->setRefer();
 	writeParameterType(statement->first->symbol);
-	buffer->appendString("(^");
-	buffer->appendString(statement->first->symbol->name);
-	buffer->appendString(")(");
+	buffer->appendString("(^",0,0);
+	buffer->appendString(statement->first->symbol->name,0,0);
+	buffer->appendString(")(",0,0);
 	if ( statement->first->symbol->parameters )
 		for ( link = statement->first->symbol->parameters->first; link; link = link->next )
 			{
 			parameter = (Symbol*)link->value;
 			writeParameterType(parameter);
 			if ( link->next )
-				buffer->appendString(", ");
+				buffer->appendString(", ",0,0);
 			}
-	buffer->appendString(") = ^");
+	buffer->appendString(") = ^",0,0);
 	BlockTok::indentCount++;
 	if ( statement->first->symbol->parameters )
 		{
-		buffer->appendString("(");
+		buffer->appendString("(",0,0);
 		for ( link = statement->first->symbol->parameters->first; link; link = link->next )
 			{
 			parameter = (Symbol*)link->value;
 			writeParameterType(parameter);
-			buffer->appendString(parameter->name);
+			buffer->appendString(parameter->name,0,0);
 			if ( link->next )
-				buffer->appendString(", ");
+				buffer->appendString(", ",0,0);
 			}
-		buffer->appendString(")");
+		buffer->appendString(")",0,0);
 		}
-	buffer->appendString("\n");
+	buffer->appendString("\n",0,0);
 	::indent(BlockTok::indentCount,"\t",buffer);
 	writeInstance(statement->second);
-	buffer->appendString(";\n");
+	buffer->appendString(";\n",0,0);
 	BlockTok::indentCount--;
 }
 
@@ -1804,26 +1835,26 @@ char 		*atArray = 0;
 	if ( !method->isConstructor )
 		{
 		if ( method->isStatic )
-			buffer->appendString("+ (");
-		else	buffer->appendString("- (");
+			buffer->appendString("+ (",0,0);
+		else	buffer->appendString("- (",0,0);
 		if ( method->type == SymbolType::stringType )
-			buffer->appendString("char");
-		else	buffer->appendString(method->type->name);
+			buffer->appendString("char",0,0);
+		else	buffer->appendString(method->type->name,0,0);
 		j = method->indirect;
 		if ( j )
 			for ( ; j > 0; j-- )
-				buffer->appendString("*");
+				buffer->appendString("*",0,0);
 		else
 		if ( method->type->isDirect || (method->type == SymbolType::stringType && method->isArray) )
 			;
-		else	buffer->appendString(::toStringFromChar('*'));
-		buffer->appendString(")");
-		buffer->appendString(method->name);
+		else	buffer->appendChar('*',0,0);
+		buffer->appendString(")",0,0);
+		buffer->appendString(method->name,0,0);
 		}
-	else	buffer->appendString("- (id)init");
+	else	buffer->appendString("- (id)init",0,0);
 	if ( method->parameters )
 		{
-		buffer->appendString(":");
+		buffer->appendString(":",0,0);
 		for ( link = method->parameters->first; link; link = link->next )
 			{
 			Symbol 	*symbol = (Symbol*)link->value;
@@ -1836,24 +1867,24 @@ char 		*atArray = 0;
 			else {
 				if ( link->prior )
 					{
-					buffer->appendString(" ");
-					buffer->appendString(symbol->name);
-					buffer->appendString(":");
+					buffer->appendString(" ",0,0);
+					buffer->appendString(symbol->name,0,0);
+					buffer->appendString(":",0,0);
 					}
-				buffer->appendString("(");
+				buffer->appendString("(",0,0);
 				if ( symbol->type == SymbolType::stringType )
-					buffer->appendString("char");
-				else	buffer->appendString(symbol->type->name);
+					buffer->appendString("char",0,0);
+				else	buffer->appendString(symbol->type->name,0,0);
 				if ( !j && !symbol->type->isDirect )
-					buffer->appendString("*");
+					buffer->appendString("*",0,0);
 				for ( ; j > 0; j-- )
-					buffer->appendString("*");
+					buffer->appendString("*",0,0);
 				if ( symbol->isArray )
 					for ( atArray = symbol->array; *atArray; atArray++ )
 						if ( *atArray == '[' )
-							buffer->appendString("[]");
-				buffer->appendString(")");
-				buffer->appendString(symbol->name);
+							buffer->appendString("[]",0,0);
+				buffer->appendString(")",0,0);
+				buffer->appendString(symbol->name,0,0);
 				}
 			}
 		}
@@ -1866,23 +1897,23 @@ void FormatC::writeParameterType(Symbol *symbol)
 {
 int 	j = 0;
 	if ( symbol->type == SymbolType::stringType )
-		buffer->appendString("char ");
+		buffer->appendString("char ",0,0);
 	else
 	if ( symbol->type != SymbolType::nullType )
 		if ( symbol->isItem && symbol->structType && isBoolean(symbol->structType->structure) && currentType->isOC )
-			buffer->appendString("BOOL ");
+			buffer->appendString("BOOL ",0,0);
 		else {
-			buffer->appendString(symbol->type->name);
-			buffer->appendString(" ");
+			buffer->appendString(symbol->type->name,0,0);
+			buffer->appendString(" ",0,0);
 			}
 	if ( symbol->indirect )
 		for ( j = symbol->indirect - symbol->isArray; j > 0; j-- )
-			buffer->appendString("*");
+			buffer->appendString("*",0,0);
 	else
 	if ( !symbol->type->isDirect && !symbol->isConstructor )
-		buffer->appendString(::toStringFromChar('*'));
+		buffer->appendChar('*',0,0);
 	for ( j = symbol->reference; j; j-- )
-		buffer->appendString(::toStringFromChar('&'));
+		buffer->appendChar('&',0,0);
 }
 
 /*******************************************************************************
@@ -1912,12 +1943,12 @@ int 		isOC = 0;
 	if ( !instance->parameters )
 		{
 		if ( !isOC && (instance->isNew || instance->isMethod) )
-			buffer->appendString("()");
+			buffer->appendString("()",0,0);
 		goto bailOnParameters;
 		}
 	argumentIsOC = isOC;
 	if ( instance->isMethod && !isOC )
-		buffer->appendString("(");
+		buffer->appendString("(",0,0);
 	if ( symbol && symbol->parameters )
 		symbolLink = symbol->parameters->first;
 	for ( link = instance->parameters->first; link; link = link->next )
@@ -1932,11 +1963,11 @@ int 		isOC = 0;
 			if ( !(parameterSymbol->hasEllipsis && parameterSymbol->type == SymbolType::nullType) )
 				if ( link->prior )
 					{
-					buffer->appendString(parameterSymbol->name);
-					buffer->appendString(":");
+					buffer->appendString(parameterSymbol->name,0,0);
+					buffer->appendString(":",0,0);
 					}
 		if ( instance->arrayRef )
-			buffer->appendString("[");
+			buffer->appendString("[",0,0);
 		if ( parameterSymbol && parameterSymbol->type->isOC && argumentType == SymbolType::stringType )
 			argument = makeOCstring(argument);
 		/***********************************************************************
@@ -1950,19 +1981,19 @@ int 		isOC = 0;
 			}
 		writeInstance(argument);
 		if ( instance->arrayRef )
-			buffer->appendString("]");
+			buffer->appendString("]",0,0);
 		if ( !instance->arrayRef && link->next )
 			if ( !isOC )
-				buffer->appendString(",");
+				buffer->appendString(",",0,0);
 			else
 			if ( instance->isMethod && (!parameterSymbol || parameterSymbol->hasEllipsis) )
-				buffer->appendString(",");
-			else	buffer->appendString(" ");
+				buffer->appendString(",",0,0);
+			else	buffer->appendString(" ",0,0);
 		if ( symbolLink )
 			symbolLink = symbolLink->next;
 		}
 	if ( instance->isMethod && !isOC )
-		buffer->appendString(")");
+		buffer->appendString(")",0,0);
 	argumentIsOC = 0;
 bailOnParameters:
 	writingParameters = 0;
@@ -1978,8 +2009,8 @@ int 		isString = 0;
 int 		j = 0;
 	if ( !method->isMethod )
 		{
-		buffer->appendString(method->name);
-		buffer->appendString(" is not a method\n");
+		buffer->appendString(method->name,0,0);
+		buffer->appendString(" is not a method\n",0,0);
 		return;
 		}
 	method->setRefer();
@@ -1991,7 +2022,7 @@ int 		j = 0;
 	if ( method->parentClass && method->parentClass->isOC )
 		{
 		if ( flag )
-			buffer->appendString("\n");
+			buffer->appendString("\n",0,0);
 		writeOCsignature(method);
 		if ( flag )
 			{
@@ -2006,55 +2037,55 @@ int 		j = 0;
 		return;
 	if ( flag )
 		{
-		buffer->appendString("\n");
+		buffer->appendString("\n",0,0);
 		if ( method->comment )
-			buffer->appendString(method->comment);
+			buffer->appendString(method->comment,0,0);
 		}
 	if ( !method->isConstructor )
 		{
 		if ( method->isStatic && !flag )
-			buffer->appendString("static ");
+			buffer->appendString("static ",0,0);
 		if ( method->isExtern && method->parentClass->isGlobal )
-			buffer->appendString("extern \"C\" ");
+			buffer->appendString("extern \"C\" ",0,0);
 		if ( method->type->nameSpace )
 			{
-			buffer->appendString(method->type->nameSpace);
-			buffer->appendString("::");
+			buffer->appendString(method->type->nameSpace,0,0);
+			buffer->appendString("::",0,0);
 			}
 		if ( isString )
-			buffer->appendString("char ");
+			buffer->appendString("char ",0,0);
 		else {
-			buffer->appendString(method->type->name);
-			buffer->appendString(" ");
+			buffer->appendString(method->type->name,0,0);
+			buffer->appendString(" ",0,0);
 			}
 		j = method->indirect;
 		if ( j )
 			for ( ; j > 0; j-- )
-				buffer->appendString("*");
+				buffer->appendString("*",0,0);
 		else
 		if ( method->type->isDirect || (isString && method->isArray) )
 			;
-		else	buffer->appendString(::toStringFromChar('*'));
+		else	buffer->appendChar('*',0,0);
 		if ( method->reference )
-			buffer->appendString("(*");
+			buffer->appendString("(*",0,0);
 		else
 		if ( method->isLambda )
-			buffer->appendString("(^");
+			buffer->appendString("(^",0,0);
 		}
 	else
 	if ( flag )
 		initialize(method);
 	if ( flag && !processingGlobalMethods && !method->parentClass->isC )
 		{
-		buffer->appendString(method->parentClass->name);
-		buffer->appendString("::");
+		buffer->appendString(method->parentClass->name,0,0);
+		buffer->appendString("::",0,0);
 		}
-	buffer->appendString(method->name);
+	buffer->appendString(method->name,0,0);
 	if ( method->parentClass && method->parentClass->addClassNameToMethods && !method->reference )
-		buffer->appendString(method->parentClass->name);
+		buffer->appendString(method->parentClass->name,0,0);
 	if ( method->reference || method->isLambda )
-		buffer->appendString(")");
-	buffer->appendString("(");
+		buffer->appendString(")",0,0);
+	buffer->appendString("(",0,0);
 	if ( method->parameters )
 		for ( link = method->parameters->first; link; link = link->next )
 			{
@@ -2063,13 +2094,13 @@ int 		j = 0;
 			if ( symbol->isMethod && !(symbol->reference || symbol->isLambda) )
 				buffer->current -= 2;
 			if ( link->next )
-				buffer->appendString(", ");
+				buffer->appendString(", ",0,0);
 			}
-	buffer->appendString(")");
+	buffer->appendString(")",0,0);
 writeBody:
 	if ( flag && method->block )
 		{
-		buffer->appendString("\n");
+		buffer->appendString("\n",0,0);
 		if ( method->directives )
 			{
 			method->directives->resetIterator();
@@ -2145,54 +2176,54 @@ restart:
 	switch (statement->statementType)
 		{
 		case DELETE:
-			buffer->appendString("delete ");
+			buffer->appendString("delete ",0,0);
 			writeInstance(statement->first);
-			buffer->appendString(";\n");
+			buffer->appendString(";\n",0,0);
 			break;
 		case DO:
-			buffer->appendString("do\t");
+			buffer->appendString("do\t",0,0);
 			statement->first->statement->indented = 0;
 			BlockTok::indentCount++;
 			statement->checkBlock(statement->first);
 			writeInstance(statement->first);
 			BlockTok::indentCount--;
 			::indent(BlockTok::indentCount,"\t",buffer);
-			buffer->appendString("while ");
+			buffer->appendString("while ",0,0);
 			if ( statement->second->express && statement->second->express->hasParens && !statement->second->indirection )
 				;
-			else	buffer->appendString("( ");
+			else	buffer->appendString("( ",0,0);
 			writeInstance(statement->second);
 			if ( statement->second->express && statement->second->express->hasParens && !statement->second->indirection )
 				;
-			else	buffer->appendString(" )");
-			buffer->appendString(";\n");
+			else	buffer->appendString(" )",0,0);
+			buffer->appendString(";\n",0,0);
 			break;
 		case FOR:
-			buffer->appendString("for ( ");
+			buffer->appendString("for ( ",0,0);
 			if ( statement->first && statement->first->express && statement->first->express->verb )
 				writeInstance(statement->first);
-			buffer->appendString("; ");
+			buffer->appendString("; ",0,0);
 			if ( statement->second )
 				writeInstance(statement->second);
-			buffer->appendString("; ");
+			buffer->appendString("; ",0,0);
 			if ( statement->third )
 				writeInstance(statement->third);
-			buffer->appendString(" )\n");
+			buffer->appendString(" )\n",0,0);
 			BlockTok::indentCount++;
 			statement->checkBlock(statement->fourth);
 			writeInstance(statement->fourth);
 			BlockTok::indentCount--;
 			break;
 		case IF:
-			buffer->appendString("if ");
+			buffer->appendString("if ",0,0);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString("( ");
+			else	buffer->appendString("( ",0,0);
 			writeInstance(statement->first);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString(" )");
-			buffer->appendString("\n");
+			else	buffer->appendString(" )",0,0);
+			buffer->appendString("\n",0,0);
 			BlockTok::indentCount++;
 			statement->checkBlock(statement->second);
 			if ( directive && directive->within && statement->second->statement && statement->second->statement->first && statement->second->statement->first->block )
@@ -2207,20 +2238,20 @@ restart:
 			if ( statement->third )
 				{
 				::indent(BlockTok::indentCount,"\t",buffer);
-				buffer->appendString("else");
+				buffer->appendString("else",0,0);
 				if ( !statement->third->isBlockStatement() )
 					{
 					if ( statement->third->statement->statementType == NOTSPECIFIED || statement->third->statement->statementType == RETURN || statement->third->statement->statementType == GOTO )
 						{
 						statement->third->statement->indented = 0;
-						buffer->appendString("\t");
+						buffer->appendString("\t",0,0);
 						}
-					else	buffer->appendString("\n");
+					else	buffer->appendString("\n",0,0);
 					statement->checkBlock(statement->third);
 					writeInstance(statement->third);
 					}
 				else {
-					buffer->appendString(" ");
+					buffer->appendString(" ",0,0);
 					BlockTok::indentCount++;
 					statement->checkBlock(statement->third);
 					writeInstance(statement->third);
@@ -2230,19 +2261,19 @@ restart:
 			break;
 		case LABEL:
 			writeInstance(statement->first);
-			buffer->appendString(":\n");
+			buffer->appendString(":\n",0,0);
 			break;
 		case LAMBDA:
 			writeLambda(statement);
 			break;
 		case RETURN:
-			buffer->appendString("return");
+			buffer->appendString("return",0,0);
 			if ( statement->first )
 				{
-				buffer->appendString(" ");
+				buffer->appendString(" ",0,0);
 				writeInstance(statement->first);
 				}
-			buffer->appendString(";\n");
+			buffer->appendString(";\n",0,0);
 			break;
 		case SWITCH:
 			if ( statement->noFallThru )
@@ -2252,30 +2283,30 @@ restart:
 				statement->convertSwitch();
 				goto restart;
 				}
-			buffer->appendString("switch ");
+			buffer->appendString("switch ",0,0);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString("( ");
+			else	buffer->appendString("( ",0,0);
 			writeInstance(statement->first);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString(" )");
-			buffer->appendString("\n");
+			else	buffer->appendString(" )",0,0);
+			buffer->appendString("\n",0,0);
 			BlockTok::indentCount++;
 			::indent(BlockTok::indentCount,"\t",buffer);
 			writeInstance(statement->second);
 			BlockTok::indentCount--;
 			break;
 		case WHILE:
-			buffer->appendString("while ");
+			buffer->appendString("while ",0,0);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString("( ");
+			else	buffer->appendString("( ",0,0);
 			writeInstance(statement->first);
 			if ( statement->first->express && statement->first->express->hasParens && !statement->first->indirection )
 				;
-			else	buffer->appendString(" )");
-			buffer->appendString("\n");
+			else	buffer->appendString(" )",0,0);
+			buffer->appendString("\n",0,0);
 			BlockTok::indentCount++;
 			// The following only relevent when for gets changed to while
 			if ( !statement->second )
@@ -2285,9 +2316,9 @@ restart:
 			BlockTok::indentCount--;
 			break;
 		case GOTO:
-			buffer->appendString("goto ");
+			buffer->appendString("goto ",0,0);
 			writeInstance(statement->first);
-			buffer->appendString(";\n");
+			buffer->appendString(";\n",0,0);
 			break;
 		default:
 			if ( statement->first )
@@ -2296,9 +2327,9 @@ restart:
 					indentComment(statement->first);
 				else	writeInstance(statement->first);
 				if ( !statement->first->isComment && !statement->first->isLabel && !(statement->block && statement->block->isArrayInitializer) && !(statement->first->block && !(statement->first->symbol || statement->first->express || statement->first->statement)) )
-					buffer->appendString(";\n");
+					buffer->appendString(";\n",0,0);
 				}
-			else	buffer->appendString(";\n");
+			else	buffer->appendString(";\n",0,0);
 		}
 	if ( directive )
 		{

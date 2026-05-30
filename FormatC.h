@@ -61,6 +61,7 @@ void declareStructure(SymbolType *type);
 void declareTail(Instance *instance, int flag);
 void flagType(SymbolType *type);
 void forwardClass(SymbolType *type);
+char *guardTokenFromName(char *filename);
 void indent();
 void indentComment(Instance *instance);
 Instance *initialStatement(Symbol *symbol);

@@ -8,9 +8,9 @@
 #include "Stak.h"
 #include "DoubleLinkList.h"
 #include "DoubleLink.h"
-#include "PLGitem.h"
 #include "InstanceTable.h"
 #include "Buffer.h"
+#include "PLGitem.h"
 #include "Instance.h"
 #include "Tawk.h"
 #include "Tok.h"
@@ -805,8 +805,8 @@ Instance 	*field = 0;
 ******************************************************************************/
 Symbol *SymbolType::get(PLGitem *item)
 {
-Symbol 	*symbol = getLocal(item->string());
-	item->unString();
+Symbol 	*symbol = getLocal(item->toString());
+	item->toString();
 	return symbol;
 }
 
@@ -930,26 +930,26 @@ PLGitem 	*replacedBy = 0;
 	if ( symbol->isExtension )
 		symbol->parameters->next();
 	atBody = body;
-	parameter = atBody->get("parameter");
-	replacedBy = atBody->get("replacedBy");
+	parameter = (PLGitem*)atBody->children->get("parameter");
+	replacedBy = (PLGitem*)atBody->children->get("replacedBy");
 	while ( symbolArg = (Symbol*)symbol->parameters->next() )
 		{
 		if ( symbolArg->isThis )
 			continue;
 		if ( !replacedBy )
 			{
-			if ( atBody = atBody->next )
+			if ( atBody = atBody->itemNext )
 				{
-				parameter = atBody->get("parameter");
-				replacedBy = atBody->get("replacedBy");
+				parameter = (PLGitem*)atBody->children->get("parameter");
+				replacedBy = (PLGitem*)atBody->children->get("replacedBy");
 				}
 			}
 		else
-		if ( parameter->compare(symbolArg->name) == 0 )
-			if ( atBody = atBody->next )
+		if ( parameter->toString() == symbolArg->name )
+			if ( atBody = atBody->itemNext )
 				{
-				parameter = atBody->get("parameter");
-				replacedBy = atBody->get("replacedBy");
+				parameter = (PLGitem*)atBody->children->get("parameter");
+				replacedBy = (PLGitem*)atBody->children->get("replacedBy");
 				}
 		if ( !atBody )
 			break;
@@ -971,10 +971,10 @@ PLGitem 	*replacedBy = 0;
 		Parameters that do not specify a replacement are substituted
 		left to right.
 		***********************************************************************/
-		for ( atBody = body; atBody; atBody = atBody->next )
+		for ( atBody = body; atBody; atBody = atBody->itemNext )
 			{
-			parameter = atBody->get("parameter");
-			replacedBy = atBody->get("replacedBy");
+			parameter = (PLGitem*)atBody->children->get("parameter");
+			replacedBy = (PLGitem*)atBody->children->get("replacedBy");
 			if ( !parameter )
 				continue;
 			while ( symbolArg = (Symbol*)symbol->parameters->next() )
@@ -991,7 +991,7 @@ PLGitem 	*replacedBy = 0;
 					arg->comment = parameter->toString();
 					}
 				else
-				if ( parameter->compare(symbolArg->name) == 0 )
+				if ( parameter->toString() == symbolArg->name )
 					{
 					arg = new Symbol(symbolArg);
 					arg->comment = replacedBy->toString();

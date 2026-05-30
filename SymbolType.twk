@@ -687,8 +687,8 @@ Instance    field;
 ******************************************************************************/
 Symbol get(PLGitem item)
 {
-Symbol symbol = getLocal(item.string());
-    item.unString();
+Symbol symbol = getLocal(item.toString());
+    item.toString();
     return symbol;
 }
 
@@ -802,8 +802,8 @@ PLGitem     atBody,
     symbol.parameters.entry = null;
     if symbol.isExtension symbol.parameters.next();
     atBody = body;
-    parameter   = atBody["parameter"];
-    replacedBy  = atBody["replacedBy"];
+    parameter   = atBody.children["parameter"];
+    replacedBy  = atBody.children["replacedBy"];
     while symbolArg = symbol.parameters.next()
         {
         if symbolArg.isThis continue;
@@ -811,15 +811,15 @@ PLGitem     atBody,
             {
             if atBody = atBody.next
                 {
-                parameter   = atBody["parameter"];
-                replacedBy  = atBody["replacedBy"];
+                parameter   = atBody.children["parameter"];
+                replacedBy  = atBody.children["replacedBy"];
                 }
             }
         or parameter eq symbolArg.name
             if atBody  = atBody.next
                 {
-                parameter   = atBody["parameter"];
-                replacedBy  = atBody["replacedBy"];
+                parameter   = atBody.children["parameter"];
+                replacedBy  = atBody.children["replacedBy"];
                 }
         if !atBody break;
         }
@@ -842,8 +842,8 @@ PLGitem     atBody,
         ***********************************************************************/
         for atBody = body
             {
-            parameter   = atBody["parameter"];
-            replacedBy  = atBody["replacedBy"];
+            parameter   = atBody.children["parameter"];
+            replacedBy  = atBody.children["replacedBy"];
             if !parameter continue;
             while symbolArg = symbol.parameters.next()
                 {

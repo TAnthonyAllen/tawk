@@ -27,7 +27,7 @@ PLGitem     item;
 Statement   statement;
     for line
         {
-        if !(item = line.get("statement"))
+        if !(item = line.children["statement"])
             continue;
         if statement = item.value
             formatter.write(statement);
@@ -45,7 +45,7 @@ PLGitem     item;
 use tawking
     isDirected = true;
     if item = divertInput(codeToAdd,"Directivise")
-        line = item.get("line");
+        line = item.children["line"];
     if !line cout "parseDirective: failed for",method.name,codeMatch:;
 }
 }
