@@ -83,9 +83,9 @@ int         labelDirect, switchDirect;
 enD
 
 Case:3
-PLGitem     name = instance.children["name"];
+PLGitem     name = instance.get("name");
 String      text = name.toString();
-Instance    label = currentSymbols.instances.children[text];
+Instance    label = currentSymbols.instances.get(text);
 Symbol      symbol;
     if !label
         {
@@ -121,7 +121,7 @@ Instance    label;
 enD
 
 CaseLabel:3
-PLGitem		field = instance.children["field"];
+PLGitem		field = instance.get("field");
 Instance	label = field.value;
 Symbol		symbol = label.getSymbol();
 	if symbol.type == buttonType
@@ -142,7 +142,7 @@ Symbol		symbol = label.getSymbol();
 enD
 
 CaseLabel:4
-PLGitem     name = instance.children["name"];
+PLGitem     name = instance.get("name");
 Instance    field = new(name.toString());
     instance.value = field;
 enD
@@ -228,7 +228,7 @@ ClassAttributes:3 defer
 PLGitem     type;
 SymbolType  pType;
     for proto
-        if type = proto.children["type"]
+        if type = proto.get("type")
             {
             pType = type.value;
             currentClass.addProtocol(pType);
@@ -333,7 +333,7 @@ Directive
     currentType  = type.value;
     for directives
         if currentType == currentClass || currentType == globalType
-            directives.run();
+            directives.runDeferred(this);
 enD
 
 FileName
@@ -445,9 +445,7 @@ PLGitem     selectedField;
             cout "At trace: " symbolCount,instanceCount:;
             //debugTest = !debugTest;
         }
-resetPointer:
-    //iTEM.test.current   =
-    plgStart        = end.start + end.length;
+    cursor        = end.start + end.length;
 enD
 
 Quote
@@ -490,7 +488,7 @@ String	text = name.string();
         rule.debug = true;
         if upcoming
             {
-            PLGitem body = upcoming.children["body"];
+            PLGitem body = upcoming.get("body");
             if body rule.debugText = body.toString();
             }
         }

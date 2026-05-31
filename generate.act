@@ -36,7 +36,7 @@ PLGitem		body        = value["body"],
 		name = alias.toString();
 		if valueType
 			{
-            SymbolType typeAlias = types.children[name];
+            SymbolType typeAlias = types.get(name);
 			/*********************************************************************
 				Creates a type alias.
 			*********************************************************************/
@@ -81,7 +81,7 @@ Symbol	    argument,
 int         count;
 Buffer      buffer = tokJunkBuffer;
     if !macroList return false;
-    symbol = macroList[statement];
+    symbol = macroList[statement.toString()];
     if !symbol return false;
     if braced
         {
@@ -174,7 +174,7 @@ Symbol  symbol;
 enD
 
 InitializerItem
-SymbolType  type        = types.children[field];
+SymbolType  type        = types.get(field);
 String      text        = function.string();
 String      signature   = text "(char*)";
 Symbol      method      = currentClass[signature];
@@ -203,10 +203,10 @@ Symbol      method      = currentClass[signature];
 enD
 
 OverLoadItem
-PLGitem     operand = operate.children["operand"];
+PLGitem     operand = operate.get("operand");
 String      text = name.toString();
     assigning = false;
-    if !operand operand = operate.children["comparator"];
+    if !operand operand = operate.get("comparator");
     if !currentClass
         cerr "Overload specification must be within class:",iTEM:;
     else currentClass.overload(operand.toString(),text);
@@ -261,7 +261,7 @@ enD
 *****************************************************************************/
 MacroBit
 Symbol  symbol;
-    if symbol = macroHash[bitpart]
+    if symbol = macroHash[bitpart.toString()]
         iTEM.value = symbol;
     else return false;
 enD
@@ -272,7 +272,7 @@ PLGitem	    item;
 int         indentFlag;
     for line
 		{
-		item = line.children["statement"];
+		item = line.get("statement");
 		if !item continue;
 		statement = item.value;
         if !indentFlag
@@ -350,7 +350,7 @@ Buffer  buffer = tokJunkBuffer;
         print "(";
         for item
             {
-            PLGitem element = item.children["element"];
+            PLGitem element = item.get("element");
             argument = new(element.string());
             argument.isAlias = true;
             symbol += argument;
@@ -378,5 +378,5 @@ Buffer  buffer = tokJunkBuffer;
 enD
 
 MacroName
-    if !macroList || !macroList[name] return false;
+    if !macroList || !macroList[name.toString()] return false;
 enD

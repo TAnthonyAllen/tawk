@@ -22,7 +22,7 @@ Instance    instance;
 PLGitem	    cast, item;
     for item = rest
 		{
-		cast = item.children["type"];
+		cast = item.get("type");
 		instance = cast.value;
 		list.add((void*)instance);
 		}
@@ -55,7 +55,7 @@ String          conditionText;
         if conditionText = conditionItem.value
             if item = divertInput(conditionText,"Expression")
                 {
-                text = item.children["instance"];
+                text = item.get("instance");
                 if text
                     list.value = text.value;
                 else {
@@ -93,7 +93,7 @@ Expression  express;
 PLGitem	    item, part;
     for item = list
 		{
-		part = item.children["instance"];
+		part = item.get("instance");
 		right = part.value;
 		if left
 			{
@@ -124,7 +124,7 @@ SymbolType	type, secondaryType;
 			operand	= operate%"operand";
 			if !operand operand = operate%"comparator";
 			}
-		item	= express.children["instance"];
+		item	= express.get("instance");
 		if item
             {
             secondary = item.value;
@@ -145,7 +145,7 @@ SymbolType	type, secondaryType;
                     && secondaryType == stringType && primary.howDirect() == 1
                     {
                     operand.setString("=");
-                    //plgStart = item.start;
+                    //cursor = item.start;
                     stringing   = true;
                     if stringPart = parse("Strings")
                         {
@@ -192,8 +192,8 @@ SymbolType  type;
 Expression	expression;
 Instance	subject, trueValue;
 String      flag,
-            save = plgStart;
-	operand     = operate.children["operand"];
+            save = cursor;
+	operand     = operate.get("operand");
 	if operand
 		{
         if stringing && expressType == stringType && !stringOP.foundIn(operand)
@@ -201,7 +201,7 @@ String      flag,
 		if operand.start == '=' && operand.length == 1
 			flag = operand.start + 1;
 		}
-	or operand = operate.children["comparator"]
+	or operand = operate.get("comparator")
         flag = operand.start + 3;
 	if question
 		{
@@ -220,21 +220,21 @@ String      flag,
 	if flag
 		if type == stringType && subject.howDirect() == 1
 			{
-            plgStart    = flag;
+            cursor    = flag;
             stringing   = true;
             if item = parse("Strings")
                 {
 				subject = concatenate(item["item"]);
 				instance.value = subject;
 				}
-            else plgStart   = save;
+            else cursor   = save;
             stringing       = false;
 			}
     assigning   = false;
 enD
 
 OperationTail:2
-PLGitem	question = instance.children["question"];
+PLGitem	question = instance.get("question");
 	instance.value = question.value;
 enD
 
@@ -270,8 +270,8 @@ Question
 PLGitem	    falseItem, trueItem;
 Expression	expression;
 Instance	trueValue, falseValue;
-	falseItem	= falseExp.children["instance"];
-	trueItem	= trueExp.children["instance"];
+	falseItem	= falseExp.get("instance");
+	trueItem	= trueExp.get("instance");
 	trueValue	= trueItem.value;
 	falseValue	= falseItem.value;
 	expression	= new(trueValue,falseValue,":");
@@ -344,8 +344,8 @@ enD
 UnaryExpression
 Instance	subject;
 Expression	expression;
-PLGitem	list = instance.children["list"];
-	instance.run();
+PLGitem	list = instance.get("list");
+	instance.runDeferred(this);
 	subject = list.value;
     if operate
 		{
@@ -371,7 +371,7 @@ SymbolType  virtualType;
 			}
     if cast
 		{
-		item	= cast.children["type"];
+		item	= cast.get("type");
 		castInstance = item.value;
         if !subject.express
             {

@@ -7,7 +7,7 @@ use currentMethod
 	block = start.value;
     for line
 		{
-		item = line.children["statement"];
+		item = line.get("statement");
 		if !item continue;
 		statement = item.value;
 		if statement
@@ -58,18 +58,18 @@ enD
 
 Body:2
 Instance    method;
-    body = body.children["method"];
+    body = body.get("method");
     method = body.value;
 	if extending && method && symbol
 		symbol.extendType();
 enD
 
 Body:3
-PLGitem declare = body.children["declare"];
+PLGitem declare = body.get("declare");
 Instance    instance;
 Symbol	    symbol;
 	if !currentClass return false;
-    body.run();
+    body.runDeferred(this);
     for declare
 		{
 		instance = declare.value;
@@ -114,14 +114,14 @@ Symbol		symbol;
 	extending	= false;
     referring   = true;
     currentBlock = null;
-	name = nom.children["name"];
+	name = nom.get("name");
 	path = name.value;
 	className       = name.toString();
 	currentClass    = SymbolType.getType(className);
 	for item = attributes
 		{
 		if !type type = item["type"];
-		item.run();
+		item.runDeferred(this);
 		}
 	if type parent = type.value;
 	if parent
@@ -149,15 +149,15 @@ Symbol		symbol;
 enD
 
 ClassHeading:2
-PLGitem	type = structure.children["body"];
-PLGitem kind = structure.children["kind"];
+PLGitem	type = structure.get("body");
+PLGitem kind = structure.get("kind");
 PLGitem field;
 Instance instance = null;
 	extending = false;
     if kind eq "typedef" || kind eq "struct"
         return false;
     field = type.next;
-    structure.run();
+    structure.runDeferred(this);
     instance = type.value;
     currentClass = instance.getType();
     currentClass.noDotH = true;
@@ -190,10 +190,10 @@ Symbol		symbol;
     else
 	for entry = nom
 		{
-		name = entry.children["name"];
-        temp = entry.children["temp"];
+		name = entry.get("name");
+        temp = entry.get("temp");
 		path = name.value;
-		dotH = entry.children["dotH"];
+		dotH = entry.get("dotH");
 		className = name.toString();
 		if dotH
 			{
@@ -213,7 +213,7 @@ Symbol		symbol;
 		else currentClass = SymbolType.getType(className);
         if temp currentClass.isTemplate = true;
 		for item = attributes
-			item.run();
+			item.runDeferred(this);
 		if type parent = type.value;
 		currentClass.isExternal = true;
 		if parent
@@ -289,7 +289,7 @@ use currentMethod
     if line ifStatement.add(line);
     if otherwise
 		{
-		item = otherwise.children["statement"];
+		item = otherwise.get("statement");
 		line = item.value;
 		if line ifStatement.add(line);
 		}
@@ -326,7 +326,7 @@ Expression  expression;
 			}
 		for item
 			{
-			parameter = item.children["instance"].value;
+			parameter = item.get("instance").value;
 			current.addParameter(parameter);
 			}
 		if !instance && current.isMethod
@@ -419,7 +419,7 @@ Expression  expression;
         }
 	or current.isMethod
 		{
-		if instance = missingMethods.children[current.prefix]
+		if instance = missingMethods.get(current.prefix)
 			{
 			current.symbol = instance.symbol;
 			current.parent = instance.parent;
@@ -446,7 +446,7 @@ Expression  expression;
         return;
 		}
 	or !current.isVirtuous()
-		if *plgStart != ':'
+		if *cursor != ':'
 			{
 			text = "FieldBody: could not find " current.prefix;
 			current = makeError(text);
@@ -465,13 +465,13 @@ enD
 
 FieldBody:2 defer
 PLGitem item;
-    name.run();
-    item = name.children["instance"];
+    name.runDeferred(this);
+    item = name.get("instance");
     name.value = item.value;
 enD
 
 FieldBody:3
-PLGitem	    item = name.children["instance"];
+PLGitem	    item = name.get("instance");
 Instance    current = item.value;
 Expression  express;
     if !current.express || current.cast
@@ -491,8 +491,8 @@ Instance    current = item.value;
         current = current.setIndirectItem(direct);
     if cast
 		{
-		direct	= cast.children["direct"];
-		item	= cast.children["type"];
+		direct	= cast.get("direct");
+		item	= cast.get("type");
 		castInstance = item.value;
 		if direct castInstance = castInstance.setIndirectItem(direct);
 		subject = new(current);
@@ -515,20 +515,20 @@ PLGitem	item;
     statement.pointInCode = iTEM;
     if initial
 		{
-		item = initial.children["list"];
+		item = initial.get("list");
 		express = item.value;
 		statement.first = express;
 		}
 	if condition
 		{
-		item = condition.children["instance"];
+		item = condition.get("instance");
 		express = item.value;
         express.isCondition = true;
 		statement.second = express;
 		}
     if increment
 		{
-		item = increment.children["list"];
+		item = increment.get("list");
 		express = item.value;
 		statement.third = express;
 		}
@@ -678,14 +678,14 @@ Iterating
 enD
 
 Lambda
-PLGitem		item	= function.children["name"];
+PLGitem		item	= function.get("name");
 Instance    lambda	= item.value,
 			lambdaBody;
 Expression	express;
 Block		block;
     lambda.isAssigned = true;
     lambda.assigning = true;
-	item			= body.children["start"];
+	item			= body.get("start");
 	block			= item.value;
 	block.isLambda	= true;
 	lambdaBody		= new(block);
@@ -709,7 +709,7 @@ Block		block;
 	line	= new(LAMBDA);
     line.pointInCode = iTEM;
 	line.add(instance);
-	item	= body.children["start"];
+	item	= body.get("start");
 	block	= item.value;
     currentClass.hasLambda = true;
 	block.isLambda	= true;
@@ -720,7 +720,7 @@ Block		block;
 enD
 
 Line
-Instance    instance = target.children["instance"].value;
+Instance    instance = target.get("instance").value;
     level = 1;
     currentSymbols.add(instance);
 enD
@@ -733,7 +733,7 @@ Symbol      symbol;
     for item = name
         {
         text = name.string();
-        label = currentSymbols.instances.children[text];
+        label = currentSymbols.instances.get(text);
         if !label
             {
             symbol = new(name.toString(),voidType);
@@ -752,7 +752,7 @@ LineByLine
 Statement   statement;
 PLGitem     entry,method;
     for entry = line
-        if method = entry.children["statement"]
+        if method = entry.get("statement")
             {
             statement = method.value;
             if statement
@@ -761,7 +761,7 @@ PLGitem     entry,method;
 enD
 
 Method
-PLGitem	    body = block.children["start"],
+PLGitem	    body = block.get("start"),
 			head = method.find("head");
 Instance    instance;
     method.value = head.value;
@@ -793,8 +793,8 @@ Symbol	    symbol,
 			argument;
 Instance	instance;
 PLGitem	    item, atItem,
-			ellipsis = head.children["ellipsis"],
-			parameter = head.children["parameter"];
+			ellipsis = head.get("ellipsis"),
+			parameter = head.get("parameter");
 String		name, methodName;
 int			i, construct,
 			lambda = direct && lambdaSet.foundIn(direct);
@@ -812,7 +812,7 @@ int			i, construct,
 	strcat(methodName,"(");
     for atItem = parameter
 		{
-		item = atItem.children["type"];
+		item = atItem.get("type");
 		for item = item.value
 			{
 			symbol = item.value;
@@ -866,7 +866,7 @@ newSymbol:
 		if direct symbol.setIndirection(direct);
 		for atItem = parameter
 			{
-			item = atItem.children["type"];
+			item = atItem.get("type");
 			for item = item.value
 				{
 				argument = item.value;
@@ -897,7 +897,9 @@ enD
 
 MethodType defer
 	methodType	= type.value;
-.
+enD
+
+MethodType
 Instance	instance;
 PLGitem		head, item;
     // follow is not used but apparently it has to be there. Figure out why.
@@ -908,7 +910,7 @@ PLGitem		head, item;
 		or item.start == 's' staticDeclare    = true;
         or item.start == 'v' virtualDeclare   = true;
         else externDeclare = true;
-    methodHead.run();
+    methodHead.runDeferred(this);
     head = methodHead["head"];
     instance = head.value;
     if modify
@@ -984,7 +986,7 @@ int         skipConstructor;
 		}
     for item
 		{
-		parameter = item.children["instance"].value;
+		parameter = item.get("instance").value;
 		current.addParameter(parameter);
 		}
     if symbol && initial
@@ -1054,7 +1056,7 @@ PLGitem		last,
 	else
 	for item
 		{
-		item.run();
+		item.runDeferred(this);
         if !last last = name = item["name"];
         or last.next = item["name"]
             last = last.next;
@@ -1065,10 +1067,10 @@ PLGitem		last,
 enD
 
 ParameterItem defer
-PLGitem	    head = name.children["head"];
+PLGitem	    head = name.get("head");
 Instance	instance;
 	processingParameters = true;
-	name.run();
+	name.runDeferred(this);
 	instance = head.value;
     name.value = instance.symbol;
 	processingParameters = false;
@@ -1121,11 +1123,11 @@ Instance	converter,
             format,
             savePrinter = defaultPrinter,
 			text;
-    if item = start.children["printer"]
+    if item = start.get("printer")
         if output   method = processPrintTarget(output);
         else        method = item.value;
     else {
-        item   = start.children["stdPrint"];
+        item   = start.get("stdPrint");
         method  = item.value;
         }
 	if !method.isPrintMethod
@@ -1134,7 +1136,7 @@ Instance	converter,
 		for argument = arguments
 			{
             format  = null;
-			item    = argument.children["instance"];
+			item    = argument.get("instance");
 			text    = item.value;
 			format = getFormat();
 			type    = text.getType();
@@ -1158,7 +1160,7 @@ Instance	converter,
 		method.addParameter(text);
 		for argument = arguments
 			{
-			item = argument.children["instance"];
+			item = argument.get("instance");
 			text = item.value;
 			type = text.getType();
 			if text.express && !text.express.verb && !text.cast
@@ -1183,7 +1185,7 @@ Instance	converter,
 		if arguments.next block = new();
 		for argument = arguments
 			{
-			item = argument.children["instance"];
+			item = argument.get("instance");
 			text = item.value;
 			method = generatePrint(text);
 			if block
@@ -1265,7 +1267,7 @@ Instance    parent,
 		child = new(currentType);
 		}
 	if child isQualified = true;
-    field.run();
+    field.runDeferred(this);
     parent = name.value;
 	/*************************************************************************
 		If field is an assumed string, parent will be none so we bail
@@ -1292,8 +1294,8 @@ Instance    parent,
 		}
     for item = rest
 		{
-		tail = item.children["field"];
-		tail.run();
+		tail = item.get("field");
+		tail.runDeferred(this);
 		name = tail.find("name");
 		if child = name.value
             {
@@ -1450,7 +1452,7 @@ enD
 
 StatementBody
 Statement   line = new();
-PLGitem		comment = statement.children["comment"];
+PLGitem		comment = statement.get("comment");
 Instance    instance;
 	if comment
 		instance = new(comment.toString());
@@ -1461,7 +1463,7 @@ Instance    instance;
 enD
 
 StatementBody:2
-PLGitem	item = statement.children["start"];
+PLGitem	item = statement.get("start");
 Block	block = item.value;
 Statement   line = new();
     line.add(block);							// Block
@@ -1482,7 +1484,7 @@ Statement   line		= item.value;               // if
     if line ifStatement.add(line);
     if otherwise
 		{
-		item = otherwise.children["statement"];
+		item = otherwise.get("statement");
 		line = item.value;
 		if line ifStatement.add(line);
 		}
@@ -1514,7 +1516,7 @@ Statement   forStatement = instance.value,
 enD
 
 StatementBody:6
-PLGitem	item = statement.children["start"];
+PLGitem	item = statement.get("start");
 Statement   line = new();
 Instance    instance = item.value;
     line.add(instance);                             // Print
@@ -1536,7 +1538,7 @@ Statement   body = statement.value;                 // while
 enD
 
 StatementBody:8
-PLGitem	    item = statement.children["instance"];
+PLGitem	    item = statement.get("instance");
 Instance    instance = item.value;
 Statement   line = new(LABEL);
     line.add(instance);							// label or case
@@ -1578,7 +1580,7 @@ enD
 
 StatementBody:12
 Statement   switchStatement = new(SWITCH);
-PLGitem	    item    = block.children["start"];
+PLGitem	    item    = block.get("start");
 Block	    body    = item.value;
 Instance    trigger = statement.value;
 SymbolType  type;                                   // switch
@@ -1649,13 +1651,13 @@ Instance    instance;
 enD
 
 StatementBody:18
-PLGitem		declare = statement.children["declare"];
+PLGitem		declare = statement.get("declare");
 PLGitem		entry;
 Statement   line;
 Instance    stacked,
             instance;
 Expression	express = null;
-    statement.run();                                // declaration
+    statement.runDeferred(this);                                // declaration
     virtualStack.clear();
 	for entry = declare
 		{
@@ -1730,7 +1732,7 @@ Expression	express = null;
 enD
 
 StatementBody:19
-PLGitem	item = statement.children["instance"];
+PLGitem	item = statement.get("instance");
 Statement   line = new();
 Instance    instance = item.value;
     line.add(instance);							// expression
@@ -1738,7 +1740,7 @@ Instance    instance = item.value;
 enD
 
 StatementBody:20
-PLGitem		item = statement.children["function"];
+PLGitem		item = statement.get("function");
 Statement	line;								// Lambda
 Instance	lambda = item.value;
 	if lambda.statement
@@ -1765,7 +1767,7 @@ Instance instance = field.value;
 enD
 
 Target:2
-PLGitem     name = field.children["name"];
+PLGitem     name = field.get("name");
 Instance    instance = new(name.toString());
     instance.type   = null;
     field.value     = instance;

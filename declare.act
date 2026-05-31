@@ -34,10 +34,10 @@ String	text;
 enD
 
 DeclareItem defer
-PLGitem parameters = item.children["head"];
+PLGitem parameters = item.get("head");
 Instance    methodD, methodI;
 Expression  xpress;
-	item.run();
+	item.runDeferred(this);
     methodD = parameters.value;
     methodD.isDeclaration = true;
     if methodD.symbol
@@ -57,8 +57,8 @@ enD
 DeclareItem:2 defer
 String      text;
 Symbol      symbol;
-PLGitem     name        = item.children["name"],
-            parameter   = argument.children["instance"];
+PLGitem     name        = item.get("name"),
+            parameter   = argument.get("instance");
 Instance    instance    = new(currentType.name),
             part        = parameter.value;
     /**********************************************************************
@@ -80,10 +80,10 @@ Instance    instance    = new(currentType.name),
 enD
 
 DeclareItem:3 defer
-PLGitem	    direct = item.children["direct"],
-			name	= item.children["name"],
-			array	= item.children["array"],
-			bits	= item.children["bits"];
+PLGitem	    direct = item.get("direct"),
+			name	= item.get("name"),
+			array	= item.get("array"),
+			bits	= item.get("bits");
 Symbol	    symbol;
 Instance    instance, assigned;
 Expression  express;
@@ -114,7 +114,7 @@ String		text = name.toString();
 		symbol.indirect = 1;
     if assign
 		{
-		PLGitem	assignItem = assign.children["instance"];
+		PLGitem	assignItem = assign.get("instance");
 		assigned = assignItem.value;
 		express = new(instance,assigned,"=");
 		instance = new(express);
@@ -145,8 +145,8 @@ PLGitem	entry, item;
         else externDeclare = true;
 	for entry = declare
 		{
-		entry.run();
-		item = entry.children["item"];
+		entry.runDeferred(this);
+		item = entry.get("item");
 		instance = item.value;
 		instance.isDeclaration = true;
 		entry.value = instance;
@@ -185,11 +185,11 @@ PLGitem	entry, item;
 enD
 
 Declaration:2 defer
-PLGitem	field = declare.children["body"];
-PLGitem kind = declare.children["kind"];
+PLGitem	field = declare.get("body");
+PLGitem kind = declare.get("kind");
 SymbolType structureType;
 Instance instance = null;
-    declare.run();
+    declare.runDeferred(this);
 	if kind structureType = kind.value;
 	if !currentClass.isExternal && structureType && structureType.isType
 		cerr "WARNING typedef ignored: must be declared external\n";
@@ -217,7 +217,7 @@ SymbolType  type;
 			item = parse("StringExpression");
 			if item
 				{
-				PLGitem expressItem = item.children["instance"];
+				PLGitem expressItem = item.get("instance");
 				Instance secondary = expressItem.value;
 				type = secondary.getType();
 				if type == stringType
@@ -238,7 +238,7 @@ SymbolType  type;
 enD
 
 Initializer
-PLGitem	list = instance.children["list"];
+PLGitem	list = instance.get("list");
 	instance.value = list.value;
 enD
 
@@ -285,16 +285,16 @@ Structure defer
 Symbol		symbol;
 Instance	instance, current;
 SymbolType	structureType;
-PLGitem		item = body.children["label"],
-			field = body.children["field"],
-			entry = body.children["entry"];
+PLGitem		item = body.get("label"),
+			field = body.get("field"),
+			entry = body.get("entry");
 String		error;
     currentType = null;
 	newType		=
 	methodType	= null;
 	if !item && kind eq "typedef"
 		{
-		PLGitem name = entry.children["name"];
+		PLGitem name = entry.get("name");
 		structureType = SymbolType.find(name.string());
 		if structureType && !structureType.isType
 			{
@@ -316,7 +316,7 @@ String		error;
 		goto finish;
 		}
 	processingParameters = true;
-	body.run();
+	body.runDeferred(this);
 	processingParameters = false;
 	structureType = currentType;
 	structureType.noDotH = true;
@@ -386,25 +386,25 @@ SymbolType  saveClass = currentClass;
 PLGitem	    item,
 			name;
 
-	item = label.children["type"];
+	item = label.get("type");
 	if !item.value
 		{
-		label.run();
-		item = label.children["type"];
+		label.runDeferred(this);
+		item = label.get("type");
 		}
 	currentClass = (SymbolType)item.value;
     for item = entry
 		{
-		item.run();
-		name = item.children["name"];
+		item.runDeferred(this);
+		name = item.get("name");
 		if name item.value = name.value;
 		}
 	currentType = currentClass;
 	currentType.isDirect = true;
 	for field
 		{
-		field.run();
-		item = field.children["item"];
+		field.runDeferred(this);
+		item = field.get("item");
 		current = item.value;
 		field.value = current;
 		}
@@ -431,8 +431,8 @@ PLGitem		name = entry.find("name"),
 	if currentClass currentClass.nameLess = true;
     for item = entry
 		{
-		item.run();
-		name = item.children["name"];
+		item.runDeferred(this);
+		name = item.get("name");
 		if name item.value = name.value;
 		}
 	currentType = currentClass;
@@ -441,11 +441,11 @@ PLGitem		name = entry.find("name"),
 enD
 
 StructureItem defer
-PLGitem		declare = item.children["declare"];
+PLGitem		declare = item.get("declare");
 PLGitem		entry;
 Instance	instance;
 Symbol      aliasSymbol;
-	item.run();
+	item.runDeferred(this);
 	for entry = declare
 		{
 		instance = entry.value;
@@ -504,8 +504,8 @@ SymbolType	symbolType;
 	if buttons
 		{
 		PLGitem	button;
-		buttons.run();
-		button = buttons.children["button"];
+		buttons.runDeferred(this);
+		button = buttons.get("button");
 		for button
 			{
             // for button items symbol.source is set to the button container symbol
