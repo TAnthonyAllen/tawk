@@ -1,5 +1,4 @@
-AssumedString!
-.
+AssumedString
 PLGitem     lastSwitch;
 SymbolType  switchType;
 Instance	switcher;
@@ -40,20 +39,20 @@ int         switchDirect;
 bailAssumed:
     current.isConstant = true;
     instance.value = current;
-;
+enD
 
-Assuming!
-.
+Assuming
     assuming = true;
-;
+enD
 
-Case!
-.
+Case
 Instance	label = new("default");
     isLabel = true;
     isCase  = true;
 	instance.value = label;
-|.
+enD
+
+Case:2
 PLGitem     lastSwitch;
 SymbolType  labelType, switchType;
 Instance	switcher;
@@ -81,10 +80,12 @@ int         labelDirect, switchDirect;
         isCase  = true;
         prefix = "case ";
         }
-|.
-PLGitem     name = instance.get("name");
+enD
+
+Case:3
+PLGitem     name = instance.children["name"];
 String      text = name.toString();
-Instance    label = currentSymbols.instances.get(text);
+Instance    label = currentSymbols.instances.children[text];
 Symbol      symbol;
     if !label
         {
@@ -96,13 +97,14 @@ Symbol      symbol;
     if !label.isLabel
         cerr "ERROR: " name " is not a label\n";
     instance.value = label;
-;
+enD
 
-CaseLabel!
-.
+CaseLabel
 Instance	label = instance.value;
     postfix = prefix;
-|.
+enD
+
+CaseLabel:2
 PLGitem     item;
 Instance    field;
 Instance    rangeField;
@@ -116,8 +118,10 @@ Instance    label;
     label.isRange = true;
     field.isRange = true;   // set to flag switch as needing conversion
     instance.value = label;
-|.
-PLGitem		field = instance.get("field");
+enD
+
+CaseLabel:3
+PLGitem		field = instance.children["field"];
 Instance	label = field.value;
 Symbol		symbol = label.getSymbol();
 	if symbol.type == buttonType
@@ -135,23 +139,24 @@ Symbol		symbol = label.getSymbol();
     isCase  = true;
     instance.value = label;
     assuming    = false;
-||.
-PLGitem     name = instance.get("name");
+enD
+
+CaseLabel:4
+PLGitem     name = instance.children["name"];
 Instance    field = new(name.toString());
     instance.value = field;
-;
+enD
 
-Character!
-.
+Character
 Instance    character;
 SymbolType  type = SymbolType.getType("char");
     character = new(type);
     character.isConstant = true;
     character.prefix = instance.toString();
     instance.value = character;
-;
+enD
 
-ClassAttributes!
+ClassAttributes defer
 KeyTableItem    item = trait.value;
 Symbol	symbol;
     switch(item.position)
@@ -212,24 +217,29 @@ Symbol	symbol;
             currentClass.addClassNameToMethods  = true;
             break;
         }
-|
+enD
+
+ClassAttributes:2 defer
 SymbolType  extended = type.value;
     currentClass.parent = extended;
-|
+enD
+
+ClassAttributes:3 defer
 PLGitem     type;
 SymbolType  pType;
     for proto
-        if type = proto.get("type")
+        if type = proto.children["type"]
             {
             pType = type.value;
             currentClass.addProtocol(pType);
             }
-|
-    currentClass.nameSpace = nSpace.toString();
-;
+enD
 
-ClassName!
-.
+ClassAttributes:4 defer
+    currentClass.nameSpace = nSpace.toString();
+enD
+
+ClassName
 String	text;
     if temp name.length += temp.length;
 	if name eq "extends" || name eq "external"
@@ -254,25 +264,28 @@ String	text;
 		name.unString();
 		}
 	name.value = path;
-;
+enD
 
-Comment!
-.
+Comment
     currentComment = comment;
-;
+enD
 
-Constant!
-|||.
+Constant defer
+enD
+
+Constant:2
 Instance    current = new(trueSymbol);
     instance.value = current;
     current.isConstant = true;
-|.
+enD
+
+Constant:3
 Instance    current = new(falseSymbol);
     instance.value = current;
     current.isConstant = true;
-;
+enD
 
-DebugDirective!
+DebugDirective defer
     /***************************************************************************
          The directive does not get added unless the matching method is found
          and the directive is marked as active
@@ -314,23 +327,20 @@ DebugDirective!
             }
         method.unString();
         }
-;
+enD
 
-Directive!
-.
+Directive
     currentType  = type.value;
     for directives
         if currentType == currentClass || currentType == globalType
             directives.run();
-;
+enD
 
-FileName!
-.
+FileName
     filename = name.toString();
-;
+enD
 
-MethodName!
-.
+MethodName
 String	word = name.string();
 SymbolType type = SymbolType.find(word);
     if ReservedWord.find(word) || (type && !type.isGlobal)
@@ -339,10 +349,9 @@ SymbolType type = SymbolType.find(word);
 		return false;
 		}
     name.unString();
-;
+enD
 
-Name!
-.
+Name
 String	word = name.string();
 SymbolType type = SymbolType.find(word);
     if ReservedWord.find(word) || type
@@ -351,17 +360,18 @@ SymbolType type = SymbolType.find(word);
 		return false;
 		}
     name.unString();
-;
+enD
 
-Number!
-.
+Number
 Instance    number;
 SymbolType  type  = SymbolType.doubleType;
     number = new(instance.toString());
     number.isConstant = true;
     number.type = type;
     instance.value = number;
-|.
+enD
+
+Number:2
 Instance    number;
 SymbolType  type;
     type = isLong ? SymbolType.longType
@@ -371,10 +381,9 @@ SymbolType  type;
     number.type = type;
 	if isLong number.postfix = "LL";
     instance.value = number;
-;
+enD
 
-PoundCommand!
-.
+PoundCommand
 SymbolType	symbolType;
 PLGitem     end = state;
 PLGitem     selectedField;
@@ -388,11 +397,11 @@ PLGitem     selectedField;
             if *(state.start + 1) == 'E'
                 if list
                     {
-                    iTEM.testParser.debug = false;
+                    debug = false;
                     end = list;
                     }
-                or iTEM.testParser.debug
-                    iTEM.testParser.debug = false;
+                or debug
+                    debug = false;
                 else debugRulePLG = true;
             else {
                 if type
@@ -437,12 +446,11 @@ PLGitem     selectedField;
             //debugTest = !debugTest;
         }
 resetPointer:
-    iTEM.test.current   =
+    //iTEM.test.current   =
     plgStart        = end.start + end.length;
-;
+enD
 
-Quote!
-.
+Quote
 Buffer      buffer = tokJunkBuffer;
 Instance    current;
 char		*mark;
@@ -466,15 +474,13 @@ char		*mark;
     type        = SymbolType.stringType;
     if string   atString = true;
     instance.value      = current;
-;
+enD
 
-DebugText!
-.
+DebugText
     cout "DebugText got here",upcoming:;
-;
+enD
 
-DebugRule!
-.
+DebugRule
 PLGrule	rule;
 String	text = name.string();
     rule = rules[text];
@@ -484,20 +490,21 @@ String	text = name.string();
         rule.debug = true;
         if upcoming
             {
-            PLGitem body = upcoming.get("body");
+            PLGitem body = upcoming.children["body"];
             if body rule.debugText = body.toString();
             }
         }
     name.unString();
-;
+enD
 
-Stop!
-.
+Stop
 	// This is a dummy rule to stick wherever for debugging
-;
+enD
 
-SyntaxExtensions!
-|.
+SyntaxExtensions defer
+enD
+
+SyntaxExtensions:2
 Symbol  symbol;
 use currentClass
     if aliasStack && aliasStack.length
@@ -507,4 +514,4 @@ use currentClass
             add(symbol);
         aliasStack.clear();
         }
-;
+enD

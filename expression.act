@@ -1,10 +1,8 @@
-AllowShortcuts!
-.
+AllowShortcuts
     if !assigning || noShortcuts return false;
-;
+enD
 
-CastExpression!
-.
+CastExpression
 Instance instance = type.value;
     if rest
 		{
@@ -16,24 +14,22 @@ Instance instance = type.value;
 	if direct instance.prefix = direct.string();
 	currentType = null;
 	if direct type.value = instance.setIndirectItem(direct);
-;
+enD
 
-CastTail!
-.
+CastTail
 DoubleLinkList list = new;
 Instance    instance;
 PLGitem	    cast, item;
     for item = rest
 		{
-		cast = item.get("type");
+		cast = item.children["type"];
 		instance = cast.value;
 		list.add((void*)instance);
 		}
     rest.value = list;
-;
+enD
 
-CastType!
-.
+CastType
 SymbolType  symbolType = type.value;
 Instance    instance = new(symbolType);
 char		*atDirect;
@@ -48,9 +44,9 @@ char		*atDirect;
     if array
 		instance.postfix = array.toString();
     type.value = instance;
-;
+enD
 
-ConditionWord!
+ConditionWord defer
 PLGitem         item, text;
 KeyTableItem    conditionItem;
 Instance        condition;
@@ -59,7 +55,7 @@ String          conditionText;
         if conditionText = conditionItem.value
             if item = divertInput(conditionText,"Expression")
                 {
-                text = item.get("instance");
+                text = item.children["instance"];
                 if text
                     list.value = text.value;
                 else {
@@ -70,10 +66,9 @@ String          conditionText;
                 return;
                 }
     cerr "Could not parse Condition:",list:;
-;
+enD
 
-Expression!
-.
+Expression
 Expression  expression;
 Instance    primary;
     primary = instance.value;
@@ -90,16 +85,15 @@ Instance    primary;
 		}
     instance.value = primary;
 	currentType = null;
-;
+enD
 
-ExpressList!
-.
+ExpressList
 Instance    left = null, right;
 Expression  express;
 PLGitem	    item, part;
     for item = list
 		{
-		part = item.get("instance");
+		part = item.children["instance"];
 		right = part.value;
 		if left
 			{
@@ -110,10 +104,9 @@ PLGitem	    item, part;
 		}
     list.value  = left;
     noShortcuts = false;
-;
+enD
 
-ExpressPart!
-.
+ExpressPart
 Expression  expression;
 Instance    secondary,primary;
 PLGitem		item,
@@ -131,7 +124,7 @@ SymbolType	type, secondaryType;
 			operand	= operate%"operand";
 			if !operand operand = operate%"comparator";
 			}
-		item	= express.get("instance");
+		item	= express.children["instance"];
 		if item
             {
             secondary = item.value;
@@ -187,22 +180,20 @@ SymbolType	type, secondaryType;
     instance.value  = primary;
     currentType     = null;
     popVirtuals();
-;
+enD
 
-ExpressType!
-.
+ExpressType
     expressType = currentType;
-;
+enD
 
-OperationTail!
-.
+OperationTail
 PLGitem	    item, operand;
 SymbolType  type;
 Expression	expression;
 Instance	subject, trueValue;
 String      flag,
             save = plgStart;
-	operand     = operate.get("operand");
+	operand     = operate.children["operand"];
 	if operand
 		{
         if stringing && expressType == stringType && !stringOP.foundIn(operand)
@@ -210,7 +201,7 @@ String      flag,
 		if operand.start == '=' && operand.length == 1
 			flag = operand.start + 1;
 		}
-	or operand = operate.get("comparator")
+	or operand = operate.children["comparator"]
         flag = operand.start + 3;
 	if question
 		{
@@ -239,14 +230,15 @@ String      flag,
             else plgStart   = save;
             stringing       = false;
 			}
-    ((Tawk)iTEM.testParser).assigning   = false;
-|.
-PLGitem	question = instance.get("question");
-	instance.value = question.value;
-;
+    assigning   = false;
+enD
 
-Operator!
-.
+OperationTail:2
+PLGitem	question = instance.children["question"];
+	instance.value = question.value;
+enD
+
+Operator
 KeyTableItem    operatorItem = operand.value;
 Operate         verb = operatorItem.value;
     if overload return true;
@@ -267,27 +259,27 @@ Operate         verb = operatorItem.value;
         if expressType == stringType && !assuming
             assigning = true;
         }
-|.
+enD
+
+Operator:2
 	if !compareFollow.contains(*(comparator.start + 2))
 		return false;
-;
+enD
 
-Question!
-.
+Question
 PLGitem	    falseItem, trueItem;
 Expression	expression;
 Instance	trueValue, falseValue;
-	falseItem	= falseExp.get("instance");
-	trueItem	= trueExp.get("instance");
+	falseItem	= falseExp.children["instance"];
+	trueItem	= trueExp.children["instance"];
 	trueValue	= trueItem.value;
 	falseValue	= falseItem.value;
 	expression	= new(trueValue,falseValue,":");
 	trueValue	= new(expression);
 	question.value = trueValue;
-;
+enD
 
-RangeExpression!
-.
+RangeExpression
 PLGitem     item;
 Instance    front = instance.value,
             tail;
@@ -299,24 +291,24 @@ Expression  rangeX;
     front   = new(rangeX);
     front.isRange   = true;
     instance.value  = front;
-;
+enD
 
-RangeField!
-.
+RangeField
 Instance    rangeField = currentSymbols.instances.get(instance.string());
     instance.unString();
     if rangeField && rangeField.isRange && rangeField.express && rangeField.object
         instance.value = rangeField.object;
     else return false;
-;
+enD
 
-SaveVirtuals!
-.
+SaveVirtuals
     pushVirtuals();
-;
+enD
 
-StringExpression!
-|.
+StringExpression defer
+enD
+
+StringExpression:2
 Instance    item = instance.value,
             target;
 SymbolType  type = item.getType();
@@ -331,28 +323,28 @@ SymbolType  type = item.getType();
         return false;
     or item.express && item.verb && !(item.pointing || item.assign)
         return false;
-;
+enD
 
-Strings!
-.
+Strings
 PLGitem     instance;
     for item
         {
         instance = item["instance"];
         item.value = instance.value;
         }
-;
+enD
 
-UnaryOperator!
-|.
+UnaryOperator defer
+enD
+
+UnaryOperator:2
 	if operate.next return false;
-;
+enD
 
-UnaryExpression!
-.
+UnaryExpression
 Instance	subject;
 Expression	expression;
-PLGitem	list = instance.get("list");
+PLGitem	list = instance.children["list"];
 	instance.run();
 	subject = list.value;
     if operate
@@ -362,7 +354,9 @@ PLGitem	list = instance.get("list");
 		}
 	instance.value = subject;
     currentType = null;
-|.
+enD
+
+UnaryExpression:2
 Expression  expression;
 PLGitem	    item;
 Instance    castInstance, subject;
@@ -377,7 +371,7 @@ SymbolType  virtualType;
 			}
     if cast
 		{
-		item	= cast.get("type");
+		item	= cast.children["type"];
 		castInstance = item.value;
         if !subject.express
             {
@@ -392,4 +386,4 @@ SymbolType  virtualType;
         virtualItem = subject;
 	instance.value = subject;
     currentType = virtualType;
-;
+enD

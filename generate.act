@@ -1,5 +1,4 @@
-AliasItem!
-.
+AliasItem
 Symbol  symbol = name.value,
         method  = target.value;
     if method.type == symbol.type
@@ -17,9 +16,13 @@ Symbol  symbol = name.value,
         symbol.setter   = method;
         }
     else cerr "Could not set getter or setter for " symbol.name:;
-|.
+enD
+
+AliasItem:2
 	currentClass.constructor = alias.toString();
-||.
+enD
+
+AliasItem:3
 SymbolType	type;
 String		name,
 			targetName;
@@ -33,7 +36,7 @@ PLGitem		body        = value["body"],
 		name = alias.toString();
 		if valueType
 			{
-            SymbolType typeAlias = types.get(name);
+            SymbolType typeAlias = types.children[name];
 			/*********************************************************************
 				Creates a type alias.
 			*********************************************************************/
@@ -67,10 +70,9 @@ PLGitem		body        = value["body"],
             target.unString();
 			}
 		}
-;
+enD
 
-CheckMacro!
-.
+CheckMacro
 PLGrule     rule;
 PLGitem	    item,
             macro;
@@ -134,10 +136,9 @@ Buffer      buffer = tokJunkBuffer;
         currentBlock = saveBlock;
         }
 #resetPRINT
-;
+enD
 
-CheckMacroParameters!
-.
+CheckMacroParameters
 PLGitem body = braced["body"];
     if body
         {
@@ -146,25 +147,22 @@ PLGitem body = braced["body"];
         braced.valueItem = list["argument"];
         }
 
-;
+enD
 
-ConditionLabel!
-.
+ConditionLabel
 	Conditions.add(label.string(),(void*)text.toString());
-;
+enD
 
-Extender!
-.
+Extender
 Symbol      method;
 String      text        = name.toString();
     method = currentClass.findField(text);
     if method method.extendType();
     else cerr "Overload could not find extender method:",iTEM:;
     name.unString();
-;
+enD
 
-Field!
-.
+Field
 Symbol  symbol;
     if currentClass.components
         {
@@ -173,11 +171,10 @@ Symbol  symbol;
         }
     if symbol name.value = symbol;
     else return false;
-;
+enD
 
-InitializerItem!
-.
-SymbolType  type        = types.get(field);
+InitializerItem
+SymbolType  type        = types.children[field];
 String      text        = function.string();
 String      signature   = text "(char*)";
 Symbol      method      = currentClass[signature];
@@ -203,45 +200,51 @@ Symbol      method      = currentClass[signature];
         else cerr "InitializerItem rule: virtual field",field,"already exists":;
         }
     function.unString();
-;
+enD
 
-OverLoadItem!
-.
-PLGitem     operand = operate.get("operand");
+OverLoadItem
+PLGitem     operand = operate.children["operand"];
 String      text = name.toString();
     assigning = false;
-    if !operand operand = operate.get("comparator");
+    if !operand operand = operate.children["comparator"];
     if !currentClass
         cerr "Overload specification must be within class:",iTEM:;
     else currentClass.overload(operand.toString(),text);
     name.unString();
-|.
+enD
+
+OverLoadItem:2
 String	text = name.toString();
 	if currentClass
 		if assign currentClass.overload("[]=",text);
 		else currentClass.overload("[]",text);
 	else cerr "Overload specification must be within class\n";
 	currentClass.isVirtuous = true;
-|.
+enD
+
+OverLoadItem:3
 String	text = name.toString();
 	if currentClass
 		currentClass.overload(operate.toString(),text);
 	else cerr "Overload specification must be within class\n";
-|.
+enD
+
+OverLoadItem:4
 Operate verb = new(newOp.toString());
 String	text = name.toString();
 	if currentClass
 		currentClass.overload(op,text);
 	else cerr "Overload specification must be within class\n";
-|.
+enD
+
+OverLoadItem:5
 String	text = name.toString();
 	if currentClass
 		currentClass.overload("()",text);
 	else cerr "Overload specification must be within class\n";
-;
+enD
 
-TargetMethod!
-.
+TargetMethod
 Symbol  symbol;
 PLGitem name = target%"name";
     if currentClass.methods
@@ -251,27 +254,25 @@ PLGitem name = target%"name";
         }
     if symbol target.value = symbol;
     else return false;
-;
+enD
 
 /*****************************************************************************
 	Macro actions
 *****************************************************************************/
-MacroBit!
-.
+MacroBit
 Symbol  symbol;
     if symbol = macroHash[bitpart]
         iTEM.value = symbol;
     else return false;
-;
+enD
 
-MacroBlock!
-.
+MacroBlock
 Statement   statement;
 PLGitem	    item;
 int         indentFlag;
     for line
 		{
-		item = line.get("statement");
+		item = line.children["statement"];
 		if !item continue;
 		statement = item.value;
         if !indentFlag
@@ -282,10 +283,9 @@ int         indentFlag;
 		if statement
 			currentBlock.add(statement);
 		}
-;
+enD
 
-MacroBody!
-.
+MacroBody
 PLGitem     body,
             last,
             other,
@@ -328,15 +328,13 @@ PLGitem     body,
             }
         }
     currentMethod.commentItem = body;
-;
+enD
 
-MacroDelimit!
-.
+MacroDelimit
     macroDelimiter = delimiter.toString();
-;
+enD
 
-MacroDefine!
-.
+MacroDefine
 Symbol  argument,
         symbol;
 Buffer  buffer = tokJunkBuffer;
@@ -352,7 +350,7 @@ Buffer  buffer = tokJunkBuffer;
         print "(";
         for item
             {
-            PLGitem element = item.get("element");
+            PLGitem element = item.children["element"];
             argument = new(element.string());
             argument.isAlias = true;
             symbol += argument;
@@ -377,9 +375,8 @@ Buffer  buffer = tokJunkBuffer;
     currentMethod           = argument;
     if !macroList macroList = new;
     macroList[symbol.name]  = (void*)symbol;
-;
+enD
 
-MacroName!
-.
+MacroName
     if !macroList || !macroList[name] return false;
-;
+enD

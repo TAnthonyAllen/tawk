@@ -1,5 +1,4 @@
-ArrayInitializer!
-.
+ArrayInitializer
 PLGitem	    item;
 Instance    entry;
 Block	    block = new(2);
@@ -10,9 +9,9 @@ Block	    block = new(2);
 		}
     entry = new(block);
     instance.value = entry;
-;
+enD
 
-ButtonArray!
+ButtonArray defer
 Symbol	symbol;
 int		i = 1;
 String	text;
@@ -32,10 +31,10 @@ String	text;
 			cerr "Expected a button " text "\n";
 		button.value = symbol;
 		}
-;
+enD
 
-DeclareItem!
-PLGitem parameters = item.get("head");
+DeclareItem defer
+PLGitem parameters = item.children["head"];
 Instance    methodD, methodI;
 Expression  xpress;
 	item.run();
@@ -53,11 +52,13 @@ Expression  xpress;
         methodD = new(xpress);
         }
     item.value = methodD;
-|
+enD
+
+DeclareItem:2 defer
 String      text;
 Symbol      symbol;
-PLGitem     name        = item.get("name"),
-            parameter   = argument.get("instance");
+PLGitem     name        = item.children["name"],
+            parameter   = argument.children["instance"];
 Instance    instance    = new(currentType.name),
             part        = parameter.value;
     /**********************************************************************
@@ -76,11 +77,13 @@ Instance    instance    = new(currentType.name),
         }
     else instance.error("Could not find converting constructor");
     item.value = instance;
-|
-PLGitem	    direct = item.get("direct"),
-			name	= item.get("name"),
-			array	= item.get("array"),
-			bits	= item.get("bits");
+enD
+
+DeclareItem:3 defer
+PLGitem	    direct = item.children["direct"],
+			name	= item.children["name"],
+			array	= item.children["array"],
+			bits	= item.children["bits"];
 Symbol	    symbol;
 Instance    instance, assigned;
 Expression  express;
@@ -95,7 +98,7 @@ String		text = name.toString();
 		if array
 			{
 			symbol.indirect += (long)array.value;
-			symbol.isArray = (unsigned int)array.amount;
+			symbol.isArray = (unsigned int)array.getAmount();
 			tokJunkBuffer.reset();
 			for array
 				array.copyTo(tokJunkBuffer);
@@ -111,23 +114,22 @@ String		text = name.toString();
 		symbol.indirect = 1;
     if assign
 		{
-		PLGitem	assignItem = assign.get("instance");
+		PLGitem	assignItem = assign.children["instance"];
 		assigned = assignItem.value;
 		express = new(instance,assigned,"=");
 		instance = new(express);
         instance.isRange = assigned.isRange;
 		}
     item.value = instance;
-;
+enD
 
-DeclareType!
-.
+DeclareType
     currentType = type.value;
 	newType		=
 	methodType	= currentType;
-;
+enD
 
-Declaration!
+Declaration defer
 Instance    staticCopy,
             instance;
 Symbol	    symbol;
@@ -144,7 +146,7 @@ PLGitem	entry, item;
 	for entry = declare
 		{
 		entry.run();
-		item = entry.get("item");
+		item = entry.children["item"];
 		instance = item.value;
 		instance.isDeclaration = true;
 		entry.value = instance;
@@ -180,9 +182,11 @@ PLGitem	entry, item;
         constDeclare    = false;
         linkage         = false;
         }
-|
-PLGitem	field = declare.get("body");
-PLGitem kind = declare.get("kind");
+enD
+
+Declaration:2 defer
+PLGitem	field = declare.children["body"];
+PLGitem kind = declare.children["kind"];
 SymbolType structureType;
 Instance instance = null;
     declare.run();
@@ -196,10 +200,9 @@ Instance instance = null;
 		if instance
 			instance.isDeclaration = true;
 		}
-;
+enD
 
-InitExpression!
-.
+InitExpression
 Instance	subject;
 PLGitem	    last,item;
 SymbolType  type;
@@ -214,7 +217,7 @@ SymbolType  type;
 			item = parse("StringExpression");
 			if item
 				{
-				PLGitem expressItem = item.get("instance");
+				PLGitem expressItem = item.children["instance"];
 				Instance secondary = expressItem.value;
 				type = secondary.getType();
 				if type == stringType
@@ -232,16 +235,14 @@ SymbolType  type;
 			instance.value = subject;
 			}
 		}
-;
+enD
 
-Initializer!
-.
-PLGitem	list = instance.get("list");
+Initializer
+PLGitem	list = instance.children["list"];
 	instance.value = list.value;
-;
+enD
 
-ItemHead!
-.
+ItemHead
 PLGitem	item;
 double  i;
 	if array
@@ -250,10 +251,9 @@ double  i;
 			i++;
 		array.amount = i;
 		}
-;
+enD
 
-LambdaName!
-.
+LambdaName
 Instance	instance;
 String		text;
     if !currentClass.hasLambda return false;
@@ -275,27 +275,26 @@ String		text;
 		name.unString();
 		return false;
 		}
-;
+enD
 
-SetObject!
-.
+SetObject
 	currentType = null;
-;
+enD
 
-Structure!
+Structure defer
 Symbol		symbol;
 Instance	instance, current;
 SymbolType	structureType;
-PLGitem		item = body.get("label"),
-			field = body.get("field"),
-			entry = body.get("entry");
+PLGitem		item = body.children["label"],
+			field = body.children["field"],
+			entry = body.children["entry"];
 String		error;
     currentType = null;
 	newType		=
 	methodType	= null;
 	if !item && kind eq "typedef"
 		{
-		PLGitem name = entry.get("name");
+		PLGitem name = entry.children["name"];
 		structureType = SymbolType.find(name.string());
 		if structureType && !structureType.isType
 			{
@@ -379,25 +378,25 @@ finish:
 	kind.value = structureType;
 	body.value = instance;
 	currentType = null;
-;
+enD
 
-StructureBody!
+StructureBody defer
 Instance    current;
 SymbolType  saveClass = currentClass;
 PLGitem	    item,
 			name;
 
-	item = label.get("type");
+	item = label.children["type"];
 	if !item.value
 		{
 		label.run();
-		item = label.get("type");
+		item = label.children["type"];
 		}
 	currentClass = (SymbolType)item.value;
     for item = entry
 		{
 		item.run();
-		name = item.get("name");
+		name = item.children["name"];
 		if name item.value = name.value;
 		}
 	currentType = currentClass;
@@ -405,14 +404,16 @@ PLGitem	    item,
 	for field
 		{
 		field.run();
-		item = field.get("item");
+		item = field.children["item"];
 		current = item.value;
 		field.value = current;
 		}
 	current = new(currentClass);
 	currentClass = saveClass;
 	label.value = current;
-|
+enD
+
+StructureBody:2 defer
 Symbol		symbol;
 PLGitem		name = entry.find("name"),
 			item;
@@ -431,16 +432,16 @@ PLGitem		name = entry.find("name"),
     for item = entry
 		{
 		item.run();
-		name = item.get("name");
+		name = item.children["name"];
 		if name item.value = name.value;
 		}
 	currentType = currentClass;
 	currentClass = saveStruct;
     saveStruct  = null;
-;
+enD
 
-StructureItem!
-PLGitem		declare = item.get("declare");
+StructureItem defer
+PLGitem		declare = item.children["declare"];
 PLGitem		entry;
 Instance	instance;
 Symbol      aliasSymbol;
@@ -461,7 +462,9 @@ Symbol      aliasSymbol;
                 }
 			}
 		}
-|
+enD
+
+StructureItem:2 defer
 String		text = name.toString();
 Symbol	    aliasSymbol,symbol;
 Instance    instance;
@@ -502,7 +505,7 @@ SymbolType	symbolType;
 		{
 		PLGitem	button;
 		buttons.run();
-		button = buttons.get("button");
+		button = buttons.children["button"];
 		for button
 			{
             // for button items symbol.source is set to the button container symbol
@@ -516,10 +519,12 @@ SymbolType	symbolType;
                 }
 			}
 		}
-;
+enD
 
-StructureType!
-|
+StructureType defer
+enD
+
+StructureType:2 defer
 SymbolType  symbolType;
 String	    name = type.string();
     symbolType = SymbolType.find(name);
@@ -527,10 +532,9 @@ String	    name = type.string();
     if !symbolType
 		symbolType =  SymbolType.getType(type.toString());
 	type.value = symbolType;
-;
+enD
 
-TypeName!
-.
+TypeName
 SymbolType  symbolType;
     symbolType = SymbolType.find(type.string());
     type.unString();
@@ -540,10 +544,9 @@ SymbolType  symbolType;
         return true;
         }
     return false;
-;
+enD
 
-Type!
-.
+Type
 SymbolType  symbolType;
 String	    name;
     if !noSign && !temp
@@ -559,11 +562,10 @@ String	    name;
     if hasConst type.flag4 = true;
     type.value = symbolType;
     currentType = symbolType;
-;
+enD
 
-TypeList!
-.
+TypeList
 Instance	item = new(currentType);
 	instance.value = item;
 	currentType = null;
-;
+enD
