@@ -474,27 +474,6 @@ char		*mark;
     instance.value      = current;
 enD
 
-DebugText
-    cout "DebugText got here",upcoming:;
-enD
-
-DebugRule
-PLGrule	rule;
-String	text = name.string();
-    rule = rules[text];
-    if !rule
-        cerr "Rule not found: " text "\n";
-    else {
-        rule.debug = true;
-        if upcoming
-            {
-            PLGitem body = upcoming.get("body");
-            if body rule.debugText = body.toString();
-            }
-        }
-    name.unString();
-enD
-
 Stop
 	// This is a dummy rule to stick wherever for debugging
 enD

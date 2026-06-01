@@ -190,6 +190,7 @@ PLGitem kind = declare.get("kind");
 SymbolType structureType;
 Instance instance = null;
     declare.runDeferred(this);
+//dealWith next
 	if kind structureType = kind.value;
 	if !currentClass.isExternal && structureType && structureType.isType
 		cerr "WARNING typedef ignored: must be declared external\n";
@@ -220,12 +221,15 @@ SymbolType  type;
 				PLGitem expressItem = item.get("instance");
 				Instance secondary = expressItem.value;
 				type = secondary.getType();
+//dealWith
+/*
 				if type == stringType
                     {
 					last.next = expressItem;
                     last = last.next;
                     }
 				else break;
+*/
 				}
 			else break;
 			}
@@ -337,6 +341,7 @@ String		error;
 	else {
 		instance = item.value;
 		structureType = instance.type;
+//dealWith next
 		if field body.next = field;
 		or !currentClass.isExternal
             structureType.mustDeclare = true;

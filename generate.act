@@ -294,14 +294,14 @@ PLGitem     body,
     for parts
         {
         if body && !last last = body;
-        // Not sure why we cannot say here: if other = parts["other"]
-        if other = parts.firstComponent
+        if other = parts["other"]
             {
             if other.length
                 {
                 if !body body   = other;
                 if !last last   = body;
                 else {
+//dealWith
                     last.next   = other;
                     last        = last.next;
                     }
@@ -311,6 +311,7 @@ PLGitem     body,
                 if !body body   = part;
                 if !last last   = body;
                 else {
+//dealWith
                     last.next   = part;
                     last        = last.next;
                     }
@@ -322,6 +323,7 @@ PLGitem     body,
             if !body body = rest;
             if !last last = body;
             else {
+//dealWith
                 last.next   = rest;
                 last        = last.next;
                 }
@@ -355,6 +357,7 @@ Buffer  buffer = tokJunkBuffer;
             argument.isAlias = true;
             symbol += argument;
             print argument.name;
+//dealWith
             if item.next print ",";
             macroHash[argument.name] = (void*)argument;
             }

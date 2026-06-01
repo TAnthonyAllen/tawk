@@ -193,7 +193,6 @@ DebugRule   :
             ;
 
 RuleList	:   'Rule'  textFollow!&
-				debugRULE	= DebugRule+
 				';'
 			;
 

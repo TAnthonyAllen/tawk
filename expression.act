@@ -149,6 +149,7 @@ SymbolType	type, secondaryType;
                     stringing   = true;
                     if stringPart = parse("Strings")
                         {
+//dealWith next
                         item.next       = stringPart;
                         instance.next   = item;
                         }
@@ -167,6 +168,7 @@ SymbolType	type, secondaryType;
 		}
     if unaryOp
         {
+//dealWith next
         if unaryOp eq "&" && !unaryOp.next
             primary.reference = true;
         else {
@@ -182,6 +184,7 @@ SymbolType	type, secondaryType;
     popVirtuals();
 enD
 
+//dealWith ExpressType is a rule with no match it appears as ExpressType? in the ExpressPart rule
 ExpressType
     expressType = currentType;
 enD
@@ -338,6 +341,7 @@ UnaryOperator defer
 enD
 
 UnaryOperator:2
+//dealWith thinking we can drop this action; not sure next is ever set
 	if operate.next return false;
 enD
 
@@ -362,6 +366,7 @@ PLGitem	    item;
 Instance    castInstance, subject;
 SymbolType  virtualType;
     subject = instance.value;
+//dealWith next not sure what !operate.next is guarding against
     if operate
 		if operate eq "&" && !operate.next
 			subject.reference = true;

@@ -86,7 +86,6 @@ Tawk()
 	lambdaSet.set((int)'^');
     includedFiles   = new;
 	missingMethods	= new;
-    mainParser      = this;
 }
 
 /*******************************************************************************
@@ -133,6 +132,7 @@ Instance    instance,
 			parameter;
 String	    text;
 int			count = 0;
+//dealWith next
     if !source.next return (Instance)source.value;
 	/*************************************************************************
 		If all items to be concatenated are literals just glom them
@@ -180,6 +180,7 @@ int			count = 0;
 		parameter = item.value;
 		instance.addParameter(parameter);
 		}
+//dealWith next
     source.next = null;
 	stringRoutines.setRefer();
     return instance;
@@ -383,6 +384,7 @@ SymbolType  type;
 		}
 	operate    = item%"operate";
 	expressItem = item%"instance";
+//dealWith next
 	if item.next
 		{
 		primary = expressItem.value;
