@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 #include "StringRoutines.h"
-#include "Buffer.h"
 #include "PLGparse.h"
 #include "BaseHash.h"
 #include "Types.h"
@@ -13,40 +12,40 @@
 #include "Stak.h"
 #include "SymbolType.h"
 #include "Operate.h"
-#include "PLGtester.h"
 #include "DoubleLinkList.h"
 #include "PLGrule.h"
+#include "Alternative.h"
 #include "DoubleLink.h"
+#include "InstanceTable.h"
+#include "Element.h"
+#include "Buffer.h"
+#include "KeyTableItem.h"
 #include "PLGitem.h"
 #include "PLGset.h"
-#include "InstanceTable.h"
-#include "KeyTableItem.h"
 #include "BlockTok.h"
 #include "Expression.h"
 #include "Instance.h"
 #include "Statement.h"
 #include "Tawk.h"
 
-int AliasItem2TawkNow(PLGitem *iTEM)
+int Tawk::AliasItem2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*alias = iTEM->get("alias");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->currentClass->constructor = alias->toString();
+PLGitem 	*alias = (PLGitem*)iTEM->children->get("alias");
+	currentClass->constructor = alias->toString();
 	return 1;
 }
 
-int AliasItem4TawkNow(PLGitem *iTEM)
+int Tawk::AliasItem3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*alias = iTEM->get("alias");
-PLGitem 	*value = iTEM->get("value");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*alias = (PLGitem*)iTEM->children->get("alias");
+PLGitem 	*value = (PLGitem*)iTEM->children->get("value");
 char 		*name = 0;
 char 		*targetName = 0;
-PLGitem 	*body = value->get("body");
-PLGitem 	*indirect = value->get("indirect");
-PLGitem 	*target = value->get("target");
-PLGitem 	*valueType = value->get("type");
-	if ( !p->currentClass )
+PLGitem 	*body = value->getLabel("body");
+PLGitem 	*indirect = value->getLabel("indirect");
+PLGitem 	*target = value->getLabel("target");
+PLGitem 	*valueType = value->getLabel("type");
+	if ( !currentClass )
 		::fprintf(stderr,"ERROR processing aliases: current class is not set\n");
 	else {
 		name = alias->toString();
@@ -72,30 +71,30 @@ PLGitem 	*valueType = value->get("type");
 					typeAlias->name = value->toString();
 				else	::fprintf(stderr,"AliasItem: cannot use a standard type as an alias %s\n",iTEM->toString());
 				}
-			else	typeAlias = (SymbolType*)valueType->value;
+			else	typeAlias = (SymbolType*)valueType->itemValue;
 			SymbolType::types->put(name,typeAlias);
 			}
 		else {
 			if ( body )
 				{
-				PLGitem 	*arguments = p->divertInput(body->string(),"AliasParameters");
+				PLGitem 	*arguments = divertInput(body->string(),"AliasParameters");
 				body->unString();
-				body = arguments->get("body");
+				body = arguments->getLabel("body");
 				}
 			targetName = target->string();
-			p->currentClass->makeAlias(name,targetName,body,p);
+			currentClass->makeAlias(name,targetName,body,"p");
 			target->unString();
 			}
 		}
 	return 1;
 }
 
-int AliasItemTawkNow(PLGitem *iTEM)
+int Tawk::AliasItemTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*target = iTEM->get("target");
-Symbol 		*symbol = (Symbol*)name->value;
-Symbol 		*method = (Symbol*)target->value;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*target = (PLGitem*)iTEM->children->get("target");
+Symbol 		*symbol = (Symbol*)name->itemValue;
+Symbol 		*method = (Symbol*)target->itemValue;
 	if ( method->type == symbol->type && (!method->parameters || (method->parentClass->isC && method->parameters->length == 1)) )
 		{
 		method->isGetter = 1;
@@ -113,50 +112,41 @@ Symbol 		*method = (Symbol*)target->value;
 	return 1;
 }
 
-int AllowShortcutsTawkNow(PLGitem *iTEM)
+int Tawk::ArrayInitializerTawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	if ( !p->assigning || p->noShortcuts )
-		return 0;
-	return 1;
-}
-
-int ArrayInitializerTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*instance = iTEM->get("instance");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 PLGitem 	*item = 0;
 Instance 	*entry = 0;
 BlockTok 	*block = new BlockTok(2);
-	for ( item = instance; item; item = item->next )
+	for ( item = instance; item; item = item->itemNext )
 		{
-		entry = (Instance*)item->value;
+		entry = (Instance*)item->itemValue;
 		block->add(entry);
 		}
 	entry = new Instance(block);
-	instance->value = (void*)entry;
+	instance->itemValue = (void*)entry;
 	return 1;
 }
 
-int AssumedStringTawkNow(PLGitem *iTEM)
+int Tawk::AssumedStringTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 PLGitem 	*lastSwitch = 0;
 SymbolType 	*switchType = 0;
 Instance 	*switcher = 0;
 char 		*word = instance->string();
 Instance 	*current = 0;
 int 		switchDirect = 0;
-	if ( p->ReservedWord->find(word) )
+	if ( ReservedWord->find(word) )
 		{
 		instance->unString();
 		return 0;
 		}
 	instance->unString();
-	if ( p->switchStack )
-		if ( lastSwitch = (PLGitem*)p->switchStack->top() )
+	if ( switchStack )
+		if ( lastSwitch = (PLGitem*)switchStack->top() )
 			{
-			switcher = (Instance*)lastSwitch->value;
+			switcher = (Instance*)lastSwitch->itemValue;
 			switchType = switcher->getType();
 			switchDirect = switcher->howDirect();
 			if ( instance->itemLength == 1 )
@@ -176,178 +166,131 @@ int 		switchDirect = 0;
 				goto bailAssumed;
 				}
 			}
-	current = p->getInstance(instance->toString());
+	current = getInstance(instance->toString());
 	current->indirection = 1;
 	// constant strings are really pointers
 	current->type = SymbolType::stringType;
 bailAssumed:
 	current->isConstant = 1;
-	instance->value = (void*)current;
+	instance->itemValue = (void*)current;
 	return 1;
 }
 
-int AssumingTawkNow(PLGitem *iTEM)
+int Tawk::BlockStartTawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->assuming = 1;
-	return 1;
-}
-
-int BlockStartTawkNow(PLGitem *iTEM)
-{
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	if ( p->declaredSomething )
-		p->declaredSomething = 0;
-	p->currentSymbols->push("Block start");
-	p->setCurrentType((SymbolType*)0);
-	if ( p->declaringMethod && p->currentMethod )
+	if ( declaredSomething )
+		declaredSomething = 0;
+	currentSymbols->push("Block start");
+	setCurrentType((SymbolType*)0);
+	if ( declaringMethod && currentMethod )
 		{
-		if ( !p->currentBlock )
-			p->currentMethod->pushParameters(p->currentSymbols);
+		if ( !currentBlock )
+			currentMethod->pushParameters(currentSymbols);
 		else
-		if ( p->lambdaMethod )
-			p->lambdaMethod->pushParameters(p->currentSymbols);
+		if ( lambdaMethod )
+			lambdaMethod->pushParameters(currentSymbols);
 		}
-	p->lambdaMethod = 0;
-	if ( p->currentBlock )
-		p->blockStack->push(p->currentBlock);
-	p->currentBlock = new BlockTok(1);
-	iTEM->value = (void*)p->currentBlock;
-	p->currentBlock->blockMethod = p->currentMethod;
+	lambdaMethod = 0;
+	if ( currentBlock )
+		blockStack->push(currentBlock);
+	currentBlock = new BlockTok(1);
+	iTEM->itemValue = (void*)currentBlock;
+	currentBlock->blockMethod = currentMethod;
 	// virtualStack can get out of whack when an expression fails
 	// so it gets cleaned up here if needed
-	p->resetVirtuals();
+	resetVirtuals();
 	return 1;
 }
 
-/*******************************************************************************
-                Rule actions
-            *******************************************************************************/
-int BlockTawkNow(PLGitem *iTEM)
+int Tawk::BlockTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*start = iTEM->get("start");
-PLGitem 	*line = iTEM->get("line");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*start = (PLGitem*)iTEM->children->get("start");
+PLGitem 	*line = (PLGitem*)iTEM->children->get("line");
 Statement 	*statement = 0;
 PLGitem 	*item = 0;
 BlockTok 	*block = 0;
 Directive 	*directive = 0;
-	block = (BlockTok*)start->value;
-	for ( ; line; line = line->next )
+	block = (BlockTok*)start->itemValue;
+	for ( ; line; line = line->itemNext )
 		{
-		item = line->get("statement");
+		item = line->getLabel("statement");
 		if ( !item )
 			continue;
-		statement = (Statement*)item->value;
+		statement = (Statement*)item->itemValue;
 		if ( statement )
 			block->add(statement);
 		}
-	if ( p->declaringMethod && p->currentMethod )
+	if ( declaringMethod && currentMethod )
 		{
-		p->declaringMethod = 0;
-		if ( p->currentMethod->directives )
+		declaringMethod = 0;
+		if ( currentMethod->directives )
 			{
-			p->noLoop = 1;
-			p->currentMethod->directives->resetIterator();
-			while ( directive = (Directive*)p->currentMethod->directives->next() )
+			noLoop = 1;
+			currentMethod->directives->resetIterator();
+			while ( directive = (Directive*)currentMethod->directives->next() )
 				if ( !directive->codeMatch )
 					directive->parseDirective();
-			p->noLoop = 0;
+			noLoop = 0;
 			}
 		}
-	p->currentBlock = (BlockTok*)p->blockStack->pop();
-	p->currentSymbols->pop("Block end");
+	currentBlock = (BlockTok*)blockStack->pop();
+	currentSymbols->pop("Block end");
 	return 1;
 }
 
-int Body2TawkNow(PLGitem *iTEM)
+int Tawk::Body2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
 Instance 	*method = 0;
-	body = body->get("method");
-	method = (Instance*)body->value;
-	if ( p->extending && method && method->symbol )
+	body = body->getLabel("method");
+	method = (Instance*)body->itemValue;
+	if ( extending && method && method->symbol )
 		method->symbol->extendType();
 	return 1;
 }
 
-int Body3TawkNow(PLGitem *iTEM)
+void Tawk::BodyTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*declare = body->get("declare");
-Instance 	*instance = 0;
-Symbol 		*symbol = 0;
-	if ( !p->currentClass )
-		return 0;
-	body->runDeferred();
-	for ( ; declare; declare = declare->next )
-		{
-		instance = (Instance*)declare->value;
-		if ( instance && instance->isError && instance->postfix )
-			::fprintf(stderr,"%s",instance->postfix);
-		if ( !instance || instance->statement || instance->isError )
-			continue;
-		if ( instance->type )
-			continue;
-		symbol = instance->getSymbol();
-		//cout "Body: declaring " symbol.name:;
-		if ( symbol->isMethod && !symbol->isLambda && !symbol->reference )
-			{
-			if ( p->extending && symbol->parameters )
-				symbol->extendType();
-			if ( !p->currentClass->getMethod(symbol->methodName) )
-				p->currentClass->addMethod(symbol);
-			p->currentMethod = 0;
-			}
-		else
-		if ( !p->currentClass->getLocal(symbol->name) )
-			p->currentClass->add(symbol);
-		}
-	return 1;
 }
 
-void ButtonArrayTawkAct(PLGitem *iTEM)
+void Tawk::ButtonArrayTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*button = iTEM->get("button");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*button = (PLGitem*)iTEM->children->get("button");
 Symbol 		*symbol = 0;
 int 		i = 1;
 char 		*text = 0;
-	for ( ; button; button = button->next )
+	for ( ; button; button = button->itemNext )
 		{
 		text = button->toString();
-		symbol = p->currentClass->getLocal(text);
+		symbol = currentClass->getLocal(text);
 		if ( !symbol )
 			{
 			symbol = new Symbol(text,SymbolType::buttonType);
 			symbol->isHidden = 1;
 			symbol->isItem = 1;
 			symbol->array = ::toStringFromInt(i++);
-			p->currentClass->add(symbol);
+			currentClass->add(symbol);
 			}
 		else
 		if ( symbol->type != SymbolType::buttonType )
 			::fprintf(stderr,"Expected a button %s\n",text);
-		button->value = (void*)symbol;
+		button->itemValue = (void*)symbol;
 		}
 }
 
-int Case2TawkNow(PLGitem *iTEM)
+int Tawk::Case2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 PLGitem 	*lastSwitch = 0;
 SymbolType 	*labelType = 0;
 SymbolType 	*switchType = 0;
 Instance 	*switcher = 0;
-Instance 	*label = (Instance*)instance->value;
+Instance 	*label = (Instance*)instance->itemValue;
 int 		labelDirect = 0;
 int 		switchDirect = 0;
-	if ( p->switchStack )
-		if ( lastSwitch = (PLGitem*)p->switchStack->top() )
-			if ( switcher = (Instance*)lastSwitch->value )
+	if ( switchStack )
+		if ( lastSwitch = (PLGitem*)switchStack->top() )
+			if ( switcher = (Instance*)lastSwitch->itemValue )
 				{
 				switchType = switcher->getType();
 				switchDirect = switcher->howDirect();
@@ -369,58 +312,55 @@ int 		switchDirect = 0;
 	return 1;
 }
 
-int Case3TawkNow(PLGitem *iTEM)
+int Tawk::Case3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*name = instance->get("name");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*name = instance->getLabel("name");
 char 		*text = name->toString();
-Instance 	*label = (Instance*)p->currentSymbols->instances->get(text);
+Instance 	*label = (Instance*)currentSymbols->instances->get(text);
 Symbol 		*symbol = 0;
 	if ( !label )
 		{
 		symbol = new Symbol(text,SymbolType::voidType);
 		label = new Instance(symbol);
 		label->isLabel = 1;
-		p->currentSymbols->add(label);
+		currentSymbols->add(label);
 		}
 	if ( !label->isLabel )
 		::fprintf(stderr,"ERROR: %s is not a label\n",name->toString());
-	instance->value = (void*)label;
+	instance->itemValue = (void*)label;
 	return 1;
 }
 
-int CaseLabel2TawkNow(PLGitem *iTEM)
+int Tawk::CaseLabel2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 PLGitem 	*item = 0;
 Instance 	*field = 0;
 Instance 	*rangeField = 0;
 Instance 	*label = 0;
-	rangeField = (Instance*)instance->value;
-	if ( p->switchStack )
-		if ( item = (PLGitem*)p->switchStack->top() )
-			field = (Instance*)item->value;
+	rangeField = (Instance*)instance->itemValue;
+	if ( switchStack )
+		if ( item = (PLGitem*)switchStack->top() )
+			field = (Instance*)item->itemValue;
 	if ( field && rangeField )
-		label = new Instance(p->convertRangeX(field,rangeField));
+		label = new Instance(convertRangeX(field,rangeField));
 	label->isRange = 1;
 	field->isRange = 1;
 	// set to flag switch as needing conversion
-	instance->value = (void*)label;
+	instance->itemValue = (void*)label;
 	return 1;
 }
 
-int CaseLabel3TawkNow(PLGitem *iTEM)
+int Tawk::CaseLabel3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*field = instance->get("field");
-Instance 	*label = (Instance*)field->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*field = instance->getLabel("field");
+Instance 	*label = (Instance*)field->itemValue;
 Symbol 		*symbol = label->getSymbol();
 	if ( symbol->type == SymbolType::buttonType || (symbol->structType && isEnumerator(symbol->structType->structure)) )
 		{
-		label = p->getInstance("case ");
+		label = getInstance("case ");
 		if ( symbol->type == SymbolType::buttonType )
 			label->postfix = symbol->array;
 		else	label->postfix = symbol->name;
@@ -430,86 +370,82 @@ Symbol 		*symbol = label->getSymbol();
 	else	label->prefix = "case ";
 	label->isLabel = 1;
 	label->isCase = 1;
-	instance->value = (void*)label;
-	p->assuming = 0;
+	instance->itemValue = (void*)label;
+	assuming = 0;
 	return 1;
 }
 
-int CaseLabel5TawkNow(PLGitem *iTEM)
+int Tawk::CaseLabel4TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*name = instance->get("name");
-Instance 	*field = p->getInstance(name->toString());
-	instance->value = (void*)field;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*name = instance->getLabel("name");
+Instance 	*field = getInstance(name->toString());
+	instance->itemValue = (void*)field;
 	return 1;
 }
 
-int CaseLabelTawkNow(PLGitem *iTEM)
+int Tawk::CaseLabelTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Instance 	*label = (Instance*)instance->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*label = (Instance*)instance->itemValue;
 	label->postfix = label->prefix;
 	return 1;
 }
 
-int CaseTawkNow(PLGitem *iTEM)
+int Tawk::CaseTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*label = p->getInstance("default");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*label = getInstance("default");
 	label->isLabel = 1;
 	label->isCase = 1;
-	instance->value = (void*)label;
+	instance->itemValue = (void*)label;
 	return 1;
 }
 
-int CastExpressionTawkNow(PLGitem *iTEM)
+int Tawk::CastExpressionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*rest = iTEM->get("rest");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*instance = (Instance*)type->value;
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*rest = (PLGitem*)iTEM->children->get("rest");
+Instance 	*instance = (Instance*)type->itemValue;
 	if ( rest )
 		{
 		if ( !instance->isMethod )
 			instance->error("Cast Expression method reference expected");
-		instance->parameters = (DoubleLinkList*)rest->value;
+		instance->parameters = (DoubleLinkList*)rest->itemValue;
 		}
 	instance->isCast = 1;
 	if ( direct )
 		instance->prefix = direct->string();
-	p->setCurrentType((SymbolType*)0);
+	setCurrentType((SymbolType*)0);
 	if ( direct )
-		type->value = (void*)instance->setIndirectItem(direct);
+		type->itemValue = (void*)instance->setIndirectItem(direct);
 	return 1;
 }
 
-int CastTailTawkNow(PLGitem *iTEM)
+int Tawk::CastTailTawkNow(PLGitem *iTEM)
 {
-PLGitem 		*rest = iTEM->get("rest");
+PLGitem 		*rest = (PLGitem*)iTEM->children->get("rest");
 DoubleLinkList 	*list = new DoubleLinkList();
 Instance 		*instance = 0;
 PLGitem 		*cast = 0;
 PLGitem 		*item = 0;
-	for ( item = rest; item; item = item->next )
+	for ( item = rest; item; item = item->itemNext )
 		{
-		cast = item->get("type");
-		instance = (Instance*)cast->value;
+		cast = item->getLabel("type");
+		instance = (Instance*)cast->itemValue;
 		list->add((void*)instance);
 		}
-	rest->value = (void*)list;
+	rest->itemValue = (void*)list;
 	return 1;
 }
 
-int CastTypeTawkNow(PLGitem *iTEM)
+int Tawk::CastTypeTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*array = iTEM->get("array");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-SymbolType 	*symbolType = (SymbolType*)type->value;
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*array = (PLGitem*)iTEM->children->get("array");
+SymbolType 	*symbolType = (SymbolType*)type->itemValue;
 Instance 	*instance = new Instance(symbolType);
 char 		*atDirect = 0;
 	if ( direct )
@@ -518,7 +454,7 @@ char 		*atDirect = 0;
 				instance->indirection++;
 			else
 			if ( *atDirect == '^' )
-				p->currentClass->hasLambda = instance->isLambda = 1;
+				currentClass->hasLambda = instance->isLambda = 1;
 			else
 			if ( *atDirect == '&' )
 				instance->setReference((unsigned int)1);
@@ -528,57 +464,55 @@ char 		*atDirect = 0;
 		instance->isMethod = 1;
 	if ( array )
 		instance->postfix = array->toString();
-	type->value = (void*)instance;
+	type->itemValue = (void*)instance;
 	return 1;
 }
 
-int CharacterTawkNow(PLGitem *iTEM)
+int Tawk::CharacterTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*character = 0;
 SymbolType 	*type = SymbolType::getType("char");
 	character = new Instance(type);
 	character->isConstant = 1;
 	character->prefix = instance->toString();
-	instance->value = (void*)character;
+	instance->itemValue = (void*)character;
 	return 1;
 }
 
-int CheckMacroParametersTawkNow(PLGitem *iTEM)
+int Tawk::CheckMacroParametersTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*braced = iTEM->get("braced");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*body = braced->get("body");
+PLGitem 	*braced = (PLGitem*)iTEM->children->get("braced");
+PLGitem 	*body = braced->getLabel("body");
 	if ( body )
 		{
-		PLGitem 	*list = p->divertInput(body->string(),"MacroArgumentList");
+		PLGitem 	*list = divertInput(body->string(),"MacroArgumentList");
 		body->unString();
-		braced->valueItem = list->get("argument");
+		braced->itemValue = (void*)list->getLabel("argument");
 		}
 	return 1;
 }
 
-int CheckMacroTawkNow(PLGitem *iTEM)
+int Tawk::CheckMacroTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*braced = iTEM->get("braced");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*braced = (PLGitem*)iTEM->children->get("braced");
 PLGrule 	*rule = 0;
 PLGitem 	*item = 0;
 PLGitem 	*macro = 0;
 Symbol 		*argument = 0;
 Symbol 		*symbol = 0;
 int 		count = 0;
-Buffer 		*buffer = p->tokJunkBuffer;
-	if ( !p->macroList )
+Buffer 		*buffer = tokJunkBuffer;
+	if ( !macroList )
 		return 0;
-	symbol = (Symbol*)p->macroList->get(statement);
+	symbol = (Symbol*)macroList->get(statement->toString());
 	if ( !symbol )
 		return 0;
 	if ( braced )
 		{
-		braced = item = braced->valueItem;
-		for ( ; item; item = item->next )
+		braced = item = (PLGitem*)braced->itemValue;
+		for ( ; item; item = item->itemNext )
 			count++;
 		if ( symbol->parameters )
 			{
@@ -589,27 +523,27 @@ Buffer 		*buffer = p->tokJunkBuffer;
 		if ( count )
 			return 0;
 		symbol->parameters->entry = 0;
-		for ( item = braced; item; item = item->next )
+		for ( item = braced; item; item = item->itemNext )
 			{
 			argument = (Symbol*)symbol->parameters->next();
-			argument->commentItem = item->get("part");
+			argument->commentItem = item->getLabel("part");
 			}
 		}
 	buffer->reset();
 	macro = symbol->commentItem;
-	for ( ; macro; macro = macro->next )
-		if ( argument = (Symbol*)macro->value )
+	for ( ; macro; macro = macro->itemNext )
+		if ( argument = (Symbol*)macro->itemValue )
 			{
 			if ( item = argument->commentItem )
-				buffer->appendString(item->toString());
+				buffer->appendString(item->toString(),0,0);
 			else {
-				buffer->appendString("No value supplied for ");
-				buffer->appendString(argument->name);
-				buffer->appendString("\n");
+				buffer->appendString("No value supplied for ",0,0);
+				buffer->appendString(argument->name,0,0);
+				buffer->appendString("\n",0,0);
 				}
 			}
 		else {
-			buffer->appendString(macro->string());
+			buffer->appendString(macro->string(),0,0);
 			macro->unString();
 			}
 	//cout "CheckMacro action: " buffer:;
@@ -621,173 +555,147 @@ Buffer 		*buffer = p->tokJunkBuffer;
 		{
 		Statement 	*line = new Statement();
 		line->pointInCode = iTEM;
-		BlockTok 	*saveBlock = p->currentBlock;
-		p->currentBlock = new BlockTok();
-		rule = (PLGrule*)p->rules->get("MacroBlock");
-		if ( item = p->divertInput(buffer->toString(),rule) )
+		BlockTok 	*saveBlock = currentBlock;
+		currentBlock = new BlockTok();
+		rule = (PLGrule*)rules->get("MacroBlock");
+		if ( item = divertInput(buffer->toString(),rule) )
 			{
-			Instance 	*instance = (Instance*)p->currentBlock->statements->first->value;
-			line->add(p->currentBlock);
-			statement->value = (void*)line;
+			Instance 	*instance = (Instance*)currentBlock->statements->first->value;
+			line->add(currentBlock);
+			statement->itemValue = (void*)line;
 			if ( instance && instance->statement )
 				instance->statement->indented = 1;
 			}
-		p->currentBlock = saveBlock;
+		currentBlock = saveBlock;
 		}
 	return 1;
 }
 
-void ClassAttributes2TawkAct(PLGitem *iTEM)
+void Tawk::ClassAttributes2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-SymbolType 	*extended = (SymbolType*)type->value;
-	p->currentClass->setParent(extended);
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+SymbolType 	*extended = (SymbolType*)type->itemValue;
+	currentClass->setParent(extended);
 }
 
-void ClassAttributes3TawkAct(PLGitem *iTEM)
+void Tawk::ClassAttributes3TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*proto = iTEM->get("proto");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*proto = (PLGitem*)iTEM->children->get("proto");
 PLGitem 	*type = 0;
 SymbolType 	*pType = 0;
-	for ( ; proto; proto = proto->next )
-		if ( type = proto->get("type") )
+	for ( ; proto; proto = proto->itemNext )
+		if ( type = proto->getLabel("type") )
 			{
-			pType = (SymbolType*)type->value;
-			p->currentClass->addProtocol(pType);
+			pType = (SymbolType*)type->itemValue;
+			currentClass->addProtocol(pType);
 			}
 }
 
-void ClassAttributes4TawkAct(PLGitem *iTEM)
+void Tawk::ClassAttributes4TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*nSpace = iTEM->get("nSpace");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->currentClass->nameSpace = nSpace->toString();
+PLGitem 	*nSpace = (PLGitem*)iTEM->children->get("nSpace");
+	currentClass->nameSpace = nSpace->toString();
 }
 
-void ClassAttributesTawkAct(PLGitem *iTEM)
+void Tawk::ClassAttributesTawkAct(PLGitem *iTEM)
 {
-PLGitem 		*trait = iTEM->get("trait");
-Tawk 			*p = (Tawk*)iTEM->test->testParser;
-KeyTableItem 	*item = (KeyTableItem*)trait->value;
+PLGitem 		*trait = (PLGitem*)iTEM->children->get("trait");
+KeyTableItem 	*item = (KeyTableItem*)trait->itemValue;
 Symbol 			*symbol = 0;
 	switch (item->position)
 		{
 		case 1:
 			// C
-			if ( !p->currentClass->isC )
+			if ( !currentClass->isC )
 				{
-				p->currentClass->isC = 1;
-				if ( !p->currentClass->parent )
+				currentClass->isC = 1;
+				if ( !currentClass->parent )
 					{
-					if ( p->currentClass->lastOffset > 0 )
+					if ( currentClass->lastOffset > 0 )
 						::fprintf(stderr,"ERROR: do not specify class as C after variables are declared\n");
-					symbol = new Symbol("tHIS",p->currentClass);
+					symbol = new Symbol("tHIS",currentClass);
 					symbol->isVirtual = 1;
 					symbol->isThis = 1;
-					p->currentClass->add(symbol);
+					currentClass->add(symbol);
 					symbol = symbol->makeAlias("this");
 					symbol->isThis = 1;
-					p->currentClass->add(symbol);
-					p->currentClass->lastOffset = 0;
+					currentClass->add(symbol);
+					currentClass->lastOffset = 0;
 					}
 				}
 			break;
 		case 2:
 			// isChar
-			p->currentClass->isChar = 1;
+			currentClass->isChar = 1;
 			break;
 		case 3:
 			// isNumber
-			p->currentClass->isNumber = 1;
+			currentClass->isNumber = 1;
 			break;
 		case 4:
 			// local
-			p->currentClass->isLocal = 1;
+			currentClass->isLocal = 1;
 			break;
 		case 5:
 			// no.h
-			p->currentClass->noDotH = 1;
+			currentClass->noDotH = 1;
 			break;
 		case 6:
 			// noClassForward
-			p->currentClass->noClassForward = 1;
+			currentClass->noClassForward = 1;
 			break;
 		case 7:
 			// OC
-			if ( !p->currentClass->isOC )
+			if ( !currentClass->isOC )
 				{
-				p->currentClass->isOC = 1;
-				p->currentClass->isVirtuous = 1;
+				currentClass->isOC = 1;
+				currentClass->isVirtuous = 1;
 				}
 			break;
 		case 8:
 			// proper
-			p->currentClass->proper = 1;
+			currentClass->proper = 1;
 			break;
 		case 9:
 			//protocol
-			p->currentClass->structure = 3;
-			p->currentClass->isOC = 1;
+			currentClass->structure = 3;
+			currentClass->isOC = 1;
 			break;
 		case 10:
 			// type
-			p->currentClass->structure = 4;
-			p->currentClass->isDirect = 1;
+			currentClass->structure = 4;
+			currentClass->isDirect = 1;
 			break;
 		case 11:
 			// addClassNameToMethods
-			p->currentClass->addClassNameToMethods = 1;
+			currentClass->addClassNameToMethods = 1;
 			break;
 		}
 }
 
-int ClassBlockStartTawkNow(PLGitem *iTEM)
+int Tawk::ClassHeading2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	if ( p->currentClass != SymbolType::globalType )
-		p->currentSymbols->push(p->currentClass->name);
-	if ( !p->currentClass->isExternal )
-		p->declaredSomething = 0;
-	return 1;
-}
-
-int ClassBlockTawkNow(PLGitem *iTEM)
-{
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	if ( p->currentClass != SymbolType::globalType )
-		p->currentSymbols->pop("end class");
-	p->currentClass->classOK = 1;
-	p->declaredSomething = 1;
-	//cout "Processed class block for " currentClass.name:;
-	return 1;
-}
-
-int ClassHeading2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*externalRef = iTEM->get("externalRef");
-PLGitem 	*structure = iTEM->get("structure");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*type = structure->get("body");
-PLGitem 	*kind = structure->get("kind");
+PLGitem 	*externalRef = (PLGitem*)iTEM->children->get("externalRef");
+PLGitem 	*structure = (PLGitem*)iTEM->children->get("structure");
+PLGitem 	*type = structure->getLabel("body");
+PLGitem 	*kind = structure->getLabel("kind");
 PLGitem 	*field = 0;
 Instance 	*instance = 0;
-	p->extending = 0;
-	if ( kind->compare("typedef") == 0 || kind->compare("struct") == 0 )
+	extending = 0;
+	if ( kind->toString() == "typedef" || kind->toString() == "struct" )
 		return 0;
-	field = type->next;
-	structure->runDeferred();
-	instance = (Instance*)type->value;
-	p->setCurrentClass(instance->getType());
-	p->currentClass->noDotH = 1;
-	p->setCurrentType((SymbolType*)0);
+	field = type->itemNext;
+	structure->runDeferred(this);
+	instance = (Instance*)type->itemValue;
+	setCurrentClass(instance->getType());
+	currentClass->noDotH = 1;
+	setCurrentType((SymbolType*)0);
 	if ( externalRef )
-		p->currentClass->isExternal = 1;
-	else	p->currentClass->isExternal = 0;
-	for ( ; field; field = field->next )
+		currentClass->isExternal = 1;
+	else	currentClass->isExternal = 0;
+	for ( ; field; field = field->itemNext )
 		{
-		instance = (Instance*)field->value;
+		instance = (Instance*)field->itemValue;
 		if ( instance )
 			{
 			instance->isDeclaration = 1;
@@ -798,12 +706,11 @@ Instance 	*instance = 0;
 	return 1;
 }
 
-int ClassHeading3TawkNow(PLGitem *iTEM)
+int Tawk::ClassHeading3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*kind = iTEM->get("kind");
-PLGitem 	*nom = iTEM->get("nom");
-PLGitem 	*attributes = iTEM->get("attributes");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*kind = (PLGitem*)iTEM->children->get("kind");
+PLGitem 	*nom = (PLGitem*)iTEM->children->get("nom");
+PLGitem 	*attributes = (PLGitem*)iTEM->children->get("attributes");
 SymbolType 	*parent = 0;
 char 		*className = 0;
 char 		*dotHfile = 0;
@@ -815,93 +722,92 @@ PLGitem 	*path = 0;
 PLGitem 	*temp = 0;
 PLGitem 	*type = 0;
 Symbol 		*symbol = 0;
-	p->currentBlock = 0;
-	p->extending = 0;
+	currentBlock = 0;
+	extending = 0;
 	if ( !nom )
 		{
-		p->setCurrentClass(SymbolType::globalType);
-		p->extending = 1;
+		setCurrentClass(SymbolType::globalType);
+		extending = 1;
 		}
 	else
-	for ( entry = nom; entry; entry = entry->next )
+	for ( entry = nom; entry; entry = entry->itemNext )
 		{
-		name = entry->get("name");
-		temp = entry->get("temp");
-		path = (PLGitem*)name->value;
-		dotH = entry->get("dotH");
+		name = entry->getLabel("name");
+		temp = entry->getLabel("temp");
+		path = (PLGitem*)name->itemValue;
+		dotH = entry->getLabel("dotH");
 		className = name->toString();
 		if ( dotH )
 			{
 			dotHfile = path->toString();
-			if ( !nom->next )
+			if ( !nom->itemNext )
 				{
 				// rename the class since it is not really a class, just the name of a file
 				className = ::concat(2,"notType",className);
-				p->setCurrentClass(SymbolType::getType(className));
-				p->currentClass->isGlobal = 1;
-				p->currentClass->isExternal = 1;
-				SymbolType::globalList->add((void*)p->currentClass);
-				p->extending = 1;
+				setCurrentClass(SymbolType::getType(className));
+				currentClass->isGlobal = 1;
+				currentClass->isExternal = 1;
+				SymbolType::globalList->add((void*)currentClass);
+				extending = 1;
 				}
 			else	continue;
 			}
-		else	p->setCurrentClass(SymbolType::getType(className));
+		else	setCurrentClass(SymbolType::getType(className));
 		if ( temp )
-			p->currentClass->isTemplate = 1;
-		for ( item = attributes; item; item = item->next )
-			item->runDeferred();
+			currentClass->isTemplate = 1;
+		for ( item = attributes; item; item = item->itemNext )
+			item->runDeferred(this);
 		if ( type )
-			parent = (SymbolType*)type->value;
-		p->currentClass->isExternal = 1;
+			parent = (SymbolType*)type->itemValue;
+		currentClass->isExternal = 1;
 		if ( parent )
 			{
-			p->currentClass->setParent(parent);
+			currentClass->setParent(parent);
 			if ( parent->isOC )
-				p->currentClass->isOC = 1;
+				currentClass->isOC = 1;
 			}
-		if ( !p->currentClass->noDotH && !p->currentClass->isAtomic && !p->currentClass->dotHname )
-			p->currentClass->dotHname = path->toString();
-		if ( p->currentClass->isOC )
+		if ( !currentClass->noDotH && !currentClass->isAtomic && !currentClass->dotHname )
+			currentClass->dotHname = path->toString();
+		if ( currentClass->isOC )
 			{
-			p->nameSet->set((int)':');
-			if ( p->currentClass->parent )
+			nameSet->set((int)':');
+			if ( currentClass->parent )
 				{
-				symbol = new Symbol("super",p->currentClass->parent);
+				symbol = new Symbol("super",currentClass->parent);
 				symbol->isVirtual = 1;
-				p->currentClass->add(symbol);
+				currentClass->add(symbol);
 				}
 			}
-		entry->value = (void*)p->currentClass;
+		entry->itemValue = (void*)currentClass;
 		}
-	if ( nom && nom->next && dotHfile )
+	if ( nom && nom->itemNext && dotHfile )
 		{
-		for ( entry = nom; entry; entry = entry->next )
+		for ( entry = nom; entry; entry = entry->itemNext )
 			{
-			if ( !entry->value )
+			if ( !entry->itemValue )
 				continue;
-			p->setCurrentClass((SymbolType*)entry->value);
-			p->currentClass->dotHname = dotHfile;
+			setCurrentClass((SymbolType*)entry->itemValue);
+			currentClass->dotHname = dotHfile;
 			}
-		p->setCurrentClass((SymbolType*)nom->value);
+		setCurrentClass((SymbolType*)nom->itemValue);
 		}
 	if ( kind )
 		if ( *kind->itemStart == 't' )
 			{
-			p->currentClass->isDirect = 1;
-			p->currentClass->structure = 4;
+			currentClass->isDirect = 1;
+			currentClass->structure = 4;
 			}
 		else {
-			p->currentClass->isDirect = 1;
-			p->currentClass->structure = 5;
+			currentClass->isDirect = 1;
+			currentClass->structure = 5;
 			}
 	return 1;
 }
 
-int ClassHeadingTawkNow(PLGitem *iTEM)
+int Tawk::ClassHeadingTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*nom = iTEM->get("nom");
-PLGitem 	*attributes = iTEM->get("attributes");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*nom = (PLGitem*)iTEM->children->get("nom");
+PLGitem 	*attributes = (PLGitem*)iTEM->children->get("attributes");
 SymbolType 	*parent = 0;
 char 		*className = 0;
 PLGitem 	*item = 0;
@@ -909,58 +815,57 @@ PLGitem 	*name = 0;
 PLGitem 	*path = 0;
 PLGitem 	*type = 0;
 Symbol 		*symbol = 0;
-	p->extending = 0;
-	p->referring = 1;
-	p->currentBlock = 0;
-	name = nom->get("name");
-	path = (PLGitem*)name->value;
+	extending = 0;
+	referring = 1;
+	currentBlock = 0;
+	name = nom->getLabel("name");
+	path = (PLGitem*)name->itemValue;
 	className = name->toString();
-	p->setCurrentClass(SymbolType::getType(className));
-	for ( item = attributes; item; item = item->next )
+	setCurrentClass(SymbolType::getType(className));
+	for ( item = attributes; item; item = item->itemNext )
 		{
 		if ( !type )
-			type = item->get("type");
-		item->runDeferred();
+			type = item->getLabel("type");
+		item->runDeferred(this);
 		}
 	if ( type )
-		parent = (SymbolType*)type->value;
+		parent = (SymbolType*)type->itemValue;
 	if ( parent )
 		{
-		p->currentClass->setParent(parent);
+		currentClass->setParent(parent);
 		if ( parent->isOC )
-			p->currentClass->isOC = 1;
+			currentClass->isOC = 1;
 		}
-	if ( p->currentComment )
-		p->currentClass->comment = p->extractComment();
-	if ( p->currentClass->isOC )
+	if ( currentComment )
+		currentClass->comment = extractComment();
+	if ( currentClass->isOC )
 		{
-		p->nameSet->set((int)':');
-		if ( p->currentClass->parent )
+		nameSet->set((int)':');
+		if ( currentClass->parent )
 			{
-			symbol = new Symbol("super",p->currentClass->parent);
+			symbol = new Symbol("super",currentClass->parent);
 			symbol->isVirtual = 1;
-			p->currentClass->add(symbol);
+			currentClass->add(symbol);
 			}
 		}
-	if ( !p->currentClass->noDotH && !p->currentClass->isAtomic && !p->currentClass->dotHname && !isProtocol(p->currentClass->structure) )
-		p->currentClass->dotHname = path->toString();
-	p->currentClass->isExternal = 0;
-	if ( p->directivesFile )
-		p->processDirectives();
+	if ( !currentClass->noDotH && !currentClass->isAtomic && !currentClass->dotHname && !isProtocol(currentClass->structure) )
+		currentClass->dotHname = path->toString();
+	currentClass->isExternal = 0;
+	if ( directivesFile )
+		processDirectives();
 	return 1;
 }
 
-int ClassNameTawkNow(PLGitem *iTEM)
+int Tawk::ClassNameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*path = iTEM->get("path");
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*temp = iTEM->get("temp");
-PLGitem 	*dotH = iTEM->get("dotH");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*path = (PLGitem*)iTEM->children->get("path");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*temp = (PLGitem*)iTEM->children->get("temp");
+PLGitem 	*dotH = (PLGitem*)iTEM->children->get("dotH");
 char 		*text = 0;
 	if ( temp )
 		name->itemLength += temp->itemLength;
-	if ( name->compare("extends") == 0 || name->compare("external") == 0 )
+	if ( name->toString() == "extends" || name->toString() == "external" )
 		{
 		name->unString();
 		return 0;
@@ -975,89 +880,87 @@ char 		*text = 0;
 	else
 	if ( dotH )
 		{
-		path = p->plgItemFactory(name);
+		path = new PLGitem(name);
 		path->itemLength += dotH->itemLength;
 		}
 	else {
 		text = ::concat(2,name->string(),".h");
-		path = p->plgItemFactory(text);
+		path = new PLGitem(text);
 		name->unString();
 		}
-	name->value = (void*)path;
+	name->itemValue = (void*)path;
 	return 1;
 }
 
-int CommentTawkNow(PLGitem *iTEM)
+int Tawk::CommentTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*comment = iTEM->get("comment");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->currentComment = comment;
+PLGitem 	*comment = (PLGitem*)iTEM->children->get("comment");
+	currentComment = comment;
 	return 1;
 }
 
-int ConditionLabelTawkNow(PLGitem *iTEM)
+int Tawk::ConditionLabelTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*label = iTEM->get("label");
-PLGitem 	*text = iTEM->get("text");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->Conditions->add(label->string(),(void*)text->toString());
+PLGitem 	*label = (PLGitem*)iTEM->children->get("label");
+PLGitem 	*text = (PLGitem*)iTEM->children->get("text");
+	Conditions->add(label->string(),(void*)text->toString());
 	return 1;
 }
 
-void ConditionWordTawkAct(PLGitem *iTEM)
+void Tawk::ConditionWordTawkAct(PLGitem *iTEM)
 {
-PLGitem 		*list = iTEM->get("list");
-Tawk 			*p = (Tawk*)iTEM->test->testParser;
+PLGitem 		*list = (PLGitem*)iTEM->children->get("list");
 PLGitem 		*item = 0;
 PLGitem 		*text = 0;
 KeyTableItem 	*conditionItem = 0;
 Instance 		*condition = 0;
 char 			*conditionText = 0;
-	if ( conditionItem = (KeyTableItem*)list->value )
+	if ( conditionItem = (KeyTableItem*)list->itemValue )
 		if ( conditionText = (char*)conditionItem->value )
-			if ( item = p->divertInput(conditionText,"Expression") )
+			if ( item = divertInput(conditionText,"Expression") )
 				{
-				text = item->get("instance");
+				text = item->getLabel("instance");
 				if ( text )
-					list->value = text->value;
+					list->itemValue = text->itemValue;
 				else {
 					condition = new Instance();
 					condition->error("Failed parse of condition list");
-					list->value = (void*)condition;
+					list->itemValue = (void*)condition;
 					}
 				return;
 				}
 	::fprintf(stderr,"Could not parse Condition: %s\n",list->toString());
 }
 
-int Constant4TawkNow(PLGitem *iTEM)
+int Tawk::Constant2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*current = new Instance(p->trueSymbol);
-	instance->value = (void*)current;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*current = new Instance(trueSymbol);
+	instance->itemValue = (void*)current;
 	current->isConstant = 1;
 	return 1;
 }
 
-int Constant5TawkNow(PLGitem *iTEM)
+int Tawk::Constant3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*current = new Instance(p->falseSymbol);
-	instance->value = (void*)current;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*current = new Instance(falseSymbol);
+	instance->itemValue = (void*)current;
 	current->isConstant = 1;
 	return 1;
 }
 
-void DebugDirectiveTawkAct(PLGitem *iTEM)
+void Tawk::ConstantTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*method = iTEM->get("method");
-PLGitem 	*body = iTEM->get("body");
-PLGitem 	*locate = iTEM->get("locate");
-PLGitem 	*active = iTEM->get("active");
-PLGitem 	*code = iTEM->get("code");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+}
+
+void Tawk::DebugDirectiveTawkAct(PLGitem *iTEM)
+{
+PLGitem 	*method = (PLGitem*)iTEM->children->get("method");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
+PLGitem 	*locate = (PLGitem*)iTEM->children->get("locate");
+PLGitem 	*active = (PLGitem*)iTEM->children->get("active");
+PLGitem 	*code = (PLGitem*)iTEM->children->get("code");
 	/***************************************************************************
 	The directive does not get added unless the matching method is found
 	and the directive is marked as active
@@ -1068,9 +971,9 @@ Tawk 		*p = (Tawk*)iTEM->test->testParser;
 		if ( !body && (!locate || (*locate->itemStart != 'e' && *locate->itemStart != 's')) )
 			::fprintf(stderr,"Directive for %s missing location\n",text);
 		else {
-			Symbol 	*directiveMethod = p->currentType->getMethod(text);
-			if ( !directiveMethod && p->currentType->isGlobal )
-				directiveMethod = p->currentSymbols->findGlobalMethod(text);
+			Symbol 	*directiveMethod = currentType->getMethod(text);
+			if ( !directiveMethod && currentType->isGlobal )
+				directiveMethod = currentSymbols->findGlobalMethod(text);
 			if ( directiveMethod )
 				{
 				Directive 	*directive = new Directive();
@@ -1100,101 +1003,70 @@ Tawk 		*p = (Tawk*)iTEM->test->testParser;
 					directiveMethod->directives = new DoubleLinkList();
 				directiveMethod->directives->add(directive);
 				}
-			else	::fprintf(stderr,"Could not find directive method: %s in type: %s\n",text,p->currentType->name);
+			else	::fprintf(stderr,"Could not find directive method: %s in type: %s\n",text,currentType->name);
 			}
 		method->unString();
 		}
 }
 
-int DebugRuleTawkNow(PLGitem *iTEM)
+void Tawk::Declaration2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*upcoming = iTEM->get("upcoming");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGrule 	*rule = 0;
-char 		*text = name->string();
-	rule = (PLGrule*)p->rules->get(text);
-	if ( !rule )
-		::fprintf(stderr,"Rule not found: %s\n",text);
-	else {
-		rule->debug = 1;
-		if ( upcoming )
-			{
-			PLGitem 	*body = upcoming->get("body");
-			if ( body )
-				rule->debugText = body->toString();
-			}
-		}
-	name->unString();
-	return 1;
-}
-
-int DebugTextTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*upcoming = iTEM->get("upcoming");
-	::printf("DebugText got here %s\n",upcoming->toString());
-	return 1;
-}
-
-void Declaration2TawkAct(PLGitem *iTEM)
-{
-PLGitem 	*declare = iTEM->get("declare");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*field = declare->get("body");
-PLGitem 	*kind = declare->get("kind");
+PLGitem 	*declare = (PLGitem*)iTEM->children->get("declare");
+PLGitem 	*field = declare->getLabel("body");
+PLGitem 	*kind = declare->getLabel("kind");
 SymbolType 	*structureType = 0;
 Instance 	*instance = 0;
-	declare->runDeferred();
+	declare->runDeferred(this);
+	//dealWith next
 	if ( kind )
-		structureType = (SymbolType*)kind->value;
-	if ( !p->currentClass->isExternal && structureType && isType(structureType->structure) )
+		structureType = (SymbolType*)kind->itemValue;
+	if ( !currentClass->isExternal && structureType && isType(structureType->structure) )
 		::fprintf(stderr,"WARNING typedef ignored: must be declared external\n");
-	declare->next = field;
-	for ( ; field; field = field->next )
+	declare->itemNext = field;
+	for ( ; field; field = field->itemNext )
 		{
-		instance = (Instance*)field->value;
+		instance = (Instance*)field->itemValue;
 		if ( instance )
 			instance->isDeclaration = 1;
 		}
 }
 
-void DeclarationTawkAct(PLGitem *iTEM)
+void Tawk::DeclarationTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*outlet = iTEM->get("outlet");
-PLGitem 	*modify = iTEM->get("modify");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*declare = iTEM->get("declare");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*outlet = (PLGitem*)iTEM->children->get("outlet");
+PLGitem 	*modify = (PLGitem*)iTEM->children->get("modify");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*declare = (PLGitem*)iTEM->children->get("declare");
 Instance 	*instance = 0;
 Symbol 		*symbol = 0;
 PLGitem 	*entry = 0;
 PLGitem 	*item = 0;
-	p->setCurrentType((SymbolType*)type->value);
-	p->newType = p->methodType = p->currentType;
-	for ( item = modify; item; item = item->next )
+	setCurrentType((SymbolType*)type->itemValue);
+	newType = methodType = currentType;
+	for ( item = modify; item; item = item->itemNext )
 		if ( *item->itemStart == 'c' )
-			p->constDeclare = 1;
+			constDeclare = 1;
 		else
 		if ( *item->itemStart == 'i' )
-			p->linkage = 2;
+			linkage = 2;
 		else
 		if ( *item->itemStart == 's' )
-			p->linkage = 3;
+			linkage = 3;
 		else
 		if ( *item->itemStart == 'v' )
-			p->linkage = 4;
-		else	p->linkage = 1;
-	for ( entry = declare; entry; entry = entry->next )
+			linkage = 4;
+		else	linkage = 1;
+	for ( entry = declare; entry; entry = entry->itemNext )
 		{
-		entry->runDeferred();
-		item = entry->get("item");
-		instance = (Instance*)item->value;
+		entry->runDeferred(this);
+		item = entry->getLabel("item");
+		instance = (Instance*)item->itemValue;
 		instance->isDeclaration = 1;
-		entry->value = (void*)instance;
+		entry->itemValue = (void*)instance;
 		symbol = instance->getSymbol();
 		if ( outlet )
 			symbol->isOutlet = 1;
-		if ( staticDeclare(p->linkage) )
+		if ( staticDeclare(linkage) )
 			{
 			symbol->isStatic = 1;
 			if ( instance->express )
@@ -1202,54 +1074,53 @@ PLGitem 	*item = 0;
 				Statement 	*statement = new Statement();
 				statement->pointInCode = iTEM;
 				statement->add(instance);
-				p->formatter->staticBlock->add(statement);
+				formatter->staticBlock->add(statement);
 				symbol->isInitialized = 1;
 				}
 			if ( symbol->isMethod )
-				p->currentSymbols->addGlobalField(symbol->methodName,symbol);
-			p->currentSymbols->addGlobalField(symbol->name,symbol);
+				currentSymbols->addGlobalField(symbol->methodName,symbol);
+			currentSymbols->addGlobalField(symbol->name,symbol);
 			}
-		if ( p->constDeclare )
+		if ( constDeclare )
 			symbol->isConst = 1;
-		if ( inlineDeclare(p->linkage) )
+		if ( inlineDeclare(linkage) )
 			symbol->isInline = 1;
-		if ( staticDeclare(p->linkage) )
+		if ( staticDeclare(linkage) )
 			symbol->isStatic = 1;
-		if ( virtualDeclare(p->linkage) )
+		if ( virtualDeclare(linkage) )
 			symbol->isVirtual = 1;
-		if ( externDeclare(p->linkage) )
+		if ( externDeclare(linkage) )
 			{
 			symbol->isExtern = 1;
-			p->currentClass->hasExtern = 1;
+			currentClass->hasExtern = 1;
 			}
 		}
-	p->setCurrentType((SymbolType*)0);
+	setCurrentType((SymbolType*)0);
 	if ( modify )
 		{
-		p->constDeclare = 0;
-		p->linkage = 0;
+		constDeclare = 0;
+		linkage = 0;
 		}
 }
 
-void DeclareItem2TawkAct(PLGitem *iTEM)
+void Tawk::DeclareItem2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*item = iTEM->get("item");
-PLGitem 	*argument = iTEM->get("argument");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
+PLGitem 	*argument = (PLGitem*)iTEM->children->get("argument");
 char 		*text = 0;
 Symbol 		*symbol = 0;
-PLGitem 	*name = item->get("name");
-PLGitem 	*parameter = argument->get("instance");
-Instance 	*instance = p->getInstance(p->currentType->name);
-Instance 	*part = (Instance*)parameter->value;
+PLGitem 	*name = item->getLabel("name");
+PLGitem 	*parameter = argument->getLabel("instance");
+Instance 	*instance = getInstance(currentType->name);
+Instance 	*part = (Instance*)parameter->itemValue;
 	/**********************************************************************
 	converting constructor
 	**********************************************************************/
 	instance->addParameter(part);
 	text = instance->mangle();
-	if ( symbol = p->currentType->getMethod(text) )
+	if ( symbol = currentType->getMethod(text) )
 		{
-		symbol = new Symbol(name->toString(),p->currentType);
+		symbol = new Symbol(name->toString(),currentType);
 		symbol->indirect = 0;
 		symbol->isConstructor = 1;
 		instance->symbol = symbol;
@@ -1257,38 +1128,37 @@ Instance 	*part = (Instance*)parameter->value;
 		instance->isMethod = 1;
 		}
 	else	instance->error("Could not find converting constructor");
-	item->value = (void*)instance;
+	item->itemValue = (void*)instance;
 }
 
-void DeclareItem3TawkAct(PLGitem *iTEM)
+void Tawk::DeclareItem3TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*item = iTEM->get("item");
-PLGitem 	*assign = iTEM->get("assign");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*direct = item->get("direct");
-PLGitem 	*name = item->get("name");
-PLGitem 	*array = item->get("array");
-PLGitem 	*bits = item->get("bits");
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
+PLGitem 	*assign = (PLGitem*)iTEM->children->get("assign");
+PLGitem 	*direct = item->getLabel("direct");
+PLGitem 	*name = item->getLabel("name");
+PLGitem 	*array = item->getLabel("array");
+PLGitem 	*bits = item->getLabel("bits");
 Symbol 		*symbol = 0;
 Instance 	*instance = 0;
 Instance 	*assigned = 0;
 Expression 	*express = 0;
 char 		*text = name->toString();
-	if ( !p->currentBlock )
-		symbol = p->currentClass->getLocal(text);
-	if ( p->currentBlock || !symbol )
+	if ( !currentBlock )
+		symbol = currentClass->getLocal(text);
+	if ( currentBlock || !symbol )
 		{
-		symbol = new Symbol(text,p->currentType);
+		symbol = new Symbol(text,currentType);
 		if ( direct )
 			symbol->setIndirection(direct);
 		if ( array )
 			{
-			symbol->indirect += (long)array->value;
-			symbol->isArray = (unsigned int)array->amount;
-			p->tokJunkBuffer->reset();
-			for ( ; array; array = array->next )
-				array->copyTo(p->tokJunkBuffer);
-			symbol->array = p->tokJunkBuffer->toString();
+			symbol->indirect += (long)array->itemValue;
+			symbol->isArray = (unsigned int)array->getAmount();
+			tokJunkBuffer->reset();
+			for ( ; array; array = array->itemNext )
+				array->copyTo(tokJunkBuffer);
+			symbol->array = tokJunkBuffer->toString();
 			}
 		else
 		if ( bits )
@@ -1296,95 +1166,91 @@ char 		*text = name->toString();
 		}
 	instance = new Instance(symbol);
 	instance->isDeclaration = 1;
-	instance->block = p->currentBlock;
-	if ( !direct && !p->currentType->isDirect )
+	instance->block = currentBlock;
+	if ( !direct && !currentType->isDirect )
 		symbol->indirect = 1;
 	if ( assign )
 		{
-		PLGitem 	*assignItem = assign->get("instance");
-		assigned = (Instance*)assignItem->value;
+		PLGitem 	*assignItem = assign->getLabel("instance");
+		assigned = (Instance*)assignItem->itemValue;
 		express = new Expression(instance,assigned,"=");
 		instance = new Instance(express);
 		instance->isRange = assigned->isRange;
 		}
-	item->value = (void*)instance;
+	item->itemValue = (void*)instance;
 }
 
-void DeclareItemTawkAct(PLGitem *iTEM)
+void Tawk::DeclareItemTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*item = iTEM->get("item");
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*parameters = item->get("head");
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*parameters = item->getLabel("head");
 Instance 	*methodD = 0;
 Instance 	*methodI = 0;
 Expression 	*xpress = 0;
-	item->runDeferred();
-	methodD = (Instance*)parameters->value;
+	item->runDeferred(this);
+	methodD = (Instance*)parameters->itemValue;
 	methodD->isDeclaration = 1;
 	if ( methodD->symbol )
 		{
-		if ( !p->currentBlock )
-			methodD->symbol->parentClass = p->currentClass;
-		if ( p->currentMethod && p->currentMethod == methodD->symbol )
-			p->currentMethod = 0;
+		if ( !currentBlock )
+			methodD->symbol->parentClass = currentClass;
+		if ( currentMethod && currentMethod == methodD->symbol )
+			currentMethod = 0;
 		}
 	if ( instance )
 		{
-		methodI = (Instance*)instance->value;
+		methodI = (Instance*)instance->itemValue;
 		xpress = new Expression(methodD,methodI,"=");
 		methodD = new Instance(xpress);
 		}
-	item->value = (void*)methodD;
+	item->itemValue = (void*)methodD;
 }
 
-int DeclareTypeTawkNow(PLGitem *iTEM)
+int Tawk::DeclareTypeTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->setCurrentType((SymbolType*)type->value);
-	p->newType = p->methodType = p->currentType;
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+	setCurrentType((SymbolType*)type->itemValue);
+	newType = methodType = currentType;
 	return 1;
 }
 
-int DirectiveTawkNow(PLGitem *iTEM)
+int Tawk::DirectiveTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*directives = iTEM->get("directives");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->setCurrentType((SymbolType*)type->value);
-	for ( ; directives; directives = directives->next )
-		if ( p->currentType == p->currentClass || p->currentType == SymbolType::globalType )
-			directives->runDeferred();
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*directives = (PLGitem*)iTEM->children->get("directives");
+	setCurrentType((SymbolType*)type->itemValue);
+	for ( ; directives; directives = directives->itemNext )
+		if ( currentType == currentClass || currentType == SymbolType::globalType )
+			directives->runDeferred(this);
 	return 1;
 }
 
-int Else2TawkNow(PLGitem *iTEM)
+int Tawk::Else2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*action = statement->get("action");
-PLGitem 	*instance = statement->get("instance");
-PLGitem 	*item = action->get("statement");
-PLGitem 	*otherwise = statement->get("otherwise");
-Instance 	*express = (Instance*)instance->value;
-Statement 	*line = (Statement*)item->value;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*action = statement->getLabel("action");
+PLGitem 	*instance = statement->getLabel("instance");
+PLGitem 	*item = action->getLabel("statement");
+PLGitem 	*otherwise = statement->getLabel("otherwise");
+Instance 	*express = (Instance*)instance->itemValue;
+Statement 	*line = (Statement*)item->itemValue;
 Statement 	*ifStatement = new Statement(IF);
 	ifStatement->add(express);
 	ifStatement->pointInCode = iTEM;
-	if ( p->currentMethod && p->currentMethod->directives && !p->noLoop )
+	if ( currentMethod && currentMethod->directives && !noLoop )
 		{
 		Directive 	*directive = 0;
-		p->currentMethod->directives->resetIterator();
-		while ( directive = (Directive*)p->currentMethod->directives->next() )
+		currentMethod->directives->resetIterator();
+		while ( directive = (Directive*)currentMethod->directives->next() )
 			if ( directive->isDirected || !directive->codeMatch )
 				continue;
 			else
 			if ( !::strncmp(directive->codeMatch,ifStatement->pointInCode->itemStart,::strlen(directive->codeMatch)) )
 				{
-				p->noLoop = 1;
+				noLoop = 1;
 				directive->parseDirective();
-				p->noLoop = 0;
+				noLoop = 0;
 				break;
 				}
 		}
@@ -1393,28 +1259,31 @@ Statement 	*ifStatement = new Statement(IF);
 		ifStatement->add(line);
 	if ( otherwise )
 		{
-		item = otherwise->get("statement");
-		line = (Statement*)item->value;
+		item = otherwise->getLabel("statement");
+		line = (Statement*)item->itemValue;
 		if ( line )
 			ifStatement->add(line);
 		}
-	statement->value = (void*)ifStatement;
+	statement->itemValue = (void*)ifStatement;
 	return 1;
 }
 
-int ExpressListTawkNow(PLGitem *iTEM)
+void Tawk::ElseTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*list = iTEM->get("list");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+}
+
+int Tawk::ExpressListTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*list = (PLGitem*)iTEM->children->get("list");
 Instance 	*left = 0;
 Instance 	*right = 0;
 Expression 	*express = 0;
 PLGitem 	*item = 0;
 PLGitem 	*part = 0;
-	for ( item = list; item; item = item->next )
+	for ( item = list; item; item = item->itemNext )
 		{
-		part = item->get("instance");
-		right = (Instance*)part->value;
+		part = item->getLabel("instance");
+		right = (Instance*)part->itemValue;
 		if ( left )
 			{
 			express = new Expression(left,right,",");
@@ -1422,17 +1291,16 @@ PLGitem 	*part = 0;
 			}
 		else	left = right;
 		}
-	list->value = (void*)left;
-	p->noShortcuts = 0;
+	list->itemValue = (void*)left;
+	noShortcuts = 0;
 	return 1;
 }
 
-int ExpressPartTawkNow(PLGitem *iTEM)
+int Tawk::ExpressPartTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*unaryOp = iTEM->get("unaryOp");
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*express = iTEM->get("express");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*unaryOp = (PLGitem*)iTEM->children->get("unaryOp");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*express = (PLGitem*)iTEM->children->get("express");
 Expression 	*expression = 0;
 Instance 	*secondary = 0;
 Instance 	*primary = 0;
@@ -1442,24 +1310,24 @@ PLGitem 	*operate = 0;
 PLGitem 	*stringPart = 0;
 SymbolType 	*type = 0;
 SymbolType 	*secondaryType = 0;
-	primary = (Instance*)instance->value;
+	primary = (Instance*)instance->itemValue;
 	type = primary->getType();
-	p->expressType = 0;
+	expressType = 0;
 	if ( express )
 		{
-		if ( operate = express->get("operate") )
+		if ( operate = express->getLabel("operate") )
 			{
-			operand = operate->get("operand");
+			operand = operate->getLabel("operand");
 			if ( !operand )
-				operand = operate->get("comparator");
+				operand = operate->getLabel("comparator");
 			}
-		item = express->get("instance");
+		item = express->getLabel("instance");
 		if ( item )
 			{
-			secondary = (Instance*)item->value;
+			secondary = (Instance*)item->itemValue;
 			if ( secondary->isRange )
 				{
-				expression = p->convertRangeX(primary,secondary);
+				expression = convertRangeX(primary,secondary);
 				primary = new Instance(expression);
 				}
 			else {
@@ -1470,18 +1338,19 @@ SymbolType 	*secondaryType = 0;
 					primary = new Instance(expression);
 					}
 				else
-				if ( operand && operand->compare("+=") == 0 && type == SymbolType::stringType && secondaryType == SymbolType::stringType && primary->howDirect() == 1 )
+				if ( operand && operand->toString() == "+=" && type == SymbolType::stringType && secondaryType == SymbolType::stringType && primary->howDirect() == 1 )
 					{
 					operand->setString("=");
-					//plgStart = item.start;
-					p->stringing = 1;
-					if ( stringPart = p->parse("Strings") )
+					//cursor = item.start;
+					stringing = 1;
+					if ( stringPart = parse("Strings") )
 						{
-						item->next = stringPart;
-						instance->next = item;
+						//dealWith next
+						item->itemNext = stringPart;
+						instance->itemNext = item;
 						}
-					else	instance->next = item;
-					secondary = p->concatenate(instance);
+					else	instance->itemNext = item;
+					secondary = concatenate(instance);
 					expression = new Expression(primary,secondary,"=");
 					primary = new Instance(expression);
 					}
@@ -1490,12 +1359,13 @@ SymbolType 	*secondaryType = 0;
 		}
 	if ( !expression && (primary->isVirtuous() || operand) )
 		{
-		expression = p->makeExpress(primary,express);
+		expression = makeExpress(primary,express);
 		primary = new Instance(expression);
 		}
 	if ( unaryOp )
 		{
-		if ( unaryOp->compare("&") == 0 && !unaryOp->next )
+		//dealWith next
+		if ( unaryOp->toString() == "&" && !unaryOp->itemNext )
 			primary->setReference((unsigned int)1);
 		else {
 			expression = new Expression((Instance*)0,primary,unaryOp->toString());
@@ -1504,31 +1374,23 @@ SymbolType 	*secondaryType = 0;
 		}
 	primary = primary->checkOverload();
 	if ( primary->symbol && primary->symbol->isDefault )
-		primary->setDefaults(p);
-	instance->value = (void*)primary;
-	p->setCurrentType((SymbolType*)0);
-	p->popVirtuals();
+		primary->setDefaults("p");
+	instance->itemValue = (void*)primary;
+	setCurrentType((SymbolType*)0);
+	popVirtuals();
 	return 1;
 }
 
-int ExpressTypeTawkNow(PLGitem *iTEM)
+int Tawk::ExpressionTawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->expressType = p->currentType;
-	return 1;
-}
-
-int ExpressionTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*express = iTEM->get("express");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*express = (PLGitem*)iTEM->children->get("express");
 Expression 	*expression = 0;
 Instance 	*primary = 0;
-	primary = (Instance*)instance->value;
+	primary = (Instance*)instance->itemValue;
 	if ( express )
 		{
-		expression = p->makeExpress(primary,express);
+		expression = makeExpress(primary,express);
 		primary = new Instance(expression);
 		}
 	if ( !primary->express )
@@ -1537,18 +1399,17 @@ Instance 	*primary = 0;
 		expression->subject = primary;
 		primary = new Instance(expression);
 		}
-	instance->value = (void*)primary;
-	p->setCurrentType((SymbolType*)0);
+	instance->itemValue = (void*)primary;
+	setCurrentType((SymbolType*)0);
 	return 1;
 }
 
-int ExtenderTawkNow(PLGitem *iTEM)
+int Tawk::ExtenderTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Symbol 		*method = 0;
 char 		*text = name->toString();
-	method = p->currentClass->findField(text);
+	method = currentClass->findField(text);
 	if ( method )
 		method->extendType();
 	else	::fprintf(stderr,"Overload could not find extender method: %s\n",iTEM->toString());
@@ -1556,31 +1417,20 @@ char 		*text = name->toString();
 	return 1;
 }
 
-int ExtendsTawkNow(PLGitem *iTEM)
+void Tawk::FieldBody2TawkAct(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	if ( p->currentClass->isOC )
-		p->nameSet->reset((int)':');
-	SymbolType::types->resetIsFlagged();
-	p->formatter->declareClass(p->currentClass);
-	p->setCurrentClass(SymbolType::globalType);
-	return 1;
-}
-
-void FieldBody2TawkAct(PLGitem *iTEM)
-{
-PLGitem 	*name = iTEM->get("name");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 PLGitem 	*item = 0;
-	name->runDeferred();
-	item = name->get("instance");
-	name->value = item->value;
+	name->runDeferred(this);
+	item = name->getLabel("instance");
+	name->itemValue = item->itemValue;
 }
 
-int FieldBody3TawkNow(PLGitem *iTEM)
+int Tawk::FieldBody3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*item = name->get("instance");
-Instance 	*current = (Instance*)item->value;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*item = name->getLabel("instance");
+Instance 	*current = (Instance*)item->itemValue;
 Expression 	*express = 0;
 	if ( !current->express || current->cast )
 		{
@@ -1588,55 +1438,54 @@ Expression 	*express = 0;
 		current = new Instance(express);
 		}
 	current->express->hasParens = 1;
-	name->value = (void*)current;
+	name->itemValue = (void*)current;
 	return 1;
 }
 
-void FieldBodyTawkAct(PLGitem *iTEM)
+void Tawk::FieldBodyTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*prefix = iTEM->get("prefix");
-PLGitem 	*part = iTEM->get("part");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*prefix = (PLGitem*)iTEM->children->get("prefix");
+PLGitem 	*part = (PLGitem*)iTEM->children->get("part");
 PLGitem 	*item = 0;
-PLGitem 	*name = part->get("name");
-PLGitem 	*body = part->get("body");
+PLGitem 	*name = part->getLabel("name");
+PLGitem 	*body = part->getLabel("body");
 char 		*text = name->toString();
 Symbol 		*symbol = 0;
 double 		isArray = 0;
-Instance 	*current = p->getInstance(text);
+Instance 	*current = getInstance(text);
 Instance 	*parameter = 0;
 Instance 	*instance = 0;
 Expression 	*expression = 0;
 	if ( body )
 		{
-		item = body->get("array");
+		item = body->getLabel("array");
 		if ( item )
-			isArray = item->amount;
+			isArray = item->getAmount();
 		else {
-			item = body->get("expression");
+			item = body->getLabel("expression");
 			current->isMethod = 1;
 			}
-		for ( ; item; item = item->next )
+		for ( ; item; item = item->itemNext )
 			{
-			parameter = (Instance*)item->get("instance")->value;
+			parameter = (Instance*)item->getLabel("instance")->itemValue;
 			current->addParameter(parameter);
 			}
 		if ( !instance && current->isMethod )
-			if ( p->currentType )
-				instance = p->currentType->findMethodInstance(current);
-			else	instance = p->currentSymbols->findMethod(current);
+			if ( currentType )
+				instance = currentType->findMethodInstance(current);
+			else	instance = currentSymbols->findMethod(current);
 		}
 	if ( !instance )
 		{
-		if ( p->isQualified )
+		if ( isQualified )
 			{
 			SymbolType::types->resetIsFlagged();
-			instance = p->currentType->findFieldInstance(current->prefix);
-			if ( !instance && p->currentType->isOC )
+			instance = currentType->findFieldInstance(current->prefix);
+			if ( !instance && currentType->isOC )
 				symbol = (Symbol*)SymbolType::ocSymbols->get(text);
 			}
 		else
-		if ( instance = p->currentSymbols->find(current->prefix) )
+		if ( instance = currentSymbols->find(current->prefix) )
 			if ( instance->isMethod && !body )
 				instance->noBody = 1;
 			else
@@ -1663,7 +1512,7 @@ Expression 	*expression = 0;
 		{
 		if ( instance->isLambda && body && !instance->symbol->isAssigned )
 			{
-			if ( p->isQualified )
+			if ( isQualified )
 				current = new Instance(instance);
 			else {
 				delete current;
@@ -1674,7 +1523,7 @@ Expression 	*expression = 0;
 		else
 		if ( !isArray && instance != current && !instance->reference && !current->parameters )
 			{
-			if ( p->isQualified )
+			if ( isQualified )
 				current = new Instance(instance);
 			else {
 				delete current;
@@ -1718,7 +1567,7 @@ Expression 	*expression = 0;
 	else
 	if ( current->isMethod )
 		{
-		if ( instance = (Instance*)p->missingMethods->get(current->prefix) )
+		if ( instance = (Instance*)missingMethods->get(current->prefix) )
 			{
 			current->symbol = instance->symbol;
 			current->setParent(instance->parent);
@@ -1726,7 +1575,7 @@ Expression 	*expression = 0;
 			}
 		else {
 			current->prefix = current->mangle();
-			p->missingMethods->put(current->prefix,current);
+			missingMethods->put(current->prefix,current);
 			current->symbol = new Symbol(text,SymbolType::nullType);
 			current->symbol->isMethod = 1;
 			current->symbol->methodName = current->prefix;
@@ -1734,7 +1583,7 @@ Expression 	*expression = 0;
 			}
 		}
 	else
-	if ( current->type == SymbolType::stringType && !current->isMethod && ((p->currentClass && p->currentClass->isVirtuous) || (p->currentType && p->currentType->isVirtuous) || p->virtualOp || p->assuming) )
+	if ( current->type == SymbolType::stringType && !current->isMethod && ((currentClass && currentClass->isVirtuous) || (currentType && currentType->isVirtuous) || virtualOp || assuming) )
 		{
 		/***********************************************************************
 		We bail here so Qualified will fail because name value does not get
@@ -1744,10 +1593,10 @@ Expression 	*expression = 0;
 		}
 	else
 	if ( !current->isVirtuous() )
-		if ( *p->plgStart != ':' )
+		if ( *cursor != ':' )
 			{
 			text = ::concat(2,"FieldBody: could not find ",current->prefix);
-			current = p->makeError(text);
+			current = makeError(text);
 			}
 		else	current->type = SymbolType::nullType;
 	if ( current->isMethod && !current->parameters && !body )
@@ -1759,75 +1608,71 @@ Expression 	*expression = 0;
 		}
 	if ( expression )
 		current = new Instance(expression);
-	name->value = (void*)current;
+	name->itemValue = (void*)current;
 }
 
-int FieldExpressionTawkNow(PLGitem *iTEM)
+int Tawk::FieldExpressionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*cast = iTEM->get("cast");
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*instance = iTEM->get("instance");
+PLGitem 	*cast = (PLGitem*)iTEM->children->get("cast");
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*castInstance = 0;
 Instance 	*subject = 0;
-PLGitem 	*item = instance->get("field");
-Instance 	*current = (Instance*)item->value;
+PLGitem 	*item = instance->getLabel("field");
+Instance 	*current = (Instance*)item->itemValue;
 	if ( direct )
 		current = current->setIndirectItem(direct);
 	if ( cast )
 		{
-		direct = cast->get("direct");
-		item = cast->get("type");
-		castInstance = (Instance*)item->value;
+		direct = cast->getLabel("direct");
+		item = cast->getLabel("type");
+		castInstance = (Instance*)item->itemValue;
 		if ( direct )
 			castInstance = castInstance->setIndirectItem(direct);
 		subject = new Instance(current);
 		subject->cast = castInstance;
 		current = subject;
 		}
-	instance->value = (void*)current;
+	instance->itemValue = (void*)current;
 	return 1;
 }
 
-int FieldTawkNow(PLGitem *iTEM)
+int Tawk::FieldTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Symbol 		*symbol = 0;
-	if ( p->currentClass->components )
+	if ( currentClass->components )
 		{
-		symbol = (Symbol*)p->currentClass->components->get(name->string());
+		symbol = (Symbol*)currentClass->components->get(name->string());
 		name->unString();
 		}
 	if ( symbol )
-		name->value = (void*)symbol;
+		name->itemValue = (void*)symbol;
 	else	return 0;
 	return 1;
 }
 
-int FieldingTawkNow(PLGitem *iTEM)
+int Tawk::FieldingTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*text = name->toString();
-Symbol 		*symbol = p->currentSymbols->presentClass->findField(text);
-	if ( symbol && !p->currentType )
-		p->setCurrentType(symbol->type);
+Symbol 		*symbol = currentSymbols->presentClass->findField(text);
+	if ( symbol && !currentType )
+		setCurrentType(symbol->type);
 	return 1;
 }
 
-int FileNameTawkNow(PLGitem *iTEM)
+int Tawk::FileNameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->formatter->filename = name->toString();
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+	formatter->filename = name->toString();
 	return 1;
 }
 
-int ForOption2TawkNow(PLGitem *iTEM)
+int Tawk::ForOption2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Instance 	*initial = 0;
 Instance 	*target = 0;
 Instance 	*iterator = 0;
@@ -1839,13 +1684,13 @@ char 		*error = 0;
 Statement 	*statement = new Statement(FOR);
 Expression 	*express = 0;
 	statement->pointInCode = iTEM;
-	initial = (Instance*)instance->value;
+	initial = (Instance*)instance->itemValue;
 	target = initial->express->subject;
 	if ( !target )
-		target = p->makeError("expression has no subject");
+		target = makeError("expression has no subject");
 	else
 	if ( !target->symbol )
-		target = p->makeError("invalid subject");
+		target = makeError("invalid subject");
 	else {
 		type = target->getType();
 		if ( name )
@@ -1898,14 +1743,14 @@ Expression 	*express = 0;
 						}
 					else {
 						error = ::concat(2,target->symbol->name," has no iterator");
-						target = p->makeError(error);
+						target = makeError(error);
 						}
 			}
 		else
 		if ( !target->symbol->typeMatch(symbol->type) )
 			{
 			error = ::concat(4,"type of ",symbol->name," does not match type of ",target->symbol->name);
-			target = p->makeError(error);
+			target = makeError(error);
 			}
 		else {
 			iterator = new Instance(symbol);
@@ -1924,146 +1769,146 @@ endForOption:
 	statement->first = initial;
 	statement->second = target;
 	statement->third = iterator;
-	instance->value = (void*)statement;
+	instance->itemValue = (void*)statement;
 	return 1;
 }
 
-int ForOptionTawkNow(PLGitem *iTEM)
+int Tawk::ForOptionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*initial = iTEM->get("initial");
-PLGitem 	*condition = iTEM->get("condition");
-PLGitem 	*increment = iTEM->get("increment");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*initial = (PLGitem*)iTEM->children->get("initial");
+PLGitem 	*condition = (PLGitem*)iTEM->children->get("condition");
+PLGitem 	*increment = (PLGitem*)iTEM->children->get("increment");
 Statement 	*statement = new Statement(FOR);
 Instance 	*express = 0;
 PLGitem 	*item = 0;
 	statement->pointInCode = iTEM;
 	if ( initial )
 		{
-		item = initial->get("list");
-		express = (Instance*)item->value;
+		item = initial->getLabel("list");
+		express = (Instance*)item->itemValue;
 		statement->first = express;
 		}
 	if ( condition )
 		{
-		item = condition->get("instance");
-		express = (Instance*)item->value;
+		item = condition->getLabel("instance");
+		express = (Instance*)item->itemValue;
 		express->isCondition = 1;
 		statement->second = express;
 		}
 	if ( increment )
 		{
-		item = increment->get("list");
-		express = (Instance*)item->value;
+		item = increment->getLabel("list");
+		express = (Instance*)item->itemValue;
 		statement->third = express;
 		}
-	instance->value = (void*)statement;
-	p->noShortcuts = 0;
+	instance->itemValue = (void*)statement;
+	noShortcuts = 0;
 	return 1;
 }
 
-int Include2TawkNow(PLGitem *iTEM)
+int Tawk::Include2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*include = iTEM->get("include");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->formatter->includeText->appendString(include->string());
+PLGitem 	*include = (PLGitem*)iTEM->children->get("include");
+	formatter->includeText->appendString(include->string(),0,0);
 	include->unString();
 	return 1;
 }
 
-int Include3TawkNow(PLGitem *iTEM)
+int Tawk::Include3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*include = iTEM->get("include");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*include = (PLGitem*)iTEM->children->get("include");
 char 		*sourceFile = include->toString();
 char 		*text = ::getStringFromFile(sourceFile);
 	if ( !text )
 		::fprintf(stderr,"Include: could not get text from %s\n",sourceFile);
 	else
-	if ( !p->includedFiles->get(sourceFile) )
+	if ( !includedFiles->get(sourceFile) )
 		{
-		p->includedFiles->add(sourceFile);
+		includedFiles->add(sourceFile);
 		//cout "including file: " sourceFile:;
-		p->divertInput(text,"Divert");
+		divertInput(text,"Divert");
 		//cout `"Done with " start:;
 		}
 	else	::fprintf(stderr,"Include: source file already loaded, now ignored: %s\n",sourceFile);
 	return 1;
 }
 
-int IncludeTawkNow(PLGitem *iTEM)
+int Tawk::IncludeTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*include = iTEM->get("include");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->formatter->includeText->appendString(include->string());
-	p->formatter->includeText->appendString("\n");
+PLGitem 	*include = (PLGitem*)iTEM->children->get("include");
+	formatter->includeText->appendString(include->string(),0,0);
+	formatter->includeText->appendString("\n",0,0);
 	include->unString();
 	return 1;
 }
 
-int Inheritance4TawkNow(PLGitem *iTEM)
+int Tawk::Inheritance2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*error = iTEM->get("error");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*error = (PLGitem*)iTEM->children->get("error");
 	if ( error )
 		{
 		::printf("ERROR Inheritance: at ==>%s\n",error->string());
 		error->unString();
 		}
 	else	::printf("ERROR: no idea where\n");
-	p->extending = 0;
+	extending = 0;
 	return 1;
 }
 
-int InitExpressionTawkNow(PLGitem *iTEM)
+void Tawk::InheritanceTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+}
+
+int Tawk::InitExpressionTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*subject = 0;
 PLGitem 	*last = 0;
 PLGitem 	*item = 0;
 SymbolType 	*type = 0;
-	subject = (Instance*)instance->value;
+	subject = (Instance*)instance->itemValue;
 	type = subject->getType();
 	if ( type == SymbolType::stringType && subject->howDirect() == 1 )
 		{
 		last = instance;
 		while ( 1 )
 			{
-			item = p->parse("StringExpression");
+			item = parse("StringExpression");
 			if ( item )
 				{
-				PLGitem 	*expressItem = item->get("instance");
-				Instance 	*secondary = (Instance*)expressItem->value;
+				PLGitem 	*expressItem = item->getLabel("instance");
+				Instance 	*secondary = (Instance*)expressItem->itemValue;
 				type = secondary->getType();
-				if ( type == SymbolType::stringType )
-					{
-					last->next = expressItem;
-					last = last->next;
-					}
-				else	break;
+				//dealWith
+				/*
+				if type == stringType
+				{
+				last.next = expressItem;
+				last = last.next;
+				}
+				else break;
+				*/
 				}
 			else	break;
 			}
-		if ( instance->next )
+		if ( instance->itemNext )
 			{
-			subject = p->concatenate(instance);
-			instance->value = (void*)subject;
+			subject = concatenate(instance);
+			instance->itemValue = (void*)subject;
 			}
 		}
 	return 1;
 }
 
-int InitializerItemTawkNow(PLGitem *iTEM)
+int Tawk::InitializerItemTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*field = iTEM->get("field");
-PLGitem 	*function = iTEM->get("function");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
+PLGitem 	*function = (PLGitem*)iTEM->children->get("function");
 SymbolType 	*type = SymbolType::types->getFromItem(field);
 char 		*text = function->string();
 char 		*signature = ::concat(2,text,"(char*)");
-Symbol 		*method = p->currentClass->findField(signature);
+Symbol 		*method = currentClass->findField(signature);
 	if ( type )
 		if ( method )
 			{
@@ -2073,14 +1918,14 @@ Symbol 		*method = p->currentClass->findField(signature);
 			}
 		else	::fprintf(stderr,"InitializerItem rule could not find initialer method: %s\n",signature);
 	else {
-		Symbol 	*virtualField = p->currentClass->get(field);
+		Symbol 	*virtualField = currentClass->get(field);
 		if ( !virtualField )
 			if ( method )
 				{
 				virtualField = new Symbol(field->toString(),method->type);
 				virtualField->isHidden = 1;
 				virtualField->getter = method;
-				p->currentClass->add(virtualField);
+				currentClass->add(virtualField);
 				}
 			else	::fprintf(stderr,"InitializerItem rule could not find getter method: %s\n",signature);
 		else	::fprintf(stderr,"InitializerItem rule: virtual field %s already exists\n",field->toString());
@@ -2089,99 +1934,89 @@ Symbol 		*method = p->currentClass->findField(signature);
 	return 1;
 }
 
-int InitializerTawkNow(PLGitem *iTEM)
+int Tawk::InitializerTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*list = instance->get("list");
-	instance->value = list->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*list = instance->getLabel("list");
+	instance->itemValue = list->itemValue;
 	return 1;
 }
 
-int InstanceTailTawkNow(PLGitem *iTEM)
+int Tawk::InstanceTailTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*array = iTEM->get("array");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*array = (PLGitem*)iTEM->children->get("array");
 PLGitem 	*item = 0;
 double 		i = 0;
-	for ( item = array; item; item = item->next )
+	for ( item = array; item; item = item->itemNext )
 		i++;
 	array->amount = i;
-	p->noShortcuts = 0;
+	noShortcuts = 0;
 	return 1;
 }
 
-int ItemHeadTawkNow(PLGitem *iTEM)
+int Tawk::ItemHeadTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*array = iTEM->get("array");
+PLGitem 	*array = (PLGitem*)iTEM->children->get("array");
 PLGitem 	*item = 0;
 double 		i = 0;
 	if ( array )
 		{
-		for ( item = array; item; item = item->next )
+		for ( item = array; item; item = item->itemNext )
 			i++;
 		array->amount = i;
 		}
 	return 1;
 }
 
-int IteratingTawkNow(PLGitem *iTEM)
+int Tawk::Lambda2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->iterating++;
-	return 1;
-}
-
-int Lambda2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*function = iTEM->get("function");
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*function = (PLGitem*)iTEM->children->get("function");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
 Instance 	*instance = 0;
 Instance 	*bodyInstance = 0;
 PLGitem 	*item = 0;
 Statement 	*line = 0;
 BlockTok 	*block = 0;
-	item = function->find("head");
-	instance = (Instance*)item->value;
+	item = function->deferred->find("head");
+	instance = (Instance*)item->itemValue;
 	if ( !instance->isLambda )
 		return 0;
 	instance->isDeclaration = 1;
 	instance->symbol->isAssigned = 1;
-	p->currentSymbols->add(instance);
+	currentSymbols->add(instance);
 	line = new Statement(LAMBDA);
 	line->pointInCode = iTEM;
 	line->add(instance);
-	item = body->get("start");
-	block = (BlockTok*)item->value;
-	p->currentClass->hasLambda = 1;
+	item = body->getLabel("start");
+	block = (BlockTok*)item->itemValue;
+	currentClass->hasLambda = 1;
 	block->isLambda = 1;
 	bodyInstance = new Instance(block);
 	line->add(bodyInstance);
 	// replaces prior commented out line
 	instance = new Instance(line);
-	function->value = (void*)instance;
+	function->itemValue = (void*)instance;
 	return 1;
 }
 
-int LambdaNameTawkNow(PLGitem *iTEM)
+int Tawk::LambdaNameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Instance 	*instance = 0;
 char 		*text = 0;
-	if ( !p->currentClass->hasLambda )
+	if ( !currentClass->hasLambda )
 		return 0;
 	text = name->string();
 	if ( !SymbolType::find(text) )
 		{
-		instance = p->currentSymbols->find(text);
+		instance = currentSymbols->find(text);
 		name->unString();
 		if ( instance && instance->symbol && instance->isLambda )
 			{
 			// Create a copy of instance w/o isDeclaration set
 			instance = new Instance(instance->symbol);
-			name->value = (void*)instance;
-			p->lambdaMethod = instance->symbol;
+			name->itemValue = (void*)instance;
+			lambdaMethod = instance->symbol;
 			}
 		else	return 0;
 		}
@@ -2192,130 +2027,112 @@ char 		*text = 0;
 	return 1;
 }
 
-int LambdaTawkNow(PLGitem *iTEM)
+int Tawk::LambdaTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*function = iTEM->get("function");
-PLGitem 	*body = iTEM->get("body");
-PLGitem 	*item = function->get("name");
-Instance 	*lambda = (Instance*)item->value;
+PLGitem 	*function = (PLGitem*)iTEM->children->get("function");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
+PLGitem 	*item = function->getLabel("name");
+Instance 	*lambda = (Instance*)item->itemValue;
 Instance 	*lambdaBody = 0;
 Expression 	*express = 0;
 BlockTok 	*block = 0;
 	lambda->symbol->isAssigned = 1;
 	lambda->assigning = 1;
-	item = body->get("start");
-	block = (BlockTok*)item->value;
+	item = body->getLabel("start");
+	block = (BlockTok*)item->itemValue;
 	block->isLambda = 1;
 	lambdaBody = new Instance(block);
 	express = new Expression(lambda,lambdaBody,"=");
 	lambda = new Instance(express);
-	function->value = (void*)lambda;
+	function->itemValue = (void*)lambda;
 	return 1;
 }
 
-int Line3TawkNow(PLGitem *iTEM)
+int Tawk::Line2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
 char 		*text = 0;
 Instance 	*label = 0;
 PLGitem 	*item = 0;
 Symbol 		*symbol = 0;
-	for ( item = name; item; item = item->next )
+	for ( item = symbol->name; item; item = item->itemNext )
 		{
-		text = name->string();
-		label = (Instance*)p->currentSymbols->instances->get(text);
+		text = symbol->name->string();
+		label = (Instance*)currentSymbols->instances->get(text);
 		if ( !label )
 			{
-			symbol = new Symbol(name->toString(),SymbolType::voidType);
+			symbol = new Symbol(symbol->name->toString(),SymbolType::voidType);
 			label = new Instance(symbol);
 			label->isLabel = 1;
-			p->currentSymbols->add(label);
+			currentSymbols->add(label);
 			}
-		name->unString();
+		symbol->name->unString();
 		if ( !label->isLabel )
-			::fprintf(stderr,"ERROR: label %s already in scope\n",name->toString());
+			::fprintf(stderr,"ERROR: label %s already in scope\n",symbol->name);
 		}
 	return 1;
 }
 
-int LineByLineTawkNow(PLGitem *iTEM)
+int Tawk::LineByLineTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*line = iTEM->get("line");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*line = (PLGitem*)iTEM->children->get("line");
 Statement 	*statement = 0;
 PLGitem 	*entry = 0;
 PLGitem 	*method = 0;
-	for ( entry = line; entry; entry = entry->next )
-		if ( method = entry->get("statement") )
+	for ( entry = line; entry; entry = entry->itemNext )
+		if ( method = entry->getLabel("statement") )
 			{
-			statement = (Statement*)method->value;
+			statement = (Statement*)method->itemValue;
 			if ( statement )
-				p->currentMethod->block->add(statement);
+				currentMethod->block->add(statement);
 			}
 	return 1;
 }
 
-int LineTawkNow(PLGitem *iTEM)
+int Tawk::LineTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*target = iTEM->get("target");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*instance = (Instance*)target->get("instance")->value;
+PLGitem 	*target = (PLGitem*)iTEM->children->get("target");
+Instance 	*instance = (Instance*)target->getLabel("instance")->itemValue;
 	instance->level = 1;
-	p->currentSymbols->add(instance);
+	currentSymbols->add(instance);
 	return 1;
 }
 
-int MacroBitTawkNow(PLGitem *iTEM)
+int Tawk::MacroBlockTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*bitpart = iTEM->get("bitpart");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Symbol 		*symbol = 0;
-	if ( symbol = (Symbol*)p->macroHash->get(bitpart) )
-		iTEM->value = (void*)symbol;
-	else	return 0;
-	return 1;
-}
-
-int MacroBlockTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*line = iTEM->get("line");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*line = (PLGitem*)iTEM->children->get("line");
 Statement 	*statement = 0;
 PLGitem 	*item = 0;
 int 		indentFlag = 0;
-	for ( ; line; line = line->next )
+	for ( ; line; line = line->itemNext )
 		{
-		item = line->get("statement");
+		item = line->getLabel("statement");
 		if ( !item )
 			continue;
-		statement = (Statement*)item->value;
+		statement = (Statement*)item->itemValue;
 		if ( !indentFlag )
 			{
 			statement->indented = 0;
 			indentFlag = 1;
 			}
 		if ( statement )
-			p->currentBlock->add(statement);
+			currentBlock->add(statement);
 		}
 	return 1;
 }
 
-int MacroBodyTawkNow(PLGitem *iTEM)
+int Tawk::MacroBodyTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*parts = iTEM->get("parts");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*parts = (PLGitem*)iTEM->children->get("parts");
 PLGitem 	*body = 0;
 PLGitem 	*last = 0;
 PLGitem 	*other = 0;
 PLGitem 	*part = 0;
 PLGitem 	*rest = 0;
-	for ( ; parts; parts = parts->next )
+	for ( ; parts; parts = parts->itemNext )
 		{
 		if ( body && !last )
 			last = body;
-		// Not sure why we cannot say here: if other = parts["other"]
-		if ( other = parts->firstComponent )
+		if ( other = parts->getLabel("other") )
 			{
 			if ( other->itemLength )
 				{
@@ -2324,146 +2141,146 @@ PLGitem 	*rest = 0;
 				if ( !last )
 					last = body;
 				else {
-					last->next = other;
-					last = last->next;
+					//dealWith
+					last->itemNext = other;
+					last = last->itemNext;
 					}
 				}
-			if ( part = other->valueItem )
+			if ( part = (PLGitem*)other->itemValue )
 				{
 				if ( !body )
 					body = part;
 				if ( !last )
 					last = body;
 				else {
-					last->next = part;
-					last = last->next;
+					//dealWith
+					last->itemNext = part;
+					last = last->itemNext;
 					}
-				other->valueItem = 0;
+				other->itemValue = (void*)0;
 				}
 			}
 		else
-		if ( rest = parts->get("rest") )
+		if ( rest = parts->getLabel("rest") )
 			{
 			if ( !body )
 				body = rest;
 			if ( !last )
 				last = body;
 			else {
-				last->next = rest;
-				last = last->next;
+				//dealWith
+				last->itemNext = rest;
+				last = last->itemNext;
 				}
 			}
 		}
-	p->currentMethod->commentItem = body;
+	currentMethod->commentItem = body;
 	return 1;
 }
 
-int MacroDefineTawkNow(PLGitem *iTEM)
+int Tawk::MacroDefineTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*parameters = iTEM->get("parameters");
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*parameters = (PLGitem*)iTEM->children->get("parameters");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
 Symbol 		*argument = 0;
 Symbol 		*symbol = 0;
-Buffer 		*buffer = p->tokJunkBuffer;
+Buffer 		*buffer = tokJunkBuffer;
 	symbol = new Symbol(name->string(),SymbolType::voidType);
 	buffer->reset();
-	buffer->appendString(symbol->name);
-	if ( !p->macroHash )
-		p->macroHash = new BaseHash();
-	else	p->macroHash->clear();
+	buffer->appendString(symbol->name,0,0);
+	if ( !macroHash )
+		macroHash = new BaseHash();
+	else	macroHash->clear();
 	if ( parameters )
 		{
 		PLGitem 	*item = parameters;
 		symbol->isMethod = 1;
-		buffer->appendString("(");
-		for ( ; item; item = item->next )
+		buffer->appendString("(",0,0);
+		for ( ; item; item = item->itemNext )
 			{
-			PLGitem 	*element = item->get("element");
+			PLGitem 	*element = item->getLabel("element");
 			argument = new Symbol(element->string());
 			argument->isAlias = 1;
 			symbol->addParameter(argument);
-			buffer->appendString(argument->name);
-			if ( item->next )
-				buffer->appendString(",");
-			p->macroHash->add(argument->name,(void*)argument);
+			buffer->appendString(argument->name,0,0);
+			//dealWith
+			if ( item->itemNext )
+				buffer->appendString(",",0,0);
+			macroHash->add(argument->name,(void*)argument);
 			}
-		buffer->appendString(")");
+		buffer->appendString(")",0,0);
 		}
 	symbol->methodName = buffer->toString();
 	symbol->isHidden = 1;
 	// currentMethod is reused here temporarily then reset
-	argument = p->currentMethod;
-	p->currentMethod = symbol;
+	argument = currentMethod;
+	currentMethod = symbol;
 	if ( parameters )
-		p->divertInput(body->string(),p->getRule("MacroBody"));
+		divertInput(body->string(),getRule("MacroBody"));
 	else {
 		symbol->commentItem = body;
-		body->value = (void*)0;
+		body->itemValue = (void*)0;
 		}
-	p->currentMethod = argument;
-	if ( !p->macroList )
-		p->macroList = new BaseHash();
-	p->macroList->add(symbol->name,(void*)symbol);
+	currentMethod = argument;
+	if ( !macroList )
+		macroList = new BaseHash();
+	macroList->add(symbol->name,(void*)symbol);
 	return 1;
 }
 
-int MacroDelimitTawkNow(PLGitem *iTEM)
+int Tawk::MacroDelimitTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*delimiter = iTEM->get("delimiter");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->macroDelimiter = delimiter->toString();
+PLGitem 	*delimiter = (PLGitem*)iTEM->children->get("delimiter");
+	macroDelimiter = delimiter->toString();
 	return 1;
 }
 
-int MacroNameTawkNow(PLGitem *iTEM)
+int Tawk::MacroNameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	if ( !p->macroList || !p->macroList->get(name) )
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+	if ( !macroList || !macroList->get(name->toString()) )
 		return 0;
 	return 1;
 }
 
-void MethodHeadTawkAct(PLGitem *iTEM)
+void Tawk::MethodHeadTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*function = iTEM->get("function");
-PLGitem 	*head = iTEM->get("head");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*function = (PLGitem*)iTEM->children->get("function");
+PLGitem 	*head = (PLGitem*)iTEM->children->get("head");
 Symbol 		*symbol = 0;
 Symbol 		*argument = 0;
 Instance 	*instance = 0;
 PLGitem 	*item = 0;
 PLGitem 	*atItem = 0;
-PLGitem 	*ellipsis = head->get("ellipsis");
-PLGitem 	*parameter = head->get("parameter");
+PLGitem 	*ellipsis = head->getLabel("ellipsis");
+PLGitem 	*parameter = head->getLabel("parameter");
 char 		*name = 0;
 char 		*methodName = 0;
 int 		i = 0;
 int 		construct = 0;
-int 		lambda = direct && p->lambdaSet->foundIn(direct);
+int 		lambda = direct && ::foundIn(lambdaSet,direct);
 	if ( function )
 		name = function->toString();
 	else
 	if ( lambda )
 		name = "lambda";
 	else {
-		name = p->methodType->name;
+		name = methodType->name;
 		construct = 1;
 		}
 	if ( lambda )
-		p->currentClass->hasLambda = 1;
+		currentClass->hasLambda = 1;
 	methodName = (char*)::alloca(1000);
 	::strcpy(methodName,name);
 	::strcat(methodName,"(");
-	for ( atItem = parameter; atItem; atItem = atItem->next )
+	for ( atItem = parameter; atItem; atItem = atItem->itemNext )
 		{
-		item = atItem->get("type");
-		for ( item = (PLGitem*)item->value; item; item = item->next )
+		item = atItem->getLabel("type");
+		for ( item = (PLGitem*)item->itemValue; item; item = item->itemNext )
 			{
-			symbol = (Symbol*)item->value;
+			symbol = (Symbol*)item->itemValue;
 			if ( symbol->isLambda || (symbol->reference && symbol->isMethod) )
 				::strcat(methodName,symbol->getSignature());
 			else {
@@ -2472,10 +2289,10 @@ int 		lambda = direct && p->lambdaSet->foundIn(direct);
 					::strcat(methodName,"*");
 				//if symbol.reference strcat(methodName,"&");
 				}
-			if ( item->next )
+			if ( item->itemNext )
 				::strcat(methodName,",");
 			}
-		if ( atItem->next )
+		if ( atItem->itemNext )
 			::strcat(methodName,",");
 		else
 		if ( ellipsis )
@@ -2485,10 +2302,10 @@ int 		lambda = direct && p->lambdaSet->foundIn(direct);
 		::strcat(methodName,",null");
 	::strcat(methodName,")");
 	symbol = 0;
-	if ( p->currentClass )
-		if ( p->currentClass->isGlobal )
-			symbol = p->currentSymbols->findGlobalMethod(methodName);
-		else	symbol = p->currentClass->getMethod(methodName);
+	if ( currentClass )
+		if ( currentClass->isGlobal )
+			symbol = currentSymbols->findGlobalMethod(methodName);
+		else	symbol = currentClass->getMethod(methodName);
 	/***************************************************************************
 	If symbol then method was probably declared external and need to make
 	sure the parameter names match up.
@@ -2497,37 +2314,37 @@ int 		lambda = direct && p->lambdaSet->foundIn(direct);
 		{
 		while ( symbol->source )
 			symbol = symbol->source;
-		if ( !(p->currentClass->isGlobal && symbol->parentClass->isGlobal) && symbol->parentClass != p->currentClass )
+		if ( !(currentClass->isGlobal && symbol->parentClass->isGlobal) && symbol->parentClass != currentClass )
 			goto newSymbol;
-		if ( symbol->type != p->methodType )
+		if ( symbol->type != methodType )
 			::fprintf(stderr,"Warning: multiple types for %s\n",methodName);
 		symbol->checkParameters(parameter);
 		}
 	else {
 newSymbol:
-		symbol = new Symbol(name,p->methodType);
+		symbol = new Symbol(name,methodType);
 		symbol->isMethod = 1;
-		if ( p->constDeclare )
+		if ( constDeclare )
 			symbol->isConst = 1;
-		if ( inlineDeclare(p->linkage) )
+		if ( inlineDeclare(linkage) )
 			symbol->isInline = 1;
-		if ( staticDeclare(p->linkage) )
+		if ( staticDeclare(linkage) )
 			symbol->isStatic = 1;
-		if ( virtualDeclare(p->linkage) )
+		if ( virtualDeclare(linkage) )
 			symbol->isVirtual = 1;
-		if ( externDeclare(p->linkage) )
+		if ( externDeclare(linkage) )
 			{
 			symbol->isExtern = 1;
-			p->currentClass->hasExtern = 1;
+			currentClass->hasExtern = 1;
 			}
 		if ( direct )
 			symbol->setIndirection(direct);
-		for ( atItem = parameter; atItem; atItem = atItem->next )
+		for ( atItem = parameter; atItem; atItem = atItem->itemNext )
 			{
-			item = atItem->get("type");
-			for ( item = (PLGitem*)item->value; item; item = item->next )
+			item = atItem->getLabel("type");
+			for ( item = (PLGitem*)item->itemValue; item; item = item->itemNext )
 				{
-				argument = (Symbol*)item->value;
+				argument = (Symbol*)item->itemValue;
 				symbol->addParameter(argument);
 				}
 			}
@@ -2541,25 +2358,24 @@ newSymbol:
 			symbol->hasEllipsis = 1;
 			}
 		symbol->mangle();
-		if ( p->currentClass && !p->currentMethod && !p->processingParameters && !lambda && !symbol->reference )
-			p->currentClass->addMethod(symbol);
+		if ( currentClass && !currentMethod && !processingParameters && !lambda && !symbol->reference )
+			currentClass->addMethod(symbol);
 		}
 	symbol->isConstructor = construct;
 	instance = new Instance(symbol);
-	head->value = (void*)instance;
-	if ( !p->currentMethod && !p->processingParameters && !symbol->reference )
-		p->currentMethod = symbol;
+	head->itemValue = (void*)instance;
+	if ( !currentMethod && !processingParameters && !symbol->reference )
+		currentMethod = symbol;
 	if ( instance->isLambda )
-		p->lambdaMethod = symbol;
+		lambdaMethod = symbol;
 }
 
-int MethodNameTawkNow(PLGitem *iTEM)
+int Tawk::MethodNameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*word = name->string();
 SymbolType 	*type = SymbolType::find(word);
-	if ( p->ReservedWord->find(word) || (type && !type->isGlobal) )
+	if ( ReservedWord->find(word) || (type && !type->isGlobal) )
 		{
 		name->unString();
 		return 0;
@@ -2568,27 +2384,26 @@ SymbolType 	*type = SymbolType::find(word);
 	return 1;
 }
 
-int MethodTawkNow(PLGitem *iTEM)
+int Tawk::MethodTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*method = iTEM->get("method");
-PLGitem 	*block = iTEM->get("block");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*body = block->get("start");
-PLGitem 	*head = method->find("head");
+PLGitem 	*method = (PLGitem*)iTEM->children->get("method");
+PLGitem 	*block = (PLGitem*)iTEM->children->get("block");
+PLGitem 	*body = block->getLabel("start");
+PLGitem 	*head = method->deferred->find("head");
 Instance 	*instance = 0;
-	method->value = head->value;
-	instance = (Instance*)method->value;
+	method->itemValue = head->itemValue;
+	instance = (Instance*)method->itemValue;
 	instance->checkSymbol();
-	instance->symbol->block = (BlockTok*)body->value;
+	instance->symbol->block = (BlockTok*)body->itemValue;
 	instance->symbol->block->isMethodBlock = 1;
-	if ( p->currentComment )
-		instance->symbol->comment = p->extractComment();
-	p->missingMethods->remove(instance->symbol->methodName);
-	if ( instance->symbol->directives )
-		::printf("\t%s has directives\n",instance->symbol->methodName);
-	else	::printf("\t%s\n",instance->symbol->methodName);
-	p->currentMethod = 0;
-	p->produceCodeFile = 1;
+	if ( currentComment )
+		instance->symbol->comment = extractComment();
+	missingMethods->remove(instance->symbol->methodName);
+	if ( trueSymbol->directives )
+		::printf("\t%s has directives\n",trueSymbol->methodName);
+	else	::printf("\t%s\n",trueSymbol->methodName);
+	currentMethod = 0;
+	produceCodeFile = 1;
 	/***************************************************************************
 	external methods declared in the current file get added to internalType
 	so they get declared in the Start rule. The parentClass of the method
@@ -2602,56 +2417,53 @@ Instance 	*instance = 0;
 	return 1;
 }
 
-void MethodTypeTawkAct(PLGitem *iTEM)
+void Tawk::MethodTypeTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	p->methodType = (SymbolType*)type->value;
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+	methodType = (SymbolType*)type->itemValue;
 }
 
-int MethodTypeTawkNow(PLGitem *iTEM)
+int Tawk::MethodTypeTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*modify = iTEM->get("modify");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*methodHead = iTEM->get("methodHead");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*modify = (PLGitem*)iTEM->children->get("modify");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*methodHead = (PLGitem*)iTEM->children->get("methodHead");
 Instance 	*instance = 0;
 PLGitem 	*head = 0;
 PLGitem 	*item = 0;
 	// follow is not used but apparently it has to be there. Figure out why.
-	p->methodType = (SymbolType*)type->value;
-	for ( item = modify; item; item = item->next )
+	methodType = (SymbolType*)type->itemValue;
+	for ( item = modify; item; item = item->itemNext )
 		if ( *item->itemStart == 'c' )
-			p->constDeclare = 1;
+			constDeclare = 1;
 		else
 		if ( *item->itemStart == 'i' )
-			p->linkage = 2;
+			linkage = 2;
 		else
 		if ( *item->itemStart == 's' )
-			p->linkage = 3;
+			linkage = 3;
 		else
 		if ( *item->itemStart == 'v' )
-			p->linkage = 4;
-		else	p->linkage = 1;
-	methodHead->runDeferred();
-	head = methodHead->get("head");
-	instance = (Instance*)head->value;
+			linkage = 4;
+		else	linkage = 1;
+	methodHead->runDeferred(this);
+	head = methodHead->getLabel("head");
+	instance = (Instance*)head->itemValue;
 	if ( modify )
 		{
-		p->constDeclare = 0;
-		p->linkage = 0;
+		constDeclare = 0;
+		linkage = 0;
 		}
-	p->declaringMethod = 1;
+	declaringMethod = 1;
 	return 1;
 }
 
-int NameTawkNow(PLGitem *iTEM)
+int Tawk::NameTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*word = name->string();
 SymbolType 	*type = SymbolType::find(word);
-	if ( p->ReservedWord->find(word) || type )
+	if ( ReservedWord->find(word) || type )
 		{
 		name->unString();
 		return 0;
@@ -2660,13 +2472,12 @@ SymbolType 	*type = SymbolType::find(word);
 	return 1;
 }
 
-void NewTawkAct(PLGitem *iTEM)
+void Tawk::NewTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*body = iTEM->get("body");
-PLGitem 	*initial = iTEM->get("initial");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
+PLGitem 	*initial = (PLGitem*)iTEM->children->get("initial");
 	/**********************************************************************
 	Need to check that parameters are of the right types
 	If type is not provided, it gets set in the expression that
@@ -2681,18 +2492,18 @@ Instance 	*parameter = 0;
 char 		*allocator = 0;
 int 		skipConstructor = 0;
 	if ( type )
-		symbolType = (SymbolType*)type->value;
-	else	symbolType = p->newType;
+		symbolType = (SymbolType*)type->itemValue;
+	else	symbolType = newType;
 	if ( !symbolType )
 		symbolType = SymbolType::nullType;
 	if ( symbolType == SymbolType::nullType )
-		current = p->getInstance("No type found");
+		current = getInstance("No type found");
 	if ( symbolType->constructor )
 		{
-		if ( p->currentMethod && ::compare(symbolType->constructor,p->currentMethod->name) == 0 )
+		if ( currentMethod && ::compare(symbolType->constructor,currentMethod->name) == 0 )
 			{
 			//currentMethod.isConstructor = true;
-			skipConstructor = p->currentMethod->isInitialized = 1;
+			skipConstructor = currentMethod->isInitialized = 1;
 			}
 		if ( !skipConstructor )
 			allocator = symbolType->constructor;
@@ -2701,43 +2512,43 @@ int 		skipConstructor = 0;
 		allocator = symbolType->name;
 	if ( body )
 		{
-		item = body->get("array");
+		item = body->getLabel("array");
 		if ( item )
 			{
 			symbol = new Symbol("new",symbolType);
 			current = new Instance(symbol);
-			current->symbol->isArray = (unsigned int)item->amount;
+			current->symbol->isArray = (unsigned int)item->getAmount();
 			}
 		else {
 			if ( symbolType->isOC )
 				{
-				current = p->getInstance("init");
+				current = getInstance("init");
 				current->type = symbolType;
 				}
-			else	current = p->getInstance(allocator);
+			else	current = getInstance(allocator);
 			current->isMethod = 1;
-			item = body->get("expression");
+			item = body->getLabel("expression");
 			}
 		}
 	else
 	if ( symbolType->isOC )
 		{
-		current = p->getInstance("init");
+		current = getInstance("init");
 		current->isMethod = 1;
 		current->type = symbolType;
 		}
 	else {
-		current = p->getInstance(allocator);
+		current = getInstance(allocator);
 		current->isMethod = 1;
 		}
-	for ( ; item; item = item->next )
+	for ( ; item; item = item->itemNext )
 		{
-		parameter = (Instance*)item->get("instance")->value;
+		parameter = (Instance*)item->getLabel("instance")->itemValue;
 		current->addParameter(parameter);
 		}
 	if ( symbol && initial )
 		{
-		parameter = (Instance*)initial->value;
+		parameter = (Instance*)initial->itemValue;
 		express = new Expression(current,parameter,"=");
 		current = new Instance(express);
 		}
@@ -2745,7 +2556,7 @@ int 		skipConstructor = 0;
 		{
 		if ( symbolType->constructor && !skipConstructor )
 			{
-			parameter = p->currentSymbols->findMethod(current);
+			parameter = currentSymbols->findMethod(current);
 			if ( parameter )
 				{
 				symbol = parameter->symbol;
@@ -2783,60 +2594,50 @@ int 		skipConstructor = 0;
 	if ( !symbolType->constructor )
 		current->isNew = 1;
 	current->isConstant = 0;
-	instance->value = (void*)current;
+	instance->itemValue = (void*)current;
 }
 
-int NoShortcutsTawkNow(PLGitem *iTEM)
+int Tawk::Number2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->noShortcuts = 1;
-	return 1;
-}
-
-int Number2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*isLong = iTEM->get("isLong");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*isLong = (PLGitem*)iTEM->children->get("isLong");
 Instance 	*number = 0;
 SymbolType 	*type = 0;
 	type = isLong ? SymbolType::longType : SymbolType::intType;
-	number = p->getInstance(instance->toString());
+	number = getInstance(instance->toString());
 	number->isConstant = 1;
 	number->type = type;
 	if ( isLong )
 		number->postfix = "LL";
-	instance->value = (void*)number;
+	instance->itemValue = (void*)number;
 	return 1;
 }
 
-int NumberTawkNow(PLGitem *iTEM)
+int Tawk::NumberTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*number = 0;
 SymbolType 	*type = SymbolType::doubleType;
-	number = p->getInstance(instance->toString());
+	number = getInstance(instance->toString());
 	number->isConstant = 1;
 	number->type = type;
-	instance->value = (void*)number;
+	instance->itemValue = (void*)number;
 	return 1;
 }
 
-int OperationTail2TawkNow(PLGitem *iTEM)
+int Tawk::OperationTail2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*question = instance->get("question");
-	instance->value = question->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*question = instance->getLabel("question");
+	instance->itemValue = question->itemValue;
 	return 1;
 }
 
-int OperationTailTawkNow(PLGitem *iTEM)
+int Tawk::OperationTailTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*operate = iTEM->get("operate");
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*question = iTEM->get("question");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*question = (PLGitem*)iTEM->children->get("question");
 PLGitem 	*item = 0;
 PLGitem 	*operand = 0;
 SymbolType 	*type = 0;
@@ -2844,279 +2645,266 @@ Expression 	*expression = 0;
 Instance 	*subject = 0;
 Instance 	*trueValue = 0;
 char 		*flag = 0;
-char 		*save = p->plgStart;
-	operand = operate->get("operand");
+char 		*save = cursor;
+	operand = operate->getLabel("operand");
 	if ( operand )
 		{
-		if ( p->stringing && p->expressType == SymbolType::stringType && !p->stringOP->foundIn(operand) )
+		if ( stringing && expressType == SymbolType::stringType && !::foundIn(stringOP,operand) )
 			return 0;
 		if ( *operand->itemStart == '=' && operand->itemLength == 1 )
 			flag = operand->itemStart + 1;
 		}
 	else
-	if ( operand = operate->get("comparator") )
+	if ( operand = operate->getLabel("comparator") )
 		flag = operand->itemStart + 3;
 	if ( question )
 		{
-		subject = (Instance*)instance->value;
-		trueValue = (Instance*)question->value;
+		subject = (Instance*)instance->itemValue;
+		trueValue = (Instance*)question->itemValue;
 		expression = new Expression(subject,trueValue,"?");
 		subject = new Instance(expression);
-		instance->value = (void*)subject;
+		instance->itemValue = (void*)subject;
 		flag = 0;
 		}
-	else	subject = (Instance*)instance->value;
+	else	subject = (Instance*)instance->itemValue;
 	if ( subject->parent && subject->isConstant )
-		instance->value = (void*)subject;
-	p->expressType = type = subject->getType();
+		instance->itemValue = (void*)subject;
+	expressType = type = subject->getType();
 	if ( flag )
 		if ( type == SymbolType::stringType && subject->howDirect() == 1 )
 			{
-			p->plgStart = flag;
-			p->stringing = 1;
-			if ( item = p->parse("Strings") )
+			cursor = flag;
+			stringing = 1;
+			if ( item = parse("Strings") )
 				{
-				subject = p->concatenate(item->get("item"));
-				instance->value = (void*)subject;
+				subject = concatenate(item->getLabel("item"));
+				instance->itemValue = (void*)subject;
 				}
-			else	p->plgStart = save;
-			p->stringing = 0;
+			else	cursor = save;
+			stringing = 0;
 			}
-	((Tawk*)iTEM->test->testParser)->assigning = 0;
+	assigning = 0;
 	return 1;
 }
 
-int Operator2TawkNow(PLGitem *iTEM)
+int Tawk::Operator2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*comparator = iTEM->get("comparator");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	if ( !p->compareFollow->contains(*(comparator->itemStart + 2)) )
+PLGitem 	*comparator = (PLGitem*)iTEM->children->get("comparator");
+	if ( !compareFollow->contains(*(comparator->itemStart + 2)) )
 		return 0;
 	return 1;
 }
 
-int OperatorTawkNow(PLGitem *iTEM)
+int Tawk::OperatorTawkNow(PLGitem *iTEM)
 {
-PLGitem 		*operand = iTEM->get("operand");
-Tawk 			*p = (Tawk*)iTEM->test->testParser;
-KeyTableItem 	*operatorItem = (KeyTableItem*)operand->value;
+PLGitem 		*operand = (PLGitem*)iTEM->children->get("operand");
+KeyTableItem 	*operatorItem = (KeyTableItem*)operand->itemValue;
 Operate 		*verb = (Operate*)operatorItem->value;
 	if ( verb->overload )
 		return 1;
 	if ( verb->isRange )
 		return 0;
-	if ( p->assigning && *operand->itemStart == ',' )
+	if ( assigning && *operand->itemStart == ',' )
 		return 0;
 	if ( !verb || verb->conjunction || verb->question )
 		return 0;
-	if ( p->virtualItem )
+	if ( virtualItem )
 		{
-		SymbolType 	*type = p->virtualItem->getType();
+		SymbolType 	*type = virtualItem->getType();
 		if ( type->isVirtuous )
-			if ( type->overloaded(verb->op) || (p->virtualItem->arrayRef && *operand->itemStart == '=' && operand->itemLength == 1 && type->overloaded("[]=")) )
-				p->virtualOp = operand;
+			if ( type->overloaded(verb->op) || (virtualItem->arrayRef && *operand->itemStart == '=' && operand->itemLength == 1 && type->overloaded("[]=")) )
+				virtualOp = operand;
 		}
-	if ( verb->assign && p->saveType )
+	if ( verb->assign && saveType )
 		{
-		p->newType = p->saveType;
-		if ( p->expressType == SymbolType::stringType && !p->assuming )
-			p->assigning = 1;
+		newType = saveType;
+		if ( expressType == SymbolType::stringType && !assuming )
+			assigning = 1;
 		}
 	return 1;
 }
 
-int OverLoadItem2TawkNow(PLGitem *iTEM)
+int Tawk::OverLoadItem2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*assign = iTEM->get("assign");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*assign = (PLGitem*)iTEM->children->get("assign");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*text = name->toString();
-	if ( p->currentClass )
+	if ( currentClass )
 		if ( assign )
-			p->currentClass->overload("[]=",text);
-		else	p->currentClass->overload("[]",text);
+			currentClass->overload("[]=",text);
+		else	currentClass->overload("[]",text);
 	else	::fprintf(stderr,"Overload specification must be within class\n");
-	p->currentClass->isVirtuous = 1;
+	currentClass->isVirtuous = 1;
 	return 1;
 }
 
-int OverLoadItem3TawkNow(PLGitem *iTEM)
+int Tawk::OverLoadItem3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*operate = iTEM->get("operate");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*text = name->toString();
-	if ( p->currentClass )
-		p->currentClass->overload(operate->toString(),text);
+	if ( currentClass )
+		currentClass->overload(operate->toString(),text);
 	else	::fprintf(stderr,"Overload specification must be within class\n");
 	return 1;
 }
 
-int OverLoadItem4TawkNow(PLGitem *iTEM)
+int Tawk::OverLoadItem4TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*newOp = iTEM->get("newOp");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*newOp = (PLGitem*)iTEM->children->get("newOp");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Operate 	*verb = new Operate(newOp->toString());
 char 		*text = name->toString();
-	if ( p->currentClass )
-		p->currentClass->overload(verb->op,text);
+	if ( currentClass )
+		currentClass->overload(verb->op,text);
 	else	::fprintf(stderr,"Overload specification must be within class\n");
 	return 1;
 }
 
-int OverLoadItem5TawkNow(PLGitem *iTEM)
+int Tawk::OverLoadItem5TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 char 		*text = name->toString();
-	if ( p->currentClass )
-		p->currentClass->overload("()",text);
+	if ( currentClass )
+		currentClass->overload("()",text);
 	else	::fprintf(stderr,"Overload specification must be within class\n");
 	return 1;
 }
 
-int OverLoadItemTawkNow(PLGitem *iTEM)
+int Tawk::OverLoadItemTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*operate = iTEM->get("operate");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*operand = operate->get("operand");
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*operand = operate->getLabel("operand");
 char 		*text = name->toString();
-	p->assigning = 0;
+	assigning = 0;
 	if ( !operand )
-		operand = operate->get("comparator");
-	if ( !p->currentClass )
+		operand = operate->getLabel("comparator");
+	if ( !currentClass )
 		::fprintf(stderr,"Overload specification must be within class: %s\n",iTEM->toString());
-	else	p->currentClass->overload(operand->toString(),text);
+	else	currentClass->overload(operand->toString(),text);
 	name->unString();
 	return 1;
 }
 
-void ParameterItem2TawkAct(PLGitem *iTEM)
+void Tawk::ParameterItem2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*array = iTEM->get("array");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*array = (PLGitem*)iTEM->children->get("array");
 Symbol 		*symbol = 0;
-	symbol = new Symbol(name->toString(),p->currentType);
+	symbol = new Symbol(name->toString(),currentType);
 	if ( direct )
 		symbol->setIndirection(direct);
 	if ( array )
 		{
 		symbol->array = array->toString();
-		for ( ; array; array = array->next )
+		for ( ; array; array = array->itemNext )
 			{
 			symbol->indirect++;
 			symbol->isArray++;
 			}
 		}
-	name->value = (void*)symbol;
+	name->itemValue = (void*)symbol;
 }
 
-void ParameterItem3TawkAct(PLGitem *iTEM)
+void Tawk::ParameterItem3TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Symbol 		*symbol = 0;
-	symbol = new Symbol("",p->currentType);
+	symbol = new Symbol("",currentType);
 	symbol->array = name->toString();
-	for ( ; name; name = name->next )
+	for ( ; name; name = name->itemNext )
 		{
 		symbol->indirect++;
 		symbol->isArray++;
 		}
-	name->value = (void*)symbol;
-	name->next = 0;
+	name->itemValue = (void*)symbol;
+	name->itemNext = 0;
 }
 
-void ParameterItem4TawkAct(PLGitem *iTEM)
+void Tawk::ParameterItem4TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Symbol 		*symbol = 0;
-	symbol = new Symbol("",p->currentType);
+	symbol = new Symbol("",currentType);
 	symbol->setIndirection(name);
-	name->value = (void*)symbol;
+	name->itemValue = (void*)symbol;
 }
 
-void ParameterItemTawkAct(PLGitem *iTEM)
+void Tawk::ParameterItemTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*head = name->get("head");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*head = name->getLabel("head");
 Instance 	*instance = 0;
-	p->processingParameters = 1;
-	name->runDeferred();
-	instance = (Instance*)head->value;
-	name->value = (void*)instance->symbol;
-	p->processingParameters = 0;
+	processingParameters = 1;
+	name->runDeferred(this);
+	instance = (Instance*)head->itemValue;
+	name->itemValue = (void*)instance->symbol;
+	processingParameters = 0;
 }
 
-int ParameterTawkNow(PLGitem *iTEM)
+int Tawk::ParameterTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*item = iTEM->get("item");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
 Symbol 		*symbol = 0;
 PLGitem 	*last = 0;
 PLGitem 	*name = 0;
-	p->methodType = (SymbolType*)type->value;
+	methodType = (SymbolType*)type->itemValue;
 	if ( !item )
 		{
-		symbol = new Symbol("",p->methodType);
-		name = p->plgItemFactory("no field specified");
-		name->value = (void*)symbol;
+		symbol = new Symbol("",methodType);
+		name = new PLGitem("no field specified");
+		name->itemValue = (void*)symbol;
 		}
 	else
-	for ( ; item; item = item->next )
+	for ( ; item; item = item->itemNext )
 		{
-		item->runDeferred();
+		item->runDeferred(this);
 		if ( !last )
-			last = name = item->get("name");
+			last = name = item->getLabel("name");
 		else
-		if ( last->next = item->get("name") )
-			last = last->next;
-		symbol = (Symbol*)last->value;
+		if ( last->itemNext = item->getLabel("name") )
+			last = last->itemNext;
+		symbol = (Symbol*)last->itemValue;
 		if ( type->flag4 )
 			symbol->isConst = 1;
 		}
-	type->value = (void*)name;
+	type->itemValue = (void*)name;
 	return 1;
 }
 
-int PoundCommandTawkNow(PLGitem *iTEM)
+int Tawk::PoundCommandTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*state = iTEM->get("state");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*level = iTEM->get("level");
-PLGitem 	*list = iTEM->get("list");
-PLGitem 	*field = iTEM->get("field");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*state = (PLGitem*)iTEM->children->get("state");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*level = (PLGitem*)iTEM->children->get("level");
+PLGitem 	*list = (PLGitem*)iTEM->children->get("list");
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
 SymbolType 	*symbolType = 0;
 PLGitem 	*end = state;
 	switch (*state->itemStart)
 		{
 		case 'a':
-			if ( p->currentClass )
-				p->currentClass->autoGetSet = !p->currentClass->getAutoGetSet();
+			if ( currentClass )
+				currentClass->autoGetSet = !currentClass->getAutoGetSet();
 			break;
 		case 'd':
 			if ( *(state->itemStart + 1) == 'E' )
 				if ( list )
 					{
-					iTEM->test->testParser->currentRule->debug = 0;
+					symbolType->debug = 0;
 					end = list;
 					}
 				else
-				if ( iTEM->test->testParser->currentRule->debug )
-					iTEM->test->testParser->currentRule->debug = 0;
-				else	p->debugRulePLG = 1;
+				if ( symbolType->debug )
+					symbolType->debug = 0;
+				else	debugRulePLG = 1;
 			else {
 				if ( type )
 					{
-					if ( symbolType = (SymbolType*)type->value )
+					if ( symbolType = (SymbolType*)type->itemValue )
 						{
 						symbolType->dump();
 						if ( field )
@@ -3129,90 +2917,85 @@ PLGitem 	*end = state;
 				else
 				if ( level )
 					{
-					p->currentSymbols->dump();
+					currentSymbols->dump();
 					end = level;
 					}
 				else {
-					p->currentSymbols->dump("Symbol Table");
-					p->currentSymbols->dumpGlobals();
+					currentSymbols->dump("Symbol Table");
+					currentSymbols->dumpGlobals();
 					}
 				}
 			break;
 		case 'i':
-			if ( p->currentMethod )
+			if ( currentMethod )
 				{
-				p->currentMethod->isInitialized = 1;
-				if ( p->currentMethod->isAlias )
-					p->currentMethod->source->isInitialized = 1;
+				currentMethod->isInitialized = 1;
+				if ( currentMethod->isAlias )
+					currentMethod->source->isInitialized = 1;
 				}
 			break;
 		case 'm':
-			p->debugging = !p->debugging;
+			debugging = !debugging;
 			break;
 		case 'r':
-			p->defaultPrinter = p->currentSymbols->find("printf");
+			defaultPrinter = currentSymbols->find("printf");
 			break;
 		case 's':
-			p->summaryDebug();
+			summaryDebug();
 			break;
 		case 't':
 			::printf("At trace: %d %d\n",Symbol::symbolCount,Instance::instanceCount);
 			//debugTest = !debugTest;
 		}
-resetPointer:
-	iTEM->test->current = p->plgStart = end->itemStart + end->itemLength;
+	cursor = end->itemStart + end->itemLength;
 	return 1;
 }
 
-int PrintCommand2TawkNow(PLGitem *iTEM)
+int Tawk::PrintCommand2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*stdPrint = iTEM->get("stdPrint");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*newPrinter = p->currentSymbols->find("printf");
-	stdPrint->value = (void*)newPrinter;
+PLGitem 	*stdPrint = (PLGitem*)iTEM->children->get("stdPrint");
+Instance 	*newPrinter = currentSymbols->find("printf");
+	stdPrint->itemValue = (void*)newPrinter;
 	return 1;
 }
 
-int PrintCommand3TawkNow(PLGitem *iTEM)
+int Tawk::PrintCommand3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*stdPrint = iTEM->get("stdPrint");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*target = p->currentSymbols->find("stderr");
-Instance 	*newPrinter = p->currentSymbols->find("fprintf");
+PLGitem 	*stdPrint = (PLGitem*)iTEM->children->get("stdPrint");
+Instance 	*target = currentSymbols->find("stderr");
+Instance 	*newPrinter = currentSymbols->find("fprintf");
 	newPrinter->addParameter(target);
-	stdPrint->value = (void*)newPrinter;
+	stdPrint->itemValue = (void*)newPrinter;
 	return 1;
 }
 
-int PrintCommandTawkNow(PLGitem *iTEM)
+int Tawk::PrintCommandTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*printer = iTEM->get("printer");
-PLGitem 	*target = iTEM->get("target");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-	printer->value = (void*)p->processPrintTarget(target);
+PLGitem 	*printer = (PLGitem*)iTEM->children->get("printer");
+PLGitem 	*target = (PLGitem*)iTEM->children->get("target");
+	printer->itemValue = (void*)processPrintTarget(target);
 	return 1;
 }
 
-int PrintItem2TawkNow(PLGitem *iTEM)
+int Tawk::PrintItem2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*format = iTEM->get("format");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*item = (Instance*)instance->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*format = (PLGitem*)iTEM->children->get("format");
+Instance 	*item = (Instance*)instance->itemValue;
 	if ( format )
 		{
-		PLGitem 	*width = format->get("width");
+		PLGitem 	*width = format->getLabel("width");
 		if ( format->itemLength > 1 )
 			{
 			*format->itemStart = '%';
 			}
-		item->format = p->getInstance(format->toString());
+		item->format = getInstance(format->toString());
 		item->format->type = SymbolType::stringType;
 		item->format->indirection = 1;
 		item->format->isConstant = 1;
 		if ( width )
 			{
-			item->format->format = p->getInstance(width->toString());
+			item->format->format = getInstance(width->toString());
 			item->format->format->type = SymbolType::intType;
 			item->format->format->isConstant = 1;
 			}
@@ -3220,30 +3003,32 @@ Instance 	*item = (Instance*)instance->value;
 	return 1;
 }
 
-int PrintShortcutTawkNow(PLGitem *iTEM)
+void Tawk::PrintItemTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+}
+
+int Tawk::PrintShortcutTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*item = 0;
 	if ( *instance->itemStart == ',' )
-		item = p->getInstance(" ");
+		item = getInstance(" ");
 	else
 	if ( *instance->itemStart == '`' )
-		item = p->getInstance("\\t");
-	else	item = p->getInstance("\\n");
+		item = getInstance("\\t");
+	else	item = getInstance("\\n");
 	item->isConstant = 1;
 	item->type = SymbolType::stringType;
 	item->indirection = 1;
-	instance->value = (void*)item;
+	instance->itemValue = (void*)item;
 	return 1;
 }
 
-int PrintTawkNow(PLGitem *iTEM)
+int Tawk::PrintTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*start = iTEM->get("start");
-PLGitem 	*arguments = iTEM->get("arguments");
-PLGitem 	*output = iTEM->get("output");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*start = (PLGitem*)iTEM->children->get("start");
+PLGitem 	*arguments = (PLGitem*)iTEM->children->get("arguments");
+PLGitem 	*output = (PLGitem*)iTEM->children->get("output");
 PLGitem 	*item = 0;
 PLGitem 	*argument = 0;
 Instance 	*method = 0;
@@ -3252,50 +3037,50 @@ BlockTok 	*block = 0;
 Statement 	*statement = 0;
 Instance 	*converter = 0;
 Instance 	*format = 0;
-Instance 	*savePrinter = p->defaultPrinter;
+Instance 	*savePrinter = defaultPrinter;
 Instance 	*text = 0;
-	if ( item = start->get("printer") )
+	if ( item = start->getLabel("printer") )
 		if ( output )
-			method = p->processPrintTarget(output);
-		else	method = (Instance*)item->value;
+			method = processPrintTarget(output);
+		else	method = (Instance*)item->itemValue;
 	else {
-		item = start->get("stdPrint");
-		method = (Instance*)item->value;
+		item = start->getLabel("stdPrint");
+		method = (Instance*)item->itemValue;
 		}
 	if ( !method->isPrintMethod )
 		{
-		p->tokJunkBuffer->reset();
-		for ( argument = arguments; argument; argument = argument->next )
+		tokJunkBuffer->reset();
+		for ( argument = arguments; argument; argument = argument->itemNext )
 			{
 			format = 0;
-			item = argument->get("instance");
-			text = (Instance*)item->value;
+			item = argument->getLabel("instance");
+			text = (Instance*)item->itemValue;
 			format = text->getFormat();
 			type = text->getType();
 			if ( text->express && !text->express->verb && !text->cast )
 				text = text->getSubject();
 			if ( text->isConstant && !text->isMethod )
-				p->tokJunkBuffer->appendString(text->prefix);
+				tokJunkBuffer->appendString(text->prefix,0,0);
 			else
 			if ( type != SymbolType::stringType && text->howDirect() <= 1 && type->getMethod("toString") )
-				p->tokJunkBuffer->appendString("%s");
+				tokJunkBuffer->appendString("%s",0,0);
 			else
 			if ( format )
-				p->tokJunkBuffer->appendString(format->prefix);
+				tokJunkBuffer->appendString(format->prefix,0,0);
 			else {
 				text->error("No toString method");
-				p->tokJunkBuffer->appendString("%s");
+				tokJunkBuffer->appendString("%s",0,0);
 				}
 			}
-		text = p->getInstance(p->tokJunkBuffer->toString());
+		text = getInstance(tokJunkBuffer->toString());
 		text->type = SymbolType::stringType;
 		text->isConstant = 1;
 		text->indirection = 1;
 		method->addParameter(text);
-		for ( argument = arguments; argument; argument = argument->next )
+		for ( argument = arguments; argument; argument = argument->itemNext )
 			{
-			item = argument->get("instance");
-			text = (Instance*)item->value;
+			item = argument->getLabel("instance");
+			text = (Instance*)item->itemValue;
 			type = text->getType();
 			if ( text->express && !text->express->verb && !text->cast )
 				text = text->getSubject();
@@ -3317,13 +3102,13 @@ Instance 	*text = 0;
 	else {
 		//		Print using the print target object's print methods
 		//		Need to add a string concatenation loop
-		if ( arguments->next )
+		if ( arguments->itemNext )
 			block = new BlockTok();
-		for ( argument = arguments; argument; argument = argument->next )
+		for ( argument = arguments; argument; argument = argument->itemNext )
 			{
-			item = argument->get("instance");
-			text = (Instance*)item->value;
-			method = p->generatePrint(text);
+			item = argument->getLabel("instance");
+			text = (Instance*)item->itemValue;
+			method = generatePrint(text);
 			if ( block )
 				{
 				statement = new Statement();
@@ -3335,34 +3120,33 @@ Instance 	*text = 0;
 		if ( block )
 			method = new Instance(block);
 		}
-	start->value = (void*)method;
+	start->itemValue = (void*)method;
 	if ( output )
-		p->defaultPrinter = savePrinter;
+		defaultPrinter = savePrinter;
 	return 1;
 }
 
-int QualifiedTawkNow(PLGitem *iTEM)
+int Tawk::QualifiedTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*field = iTEM->get("field");
-PLGitem 	*rest = iTEM->get("rest");
-PLGitem 	*postfix = iTEM->get("postfix");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
+PLGitem 	*rest = (PLGitem*)iTEM->children->get("rest");
+PLGitem 	*postfix = (PLGitem*)iTEM->children->get("postfix");
 PLGitem 	*item = 0;
 PLGitem 	*tail = 0;
-PLGitem 	*name = field->find("name");
+PLGitem 	*name = field->deferred->find("name");
 Instance 	*parent = 0;
 Instance 	*child = 0;
-	p->isQualified = 0;
+	isQualified = 0;
 	if ( type )
 		{
-		p->setCurrentType((SymbolType*)type->value);
-		child = new Instance(p->currentType);
+		setCurrentType((SymbolType*)type->itemValue);
+		child = new Instance(currentType);
 		}
 	if ( child )
-		p->isQualified = 1;
-	field->runDeferred();
-	parent = (Instance*)name->value;
+		isQualified = 1;
+	field->runDeferred(this);
+	parent = (Instance*)name->itemValue;
 	/*************************************************************************
 	If field is an assumed string, parent will be none so we bail
 	*************************************************************************/
@@ -3371,36 +3155,36 @@ Instance 	*child = 0;
 	// The following inserts the parent class reference
 	if ( child )
 		parent = parent->copyAndSetParent(child);
-	p->setCurrentType(parent->getType());
+	setCurrentType(parent->getType());
 	if ( rest )
-		p->isQualified = 1;
+		isQualified = 1;
 	/*************************************************************************
 	If this is a qualifier (has following .) or if there is not symbol
 	(unknown field) resolve virtue here
 	*************************************************************************/
-	if ( rest && p->currentType && p->currentType->isVirtuous && parent->arrayRef && !parent->resolved )
+	if ( rest && currentType && currentType->isVirtuous && parent->arrayRef && !parent->resolved )
 		{
 		parent = parent->checkOverload();
 		if ( parent->resolved )
 			{
-			p->setCurrentType(parent->getType());
+			setCurrentType(parent->getType());
 			// Not sure why I do the following
-			if ( parent->reference && p->currentType->isOC )
+			if ( parent->reference && currentType->isOC )
 				parent->setReference((unsigned int)0);
 			}
 		}
-	for ( item = rest; item; item = item->next )
+	for ( item = rest; item; item = item->itemNext )
 		{
-		tail = item->get("field");
-		tail->runDeferred();
-		name = tail->find("name");
-		if ( child = (Instance*)name->value )
+		tail = item->getLabel("field");
+		tail->runDeferred(this);
+		name = tail->deferred->find("name");
+		if ( child = (Instance*)name->itemValue )
 			{
 			if ( !child->symbol )
-				if ( p->currentType->isOC )
+				if ( currentType->isOC )
 					;
 				else
-				if ( p->currentType->isVirtuous )
+				if ( currentType->isVirtuous )
 					{
 					char 	*text = ::concat(2,child->prefix," is not a valid symbol");
 					child->error(text);
@@ -3410,10 +3194,10 @@ Instance 	*child = 0;
 		parent = child;
 		if ( !parent )
 			break;
-		p->setCurrentType(parent->getType());
+		setCurrentType(parent->getType());
 		}
-	p->saveType = p->currentType;
-	p->setCurrentType((SymbolType*)0);
+	saveType = currentType;
+	setCurrentType((SymbolType*)0);
 	if ( !parent )
 		return 0;
 	if ( postfix )
@@ -3427,53 +3211,51 @@ Instance 	*child = 0;
 	if there is one.
 	*************************************************************************/
 	if ( parent->symbol && parent->symbol->isDefault && parent->isMethod )
-		parent->setDefaults(p);
-	field->value = (void*)parent;
-	p->isQualified = 0;
+		parent->setDefaults("p");
+	field->itemValue = (void*)parent;
+	isQualified = 0;
 	return 1;
 }
 
-int QualifyStartTawkNow(PLGitem *iTEM)
+int Tawk::QualifyStartTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 Symbol 		*symbol = 0;
 Instance 	*instance = 0;
-	if ( p->currentClass->isC )
+	if ( currentClass->isC )
 		return 0;
-	symbol = new Symbol("this",p->currentClass);
+	symbol = new Symbol("this",currentClass);
 	instance = new Instance(symbol);
-	name->value = (void*)instance;
+	name->itemValue = (void*)instance;
 	return 1;
 }
 
-int QuestionTawkNow(PLGitem *iTEM)
+int Tawk::QuestionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*question = iTEM->get("question");
-PLGitem 	*trueExp = iTEM->get("trueExp");
-PLGitem 	*falseExp = iTEM->get("falseExp");
+PLGitem 	*question = (PLGitem*)iTEM->children->get("question");
+PLGitem 	*trueExp = (PLGitem*)iTEM->children->get("trueExp");
+PLGitem 	*falseExp = (PLGitem*)iTEM->children->get("falseExp");
 PLGitem 	*falseItem = 0;
 PLGitem 	*trueItem = 0;
 Expression 	*expression = 0;
 Instance 	*trueValue = 0;
 Instance 	*falseValue = 0;
-	falseItem = falseExp->get("instance");
-	trueItem = trueExp->get("instance");
-	trueValue = (Instance*)trueItem->value;
-	falseValue = (Instance*)falseItem->value;
+	falseItem = falseExp->getLabel("instance");
+	trueItem = trueExp->getLabel("instance");
+	trueValue = (Instance*)trueItem->itemValue;
+	falseValue = (Instance*)falseItem->itemValue;
 	expression = new Expression(trueValue,falseValue,":");
 	trueValue = new Instance(expression);
-	question->value = (void*)trueValue;
+	question->itemValue = (void*)trueValue;
 	return 1;
 }
 
-int QuoteTawkNow(PLGitem *iTEM)
+int Tawk::QuoteTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*string = iTEM->get("string");
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Buffer 		*buffer = p->tokJunkBuffer;
+PLGitem 	*string = (PLGitem*)iTEM->children->get("string");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
+Buffer 		*buffer = tokJunkBuffer;
 Instance 	*current = 0;
 char 		*mark = 0;
 	/**********************************************************************
@@ -3481,20 +3263,20 @@ char 		*mark = 0;
 	**********************************************************************/
 	buffer->reset();
 	if ( !body )
-		current = p->getInstance("");
+		current = getInstance("");
 	else {
 		mark = body->string();
 		while ( *mark )
 			{
 			if ( *mark == '\n' )
 				{
-				buffer->appendChar('\\');
-				buffer->appendChar('n');
+				buffer->appendChar('\\',0,0);
+				buffer->appendChar('n',0,0);
 				}
-			else	buffer->appendChar(*mark);
+			else	buffer->appendChar(*mark,0,0);
 			mark++;
 			}
-		current = p->getInstance(buffer->toString());
+		current = getInstance(buffer->toString());
 		body->unString();
 		}
 	current->isConstant = 1;
@@ -3503,192 +3285,94 @@ char 		*mark = 0;
 	current->type = SymbolType::stringType;
 	if ( string )
 		current->atString = 1;
-	instance->value = (void*)current;
+	instance->itemValue = (void*)current;
 	return 1;
 }
 
-int RangeExpressionTawkNow(PLGitem *iTEM)
+int Tawk::RangeExpressionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*back = iTEM->get("back");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*back = (PLGitem*)iTEM->children->get("back");
 PLGitem 	*item = 0;
-Instance 	*front = (Instance*)instance->value;
+Instance 	*front = (Instance*)instance->itemValue;
 Instance 	*tail = 0;
 Expression 	*rangeX = 0;
-	item = back->get("instance");
-	tail = (Instance*)item->value;
-	item = back->get("operate");
+	item = back->getLabel("instance");
+	tail = (Instance*)item->itemValue;
+	item = back->getLabel("operate");
 	rangeX = new Expression(front,tail,item->string());
 	front = new Instance(rangeX);
 	front->isRange = 1;
-	instance->value = (void*)front;
+	instance->itemValue = (void*)front;
 	return 1;
 }
 
-int RangeFieldTawkNow(PLGitem *iTEM)
+int Tawk::RangeFieldTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*rangeField = (Instance*)p->currentSymbols->instances->get(instance->string());
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*rangeField = (Instance*)currentSymbols->instances->get(instance->string());
 	instance->unString();
 	if ( rangeField && rangeField->isRange && rangeField->express && rangeField->express->object )
-		instance->value = (void*)rangeField->express->object;
+		instance->itemValue = (void*)rangeField->express->object;
 	else	return 0;
 	return 1;
 }
 
-int ResetTypeTawkNow(PLGitem *iTEM)
+int Tawk::SecondaryExpression2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->setCurrentType((SymbolType*)0);
-	return 1;
-}
-
-int SaveVirtualsTawkNow(PLGitem *iTEM)
-{
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->pushVirtuals();
-	return 1;
-}
-
-int SecondaryExpression2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*pointer = iTEM->get("pointer");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*pointer = (PLGitem*)iTEM->children->get("pointer");
 char 		*text = 0;
 	if ( pointer )
 		{
-		text = ::concat(5,instance->string(),"(",p->currentType->name,pointer->string(),")");
+		text = ::concat(5,instance->string(),"(",currentType->name,pointer->string(),")");
 		pointer->unString();
 		}
-	else	text = ::concat(4,instance->string(),"(",p->currentType->name,")");
-Instance 	*current = p->getInstance(text);
+	else	text = ::concat(4,instance->string(),"(",currentType->name,")");
+Instance 	*current = getInstance(text);
 	current->type = SymbolType::intType;
 	current->isConstant = 1;
 	current->isMethod = 1;
 	// so will not screw up as a print argument
-	instance->value = (void*)current;
+	instance->itemValue = (void*)current;
 	instance->unString();
-	p->currentType->setRefer();
+	currentType->setRefer();
 	return 1;
 }
 
-int SecondaryExpressionTawkNow(PLGitem *iTEM)
+int Tawk::SecondaryExpressionTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*current = new Instance(p->nullSymbol);
-	instance->value = (void*)current;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*current = new Instance(nullSymbol);
+	instance->itemValue = (void*)current;
 	current->isConstant = 1;
 	return 1;
 }
 
-int SetObjectTawkNow(PLGitem *iTEM)
+int Tawk::Statement2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-	p->setCurrentType((SymbolType*)0);
-	return 1;
-}
-
-int StartTawkNow(PLGitem *iTEM)
-{
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-DoubleLink 	*link = 0;
-Instance 	*instance = 0;
-SymbolType 	*type = 0;
-Buffer 		*saveBuffer = 0;
-char 		*codefile = 0;
-	SymbolType::types->resetIsFlagged();
-	p->setCurrentClass(p->formatter->currentType);
-	if ( !p->currentClass || !p->currentClass->classOK )
-		{
-		::fprintf(stderr,"ERROR outputting class\n");
-		return 0;
-		}
-	p->tokJunkBuffer->reset();
-	saveBuffer = p->formatter->buffer;
-	p->formatter->buffer = p->formatter->headerBuffer;
-	p->formatter->forwardClass(SymbolType::internalType);
-	p->formatter->buffer->setMark();
-	p->formatter->processingGlobalMethods = 1;
-	p->formatter->declareHeaders(SymbolType::internalType);
-	if ( SymbolType::internalType->descendentTypes )
-		while ( type = (SymbolType*)SymbolType::internalType->descendentTypes->next() )
-			if ( !type->isDeclared && !type->isExternal )
-				p->formatter->declareStructure(type);
-	if ( p->missingMethods->hashList->length > 0 )
-		{
-		if ( !p->formatter->errorBuffer )
-			p->formatter->errorBuffer = ::bufferFactory2("errors");
-		p->formatter->errorBuffer->appendString("/*");
-		p->formatter->errorBuffer->appendString("\t");
-		p->formatter->errorBuffer->appendString("Warning: the following methods were referenced but not declared");
-		p->formatter->errorBuffer->appendString("\n");
-		p->missingMethods->hashList->entry = 0;
-		while ( link = p->missingMethods->hashList->nextLink() )
-			{
-			instance = (Instance*)link->value;
-			p->formatter->errorBuffer->appendString("\t");
-			p->formatter->errorBuffer->appendString(link->key);
-			p->formatter->errorBuffer->appendString("\n");
-			}
-		p->formatter->errorBuffer->appendString("*/");
-		p->formatter->errorBuffer->appendString("\n");
-		}
-	p->formatter->buffer = saveBuffer;
-	p->formatter->declareBody(SymbolType::internalType);
-	p->formatter->processingGlobalMethods = 0;
-	p->formatter->printCode();
-	if ( p->formatter->errorBuffer )
-		{
-		p->formatter->buffer->appendString(p->formatter->errorBuffer->string());
-		p->formatter->errorBuffer->reset();
-		}
-	if ( p->currentClass->isOC || p->formatter->makeOCfile )
-		codefile = ::concat(2,p->formatter->filename,".mm");
-	else	codefile = ::concat(2,p->formatter->filename,".C");
-	p->formatter->buffer = p->formatter->includeText;
-	if ( p->formatter->currentType )
-		if ( p->produceCodeFile || p->formatter->currentType->hasMethods )
-			p->formatter->buffer->setFile(codefile);
-		else	::printf("Code file not produced for %s because no methods specified\n",p->formatter->currentType->name);
-	while ( type = (SymbolType*)SymbolType::types->hashList->next() )
-		if ( type->codeBuffer )
-			{
-			p->formatter->buffer->appendString(type->codeBuffer->string());
-			type->codeBuffer = 0;
-			}
-	p->referring = 0;
-	p->formatter->close();
-	return 1;
-}
-
-int Statement2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Statement 	*line = (Statement*)statement->value;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+Statement 	*line = (Statement*)statement->itemValue;
 	if ( line )
 		{
 		if ( !line->pointInCode )
 			line->pointInCode = iTEM;
 		line->setIsUsed();
-		if ( p->currentMethod && p->currentMethod->directives && !p->noLoop )
+		if ( currentMethod && currentMethod->directives && !noLoop )
 			{
 			Directive 	*directive = 0;
-			p->currentMethod->directives->resetIterator();
-			while ( directive = (Directive*)p->currentMethod->directives->next() )
+			currentMethod->directives->resetIterator();
+			while ( directive = (Directive*)currentMethod->directives->next() )
 				if ( directive->isDirected || !directive->codeMatch )
 					continue;
 				else
 				if ( !::strncmp(directive->codeMatch,line->pointInCode->itemStart,::strlen(directive->codeMatch)) )
 					{
-					p->noLoop = 1;
-					p->parsingDirective = 1;
+					noLoop = 1;
+					parsingDirective = 1;
 					directive->parseDirective();
-					p->parsingDirective = 0;
-					p->noLoop = 0;
+					parsingDirective = 0;
+					noLoop = 0;
 					break;
 					}
 			}
@@ -3696,45 +3380,43 @@ Statement 	*line = (Statement*)statement->value;
 	return 1;
 }
 
-int StatementBody10TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody10TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*instance = p->getInstance("continue");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+Instance 	*instance = getInstance("continue");
 Statement 	*line = new Statement();
 	line->add(instance);
 	// continue
 	line->branch = 1;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody11TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody11TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*direct = iTEM->get("direct");
-PLGitem 	*field = iTEM->get("field");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*direct = (PLGitem*)iTEM->children->get("direct");
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
 Instance 	*instance = 0;
 Statement 	*line = new Statement(GOTO);
 	// goto
-	instance = (Instance*)field->value;
+	instance = (Instance*)field->itemValue;
 	if ( direct )
 		instance = instance->setIndirectItem(direct);
 	line->add(instance);
 	line->branch = 1;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody12TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody12TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*block = iTEM->get("block");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*block = (PLGitem*)iTEM->children->get("block");
 Statement 	*switchStatement = new Statement(SWITCH);
-PLGitem 	*item = block->get("start");
-BlockTok 	*body = (BlockTok*)item->value;
-Instance 	*trigger = (Instance*)statement->value;
+PLGitem 	*item = block->getLabel("start");
+BlockTok 	*body = (BlockTok*)item->itemValue;
+Instance 	*trigger = (Instance*)statement->itemValue;
 SymbolType 	*type = 0;
 	// switch
 	body->isSwitch = 1;
@@ -3752,103 +3434,99 @@ SymbolType 	*type = 0;
 		}
 	switchStatement->indented = 1;
 	switchStatement->noFallThru = !statement->flag1;
-	statement->value = (void*)switchStatement;
+	statement->itemValue = (void*)switchStatement;
 	if ( !trigger || trigger->isRange || (!type->isNumber && !(type == SymbolType::stringType && trigger->howDirect() != 1)) )
 		switchStatement->switching = 1;
-	p->switchStack->pop();
+	switchStack->pop();
 	return 1;
 }
 
-int StatementBody14TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody13TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
 Statement 	*line = new Statement();
 	// ;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody15TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody14TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*array = iTEM->get("array");
-PLGitem 	*instance = iTEM->get("instance");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*array = (PLGitem*)iTEM->children->get("array");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Statement 	*line = new Statement(DELETE);
 	// delete
-PLGitem 	*item = instance->get("field");
-Instance 	*current = (Instance*)item->value;
+PLGitem 	*item = instance->getLabel("field");
+Instance 	*current = (Instance*)item->itemValue;
 	if ( array )
 		current->postfix = "[]";
 	line->add(current);
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody16TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody15TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Statement 	*doStatement = new Statement(DO);
-Instance 	*test = (Instance*)instance->value;
-Statement 	*body = (Statement*)statement->value;
+Instance 	*test = (Instance*)instance->itemValue;
+Statement 	*body = (Statement*)statement->itemValue;
 	// do
 	doStatement->add(body);
 	doStatement->add(test);
 	doStatement->pointInCode = iTEM;
 	test->isCondition = 1;
-	statement->value = (void*)doStatement;
-	p->iterating--;
+	statement->itemValue = (void*)doStatement;
+	iterating--;
 	return 1;
 }
 
-int StatementBody17TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody16TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
 Statement 	*line = new Statement();
 	// throw
 Instance 	*instance = 0;
-	instance = p->getInstance("Saw a throw expression");
+	instance = getInstance("Saw a throw expression");
 	instance->isComment = 1;
 	line->add(instance);
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody18TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody17TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
 Statement 	*line = new Statement();
 	// try
 Instance 	*instance = 0;
-	instance = p->getInstance("Saw a try expression");
+	instance = getInstance("Saw a try expression");
 	instance->isComment = 1;
 	line->add(instance);
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody19TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody18TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*declare = statement->get("declare");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*declare = statement->getLabel("declare");
 PLGitem 	*entry = 0;
 Statement 	*line = 0;
 Instance 	*stacked = 0;
 Instance 	*instance = 0;
 Expression 	*express = 0;
-	statement->runDeferred();
+	statement->runDeferred(this);
 	// declaration
-	p->virtualStack->clear();
-	for ( entry = declare; entry; entry = entry->next )
+	virtualStack->clear();
+	for ( entry = declare; entry; entry = entry->itemNext )
 		{
-		instance = (Instance*)entry->value;
+		instance = (Instance*)entry->itemValue;
 		if ( !instance || instance->type )
 			continue;
-		if ( instance->symbol && instance->symbol->type->hasInitializer && entry->get("initialize") )
+		if ( instance->symbol && instance->symbol->type->hasInitializer && entry->getLabel("initialize") )
 			{
 			Expression 	*initialize = 0;
 			/*************************************************************
@@ -3857,37 +3535,37 @@ Expression 	*express = 0;
 			(specified as an initializer in an external type declaration).
 			Add the call to the initializer here.
 			*************************************************************/
-			Instance 	*assigned = p->findInitializer(instance->symbol);
+			Instance 	*assigned = findInitializer(instance->symbol);
 			if ( assigned )
 				{
-				Instance 	*argument = p->getInstance(instance->symbol->name);
+				Instance 	*argument = getInstance(instance->symbol->name);
 				argument->isConstant = 1;
 				argument->indirection = 1;
 				argument->type = SymbolType::stringType;
 				assigned->addParameter(argument);
 				if ( assigned->symbol->isDefault )
-					assigned->setDefaults(p);
+					assigned->setDefaults("p");
 				initialize = new Expression(instance,assigned,"=");
 				instance = new Instance(initialize);
 				}
 			}
 		if ( instance->symbol )
 			{
-			p->virtualStack->push(instance);
+			virtualStack->push(instance);
 			instance->isLocal = 1;
 			}
 		else
 		if ( instance->express )
 			if ( instance->isRange )
-				p->virtualStack->push(instance);
+				virtualStack->push(instance);
 			else {
 				Instance 	*temp = instance->express->subject;
-				p->virtualStack->push(temp);
+				virtualStack->push(temp);
 				temp->isLocal = 1;
 				}
 		if ( express )
 			{
-			express->verb = p->commaOp;
+			express->verb = commaOp;
 			express->object = instance;
 			if ( instance->symbol )
 				instance->isDeclaration = 0;
@@ -3895,18 +3573,18 @@ Expression 	*express = 0;
 				instance->express->subject->isDeclaration = 0;
 			instance = new Instance(express);
 			}
-		if ( entry->next )
+		if ( entry->itemNext )
 			{
 			express = new Expression();
 			express->subject = instance;
 			}
 		}
-	if ( p->virtualStack->length )
+	if ( virtualStack->length )
 		{
-		p->virtualStack->entry = 0;
-		while ( stacked = (Instance*)p->virtualStack->next() )
-			p->currentSymbols->add(stacked);
-		p->virtualStack->clear();
+		virtualStack->entry = 0;
+		while ( stacked = (Instance*)virtualStack->next() )
+			currentSymbols->add(stacked);
+		virtualStack->clear();
 		}
 	if ( !instance->isRange )
 		{
@@ -3914,62 +3592,62 @@ Expression 	*express = 0;
 		line = new Statement();
 		line->add(instance);
 		line->indented = 0;
-		statement->value = (void*)line;
+		statement->itemValue = (void*)line;
 		}
 	return 1;
 }
 
-int StatementBody20TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody19TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*item = statement->get("instance");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*item = statement->getLabel("instance");
 Statement 	*line = new Statement();
-Instance 	*instance = (Instance*)item->value;
+Instance 	*instance = (Instance*)item->itemValue;
 	line->add(instance);
 	// expression
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody21TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody20TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*item = statement->get("function");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*item = statement->getLabel("function");
 Statement 	*line = 0;
 	// Lambda
-Instance 	*lambda = (Instance*)item->value;
+Instance 	*lambda = (Instance*)item->itemValue;
 	if ( lambda->statement )
-		statement->value = (void*)lambda->statement;
+		statement->itemValue = (void*)lambda->statement;
 	else {
 		line = new Statement();
-		statement->value = (void*)line;
+		statement->itemValue = (void*)line;
 		line->add(lambda);
 		}
 	return 1;
 }
 
-int StatementBody2TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*item = statement->get("start");
-BlockTok 	*block = (BlockTok*)item->value;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*item = statement->getLabel("start");
+BlockTok 	*block = (BlockTok*)item->itemValue;
 Statement 	*line = new Statement();
 	line->add(block);
 	// Block
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody3TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody3TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*action = statement->get("action");
-PLGitem 	*instance = statement->get("instance");
-PLGitem 	*item = action->get("statement");
-PLGitem 	*otherwise = statement->get("otherwise");
-Instance 	*express = (Instance*)instance->value;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*action = statement->getLabel("action");
+PLGitem 	*instance = statement->getLabel("instance");
+PLGitem 	*item = action->getLabel("statement");
+PLGitem 	*otherwise = statement->getLabel("otherwise");
+Instance 	*express = (Instance*)instance->itemValue;
 Statement 	*ifStatement = new Statement(IF);
-Statement 	*line = (Statement*)item->value;
+Statement 	*line = (Statement*)item->itemValue;
 	// if
 	ifStatement->add(express);
 	express->isCondition = 1;
@@ -3978,152 +3656,145 @@ Statement 	*line = (Statement*)item->value;
 		ifStatement->add(line);
 	if ( otherwise )
 		{
-		item = otherwise->get("statement");
-		line = (Statement*)item->value;
+		item = otherwise->getLabel("statement");
+		line = (Statement*)item->itemValue;
 		if ( line )
 			ifStatement->add(line);
 		}
 	ifStatement->pointInCode = iTEM;
-	statement->value = (void*)ifStatement;
+	statement->itemValue = (void*)ifStatement;
 	return 1;
 }
 
-int StatementBody4TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody4TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*instance = iTEM->get("instance");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
 Instance 	*returnValue = 0;
 Statement 	*line = new Statement(RETURN);
 	// return
 	if ( instance )
 		{
-		returnValue = (Instance*)instance->value;
+		returnValue = (Instance*)instance->itemValue;
 		line->add(returnValue);
 		}
 	line->branch = 1;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody5TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody5TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Statement 	*forStatement = (Statement*)instance->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+Statement 	*forStatement = (Statement*)instance->itemValue;
 Statement 	*body = 0;
-	body = (Statement*)statement->value;
+	body = (Statement*)statement->itemValue;
 	body->indented = 1;
 	forStatement->fourth = new Instance(body);
 	// for
 	forStatement->pointInCode = iTEM;
-	statement->value = (void*)forStatement;
-	p->iterating--;
+	statement->itemValue = (void*)forStatement;
+	iterating--;
 	return 1;
 }
 
-int StatementBody6TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody6TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*item = statement->get("start");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*item = statement->getLabel("start");
 Statement 	*line = new Statement();
-Instance 	*instance = (Instance*)item->value;
+Instance 	*instance = (Instance*)item->itemValue;
 	line->add(instance);
 	// Print
 	if ( instance->block )
 		line->indented = 0;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody7TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody7TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
 Statement 	*wile = new Statement(WHILE);
-Instance 	*test = (Instance*)instance->value;
-Statement 	*body = (Statement*)statement->value;
+Instance 	*test = (Instance*)instance->itemValue;
+Statement 	*body = (Statement*)statement->itemValue;
 	// while
 	wile->add(test);
 	test->isCondition = 1;
 	body->indented = 1;
 	wile->add(body);
 	wile->pointInCode = iTEM;
-	statement->value = (void*)wile;
-	p->iterating--;
+	statement->itemValue = (void*)wile;
+	iterating--;
 	return 1;
 }
 
-int StatementBody8TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody8TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*item = statement->get("instance");
-Instance 	*instance = (Instance*)item->value;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*item = statement->getLabel("instance");
+Instance 	*instance = (Instance*)item->itemValue;
 Statement 	*line = new Statement(LABEL);
 	line->add(instance);
 	// label or case
 	if ( !instance->prefix )
 		line->indented = 0;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StatementBody9TawkNow(PLGitem *iTEM)
+int Tawk::StatementBody9TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*instance = p->getInstance("break");
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+Instance 	*instance = getInstance("break");
 Statement 	*line = new Statement();
 PLGitem 	*lastSwitch = 0;
 	line->add(instance);
 	// break
 	line->branch = 1;
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	// if break is in a switch case, set switch fall thru status
-	if ( p->switchStack )
-		lastSwitch = (PLGitem*)p->switchStack->top();
-	if ( lastSwitch && p->iterating == lastSwitch->itemLength )
+	if ( switchStack )
+		lastSwitch = (PLGitem*)switchStack->top();
+	if ( lastSwitch && iterating == lastSwitch->itemLength )
 		lastSwitch->flag1 = 1;
 	return 1;
 }
 
-int StatementBodyTawkNow(PLGitem *iTEM)
+int Tawk::StatementBodyTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
 Statement 	*line = new Statement();
-PLGitem 	*comment = statement->get("comment");
+PLGitem 	*comment = statement->getLabel("comment");
 Instance 	*instance = 0;
 	if ( comment )
-		instance = p->getInstance(comment->toString());
-	else	instance = p->getInstance(statement->toString());
+		instance = getInstance(comment->toString());
+	else	instance = getInstance(statement->toString());
 	instance->isComment = 1;
 	line->add(instance);
-	statement->value = (void*)line;
+	statement->itemValue = (void*)line;
 	return 1;
 }
 
-int StopTawkNow(PLGitem *iTEM)
+void Tawk::StatementTawkAct(PLGitem *iTEM)
 {
-	// This is a dummy rule to stick wherever for debugging
-	return 1;
 }
 
-int StringExpression2TawkNow(PLGitem *iTEM)
+int Tawk::StringExpression2TawkNow(PLGitem *iTEM)
 {
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*item = (Instance*)instance->value;
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*item = (Instance*)instance->itemValue;
 Instance 	*target = 0;
 SymbolType 	*type = item->getType();
 	target = item->getSubject();
 	if ( type != SymbolType::stringType )
 		{
-		target = p->convertToString(item);
+		target = convertToString(item);
 		if ( !target )
 			return 0;
-		instance->value = (void*)target;
+		instance->itemValue = (void*)target;
 		}
 	else
 	if ( !(target->isConstant || item->howDirect() == 1) )
@@ -4134,123 +3805,124 @@ SymbolType 	*type = item->getType();
 	return 1;
 }
 
-int StringsTawkNow(PLGitem *iTEM)
+void Tawk::StringExpressionTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*item = iTEM->get("item");
+}
+
+int Tawk::StringsTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
 PLGitem 	*instance = 0;
-	for ( ; item; item = item->next )
+	for ( ; item; item = item->itemNext )
 		{
-		instance = item->get("instance");
-		item->value = instance->value;
+		instance = item->getLabel("instance");
+		item->itemValue = instance->itemValue;
 		}
 	return 1;
 }
 
-void StructureBody2TawkAct(PLGitem *iTEM)
+void Tawk::StructureBody2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*entry = iTEM->get("entry");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*entry = (PLGitem*)iTEM->children->get("entry");
 Symbol 		*symbol = 0;
-PLGitem 	*name = entry->find("name");
+PLGitem 	*name = entry->deferred->find("name");
 PLGitem 	*item = 0;
-	p->saveStruct = p->currentClass;
-	if ( p->currentClass )
+	saveStruct = currentClass;
+	if ( currentClass )
 		{
-		symbol = p->currentClass->getLocal(name->string());
+		symbol = currentClass->getLocal(name->string());
 		name->unString();
 		}
 	if ( symbol )
-		p->setCurrentClass(symbol->structType);
+		setCurrentClass(symbol->structType);
 	else {
-		char 	*typeName = ::concat(4,p->currentClass->name,"Struct",::toStringFromInt(p->stringNumber++),"Type");
-		p->setCurrentClass(SymbolType::getType(typeName));
+		char 	*typeName = ::concat(4,currentClass->name,"Struct",::toStringFromInt(stringNumber++),"Type");
+		setCurrentClass(SymbolType::getType(typeName));
 		}
-	if ( p->currentClass )
-		p->currentClass->nameLess = 1;
-	for ( item = entry; item; item = item->next )
+	if ( currentClass )
+		currentClass->nameLess = 1;
+	for ( item = entry; item; item = item->itemNext )
 		{
-		item->runDeferred();
-		name = item->get("name");
+		item->runDeferred(this);
+		name = item->getLabel("name");
 		if ( name )
-			item->value = name->value;
+			item->itemValue = name->itemValue;
 		}
-	p->setCurrentType(p->currentClass);
-	p->setCurrentClass(p->saveStruct);
-	p->saveStruct = 0;
+	setCurrentType(currentClass);
+	setCurrentClass(saveStruct);
+	saveStruct = 0;
 }
 
-void StructureBodyTawkAct(PLGitem *iTEM)
+void Tawk::StructureBodyTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*label = iTEM->get("label");
-PLGitem 	*entry = iTEM->get("entry");
-PLGitem 	*field = iTEM->get("field");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*label = (PLGitem*)iTEM->children->get("label");
+PLGitem 	*entry = (PLGitem*)iTEM->children->get("entry");
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
 Instance 	*current = 0;
-SymbolType 	*saveClass = p->currentClass;
+SymbolType 	*saveClass = currentClass;
 PLGitem 	*item = 0;
 PLGitem 	*name = 0;
-	item = label->get("type");
-	if ( !item->value )
+	item = label->getLabel("type");
+	if ( !item->itemValue )
 		{
-		label->runDeferred();
-		item = label->get("type");
+		label->runDeferred(this);
+		item = label->getLabel("type");
 		}
-	p->setCurrentClass((SymbolType*)item->value);
-	for ( item = entry; item; item = item->next )
+	setCurrentClass((SymbolType*)item->itemValue);
+	for ( item = entry; item; item = item->itemNext )
 		{
-		item->runDeferred();
-		name = item->get("name");
+		item->runDeferred(this);
+		name = item->getLabel("name");
 		if ( name )
-			item->value = name->value;
+			item->itemValue = name->itemValue;
 		}
-	p->setCurrentType(p->currentClass);
-	p->currentType->isDirect = 1;
-	for ( ; field; field = field->next )
+	setCurrentType(currentClass);
+	currentType->isDirect = 1;
+	for ( ; field; field = field->itemNext )
 		{
-		field->runDeferred();
-		item = field->get("item");
-		current = (Instance*)item->value;
-		field->value = (void*)current;
+		field->runDeferred(this);
+		item = field->getLabel("item");
+		current = (Instance*)item->itemValue;
+		field->itemValue = (void*)current;
 		}
-	current = new Instance(p->currentClass);
-	p->setCurrentClass(saveClass);
-	label->value = (void*)current;
+	current = new Instance(currentClass);
+	setCurrentClass(saveClass);
+	label->itemValue = (void*)current;
 }
 
-void StructureItem2TawkAct(PLGitem *iTEM)
+void Tawk::StructureItem2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*name = iTEM->get("name");
-PLGitem 	*bits = iTEM->get("bits");
-PLGitem 	*buttons = iTEM->get("buttons");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
+PLGitem 	*bits = (PLGitem*)iTEM->children->get("bits");
+PLGitem 	*buttons = (PLGitem*)iTEM->children->get("buttons");
 char 		*text = name->toString();
 Symbol 		*aliasSymbol = 0;
 Symbol 		*symbol = 0;
 Instance 	*instance = 0;
 SymbolType 	*symbolType = 0;
 	symbolType = SymbolType::getType("unsigned int");
-	symbol = p->currentClass->getLocal(text);
+	symbol = currentClass->getLocal(text);
 	if ( !symbol )
 		{
 		symbol = new Symbol(text,symbolType);
-		symbol->structType = p->currentClass;
+		symbol->structType = currentClass;
 		if ( bits )
 			{
-			PLGitem 	*length = bits->get("length");
+			PLGitem 	*length = bits->getLabel("length");
 			symbol->array = bits->toString();
 			symbol->symbolBitLength = ::atoi(length->string());
 			length->unString();
 			}
 		else	symbol->symbolBitLength = 1;
 		symbol->isItem = 1;
-		p->currentClass->add(symbol);
+		currentClass->add(symbol);
 		// saveStruct, if set, is the class containing the structure
-		if ( p->saveStruct )
+		if ( saveStruct )
 			{
 			aliasSymbol = new Symbol(symbol);
 			aliasSymbol->isHidden = 1;
 			aliasSymbol->isItem = 1;
-			p->saveStruct->add(aliasSymbol);
+			saveStruct->add(aliasSymbol);
 			}
 		}
 	else {
@@ -4259,77 +3931,75 @@ SymbolType 	*symbolType = 0;
 		symbol->isItem = 1;
 		}
 	instance = new Instance(symbol);
-	name->value = (void*)instance;
+	name->itemValue = (void*)instance;
 	if ( buttons )
 		{
 		PLGitem 	*button = 0;
-		buttons->runDeferred();
-		button = buttons->get("button");
-		for ( ; button; button = button->next )
+		buttons->runDeferred(this);
+		button = buttons->getLabel("button");
+		for ( ; button; button = button->itemNext )
 			{
 			// for button items symbol.source is set to the button container symbol
-			symbol = (Symbol*)button->value;
+			symbol = (Symbol*)button->itemValue;
 			symbol->isButton = 1;
 			symbol->source = instance->symbol;
-			if ( p->saveStruct )
+			if ( saveStruct )
 				{
 				aliasSymbol = new Symbol(symbol);
-				p->saveStruct->add(aliasSymbol);
+				saveStruct->add(aliasSymbol);
 				}
 			}
 		}
 }
 
-void StructureItemTawkAct(PLGitem *iTEM)
+void Tawk::StructureItemTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*item = iTEM->get("item");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*declare = item->get("declare");
+PLGitem 	*item = (PLGitem*)iTEM->children->get("item");
+PLGitem 	*declare = item->getLabel("declare");
 PLGitem 	*entry = 0;
 Instance 	*instance = 0;
 Symbol 		*aliasSymbol = 0;
-	item->runDeferred();
-	for ( entry = declare; entry; entry = entry->next )
+	item->runDeferred(this);
+	for ( entry = declare; entry; entry = entry->itemNext )
 		{
-		instance = (Instance*)entry->value;
+		instance = (Instance*)entry->itemValue;
 		if ( instance )
 			{
-			p->currentClass->add(instance->symbol);
-			instance->symbol->structType = p->currentClass;
-			if ( p->saveStruct )
+			currentClass->add(instance->symbol);
+			instance->symbol->structType = currentClass;
+			if ( saveStruct )
 				{
 				aliasSymbol = new Symbol(instance->symbol);
 				aliasSymbol->isHidden = 1;
 				aliasSymbol->isItem = 1;
-				p->saveStruct->add(aliasSymbol);
+				saveStruct->add(aliasSymbol);
 				}
 			}
 		}
 }
 
-void StructureTawkAct(PLGitem *iTEM)
+void Tawk::StructureTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*kind = iTEM->get("kind");
-PLGitem 	*body = iTEM->get("body");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*kind = (PLGitem*)iTEM->children->get("kind");
+PLGitem 	*body = (PLGitem*)iTEM->children->get("body");
 Symbol 		*symbol = 0;
 Instance 	*instance = 0;
 Instance 	*current = 0;
 SymbolType 	*structureType = 0;
-PLGitem 	*item = body->get("label");
-PLGitem 	*field = body->get("field");
-PLGitem 	*entry = body->get("entry");
+PLGitem 	*item = body->getLabel("label");
+PLGitem 	*field = body->getLabel("field");
+PLGitem 	*entry = body->getLabel("entry");
 char 		*error = 0;
-	p->setCurrentType((SymbolType*)0);
-	p->newType = p->methodType = 0;
-	if ( !item && kind->compare("typedef") == 0 )
+	setCurrentType((SymbolType*)0);
+	newType = methodType = 0;
+	if ( !item && kind->toString() == "typedef" )
 		{
-		PLGitem 	*name = entry->get("name");
+		PLGitem 	*name = entry->getLabel("name");
 		structureType = SymbolType::find(name->string());
 		if ( structureType && !isType(structureType->structure) )
 			{
 			error = ::concat(3,"typedef ",name->string()," conflicts with existing class name\n");
-			instance = p->makeError(error);
+			instance = makeError(error);
 			}
 		else {
 			if ( !structureType )
@@ -4341,68 +4011,69 @@ char 		*error = 0;
 			instance = new Instance(structureType);
 			}
 		name->unString();
-		if ( p->currentClass->noDotH )
+		if ( currentClass->noDotH )
 			structureType->noDotH = 1;
-		else	structureType->dotHname = p->currentClass->dotHname;
+		else	structureType->dotHname = currentClass->dotHname;
 		goto finish;
 		}
-	p->processingParameters = 1;
-	body->runDeferred();
-	p->processingParameters = 0;
-	structureType = p->currentType;
+	processingParameters = 1;
+	body->runDeferred(this);
+	processingParameters = 0;
+	structureType = currentType;
 	structureType->noDotH = 1;
-	if ( !p->currentClass )
-		p->setCurrentClass(p->currentType);
+	if ( !currentClass )
+		setCurrentClass(currentType);
 	if ( !item )
 		{
 		char 	*name = ::headToString(structureType->name,"Type");
-		symbol = p->currentClass->getLocal(name);
+		symbol = currentClass->getLocal(name);
 		if ( !symbol )
 			{
 			symbol = new Symbol(name,structureType);
-			p->currentClass->add(symbol);
+			currentClass->add(symbol);
 			symbol->isHidden = 1;
 			//	Note here, isHidden has to be set after adding
 			}
 		instance = new Instance(symbol);
 		}
 	else {
-		instance = (Instance*)item->value;
+		instance = (Instance*)item->itemValue;
 		structureType = instance->type;
+		//dealWith next
 		if ( field )
-			body->next = field;
+			body->itemNext = field;
 		else
-		if ( !p->currentClass->isExternal )
+		if ( !currentClass->isExternal )
 			structureType->mustDeclare = 1;
 		}
-	if ( (kind->compare("boolean") == 0) )
+	if ( (kind->toString() == "boolean") )
 		{
 		structureType->structure = 1;
 		structureType->isNumber = 1;
 		}
 	else
-	if ( (kind->compare("enumerator") == 0) )
+	if ( (kind->toString() == "enumerator") )
 		{
 		structureType->structure = 2;
 		structureType->isNumber = 1;
 		SymbolType::globalList->add((void*)structureType);
 		}
 	else
-	if ( (kind->compare("struct") == 0) )
+	if ( (kind->toString() == "struct") )
 		structureType->structure = 5;
 	else
-	if ( (kind->compare("typedef") == 0) )
+	if ( (kind->toString() == "typedef") )
 		structureType->structure = 4;
 	else	structureType->structure = 6;
 	if ( isBoolean(structureType->structure) || isEnumerator(structureType->structure) )
-		for ( item = entry; item; item = item->next )
+		for ( item = entry; item; item = item->itemNext )
 			{
-			current = (Instance*)item->value;
+			current = (Instance*)item->itemValue;
 			symbol = current->symbol;
 			if ( isEnumerator(structureType->structure) )
 				{
 				symbol->type = SymbolType::nullType;
-				p->currentSymbols->addGlobalField(symbol->name,symbol);
+				currentSymbols->addGlobalField(symbol->name,symbol);
 				}
 			else
 			if ( isBoolean(structureType->structure) )
@@ -4412,241 +4083,78 @@ char 		*error = 0;
 finish:
 	structureType->isExternal = 0;
 	structureType->isDirect = 1;
-	if ( p->currentClass != SymbolType::globalType )
-		structureType->setParent(p->currentClass);
-	kind->value = (void*)structureType;
-	body->value = (void*)instance;
-	p->setCurrentType((SymbolType*)0);
+	if ( currentClass != SymbolType::globalType )
+		structureType->setParent(currentClass);
+	kind->itemValue = (void*)structureType;
+	body->itemValue = (void*)instance;
+	setCurrentType((SymbolType*)0);
 }
 
-void StructureType2TawkAct(PLGitem *iTEM)
+void Tawk::StructureType2TawkAct(PLGitem *iTEM)
 {
-PLGitem 	*type = iTEM->get("type");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
 SymbolType 	*symbolType = 0;
 char 		*name = type->string();
 	symbolType = SymbolType::find(name);
 	type->unString();
 	if ( !symbolType )
 		symbolType = SymbolType::getType(type->toString());
-	type->value = (void*)symbolType;
+	type->itemValue = (void*)symbolType;
 }
 
-int SwitchTawkNow(PLGitem *iTEM)
+void Tawk::StructureTypeTawkAct(PLGitem *iTEM)
 {
-PLGitem 	*statement = iTEM->get("statement");
-PLGitem 	*name = iTEM->get("name");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+}
+
+int Tawk::SwitchTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*statement = (PLGitem*)iTEM->children->get("statement");
+PLGitem 	*name = (PLGitem*)iTEM->children->get("name");
 	// overriding statement length (not otherwise used).
-	statement->itemLength = p->iterating;
+	statement->itemLength = iterating;
 	if ( name )
-		statement->value = name->value;
-	if ( !p->switchStack )
-		p->switchStack = new Stak();
-	p->switchStack->push(statement);
+		statement->itemValue = name->itemValue;
+	if ( !switchStack )
+		switchStack = new Stak();
+	switchStack->push(statement);
 	return 1;
 }
 
-int SyntaxExtensions2TawkNow(PLGitem *iTEM)
+int Tawk::Target2TawkNow(PLGitem *iTEM)
 {
-Tawk 	*p = (Tawk*)iTEM->test->testParser;
-Symbol 	*symbol = 0;
-	if ( p->currentClass->aliasStack && p->currentClass->aliasStack->length )
-		{
-		p->currentClass->aliasStack->entry = 0;
-		while ( symbol = (Symbol*)p->currentClass->aliasStack->next() )
-			p->currentClass->add(symbol);
-		p->currentClass->aliasStack->clear();
-		}
-	return 1;
-}
-
-int Target2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*field = iTEM->get("field");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-PLGitem 	*name = field->get("name");
-Instance 	*instance = p->getInstance(name->toString());
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
+PLGitem 	*name = field->getLabel("name");
+Instance 	*instance = getInstance(name->toString());
 	instance->type = 0;
-	field->value = (void*)instance;
+	field->itemValue = (void*)instance;
 	return 1;
 }
 
-int TargetMethodTawkNow(PLGitem *iTEM)
+int Tawk::TargetMethodTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*target = iTEM->get("target");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
+PLGitem 	*target = (PLGitem*)iTEM->children->get("target");
 Symbol 		*symbol = 0;
-PLGitem 	*name = target->get("name");
-	if ( p->currentClass->methods )
+PLGitem 	*name = target->getLabel("name");
+	if ( currentClass->methods )
 		{
-		symbol = (Symbol*)p->currentClass->methods->get(name->string());
+		symbol = (Symbol*)currentClass->methods->get(name->string());
 		name->unString();
 		}
 	if ( symbol )
-		target->value = (void*)symbol;
+		target->itemValue = (void*)symbol;
 	else	return 0;
 	return 1;
 }
 
-int TargetTawkNow(PLGitem *iTEM)
+int Tawk::TargetTawkNow(PLGitem *iTEM)
 {
-PLGitem 	*field = iTEM->get("field");
-Instance 	*instance = (Instance*)field->value;
+PLGitem 	*field = (PLGitem*)iTEM->children->get("field");
+Instance 	*instance = (Instance*)field->itemValue;
 	if ( instance->isError )
 		return 0;
 	if ( instance->isConstant )
 		instance->type = 0;
 	return 1;
-}
-
-int TypeListTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*item = new Instance(p->currentType);
-	instance->value = (void*)item;
-	p->setCurrentType((SymbolType*)0);
-	return 1;
-}
-
-int TypeNameTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*type = iTEM->get("type");
-SymbolType 	*symbolType = 0;
-	symbolType = SymbolType::find(type->string());
-	type->unString();
-	if ( symbolType )
-		{
-		type->value = (void*)symbolType;
-		return 1;
-		}
-	return 0;
-	return 1;
-}
-
-int TypeTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*hasConst = iTEM->get("hasConst");
-PLGitem 	*noSign = iTEM->get("noSign");
-PLGitem 	*type = iTEM->get("type");
-PLGitem 	*temp = iTEM->get("temp");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-SymbolType 	*symbolType = 0;
-char 		*name = 0;
-	if ( !noSign && !temp )
-		symbolType = (SymbolType*)type->value;
-	else {
-		if ( temp )
-			type->itemLength += temp->itemLength;
-		name = type->string();
-		if ( noSign )
-			name = ::concat(2,"unsigned ",name);
-		symbolType = SymbolType::find(name);
-		type->unString();
-		}
-	if ( !symbolType )
-		return 0;
-	if ( hasConst )
-		type->flag4 = 1;
-	type->value = (void*)symbolType;
-	p->setCurrentType(symbolType);
-	return 1;
-}
-
-int UnaryExpression2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*operate = iTEM->get("operate");
-PLGitem 	*cast = iTEM->get("cast");
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Expression 	*expression = 0;
-PLGitem 	*item = 0;
-Instance 	*castInstance = 0;
-Instance 	*subject = 0;
-SymbolType 	*virtualType = 0;
-	subject = (Instance*)instance->value;
-	if ( operate )
-		if ( operate->compare("&") == 0 && !operate->next )
-			subject->setReference((unsigned int)1);
-		else {
-			expression = new Expression((Instance*)0,subject,operate->toString());
-			subject = new Instance(expression);
-			}
-	if ( cast )
-		{
-		item = cast->get("type");
-		castInstance = (Instance*)item->value;
-		if ( !subject->express )
-			{
-			expression = new Expression((Instance*)0,subject,(char*)0);
-			subject = new Instance(expression);
-			}
-		else	subject = new Instance(subject);
-		subject->cast = castInstance;
-		}
-	virtualType = subject->getType();
-	if ( virtualType->overloads )
-		p->virtualItem = subject;
-	instance->value = (void*)subject;
-	p->setCurrentType(virtualType);
-	return 1;
-}
-
-int UnaryExpressionTawkNow(PLGitem *iTEM)
-{
-PLGitem 	*operate = iTEM->get("operate");
-PLGitem 	*instance = iTEM->get("instance");
-Tawk 		*p = (Tawk*)iTEM->test->testParser;
-Instance 	*subject = 0;
-Expression 	*expression = 0;
-PLGitem 	*list = instance->get("list");
-	instance->runDeferred();
-	subject = (Instance*)list->value;
-	if ( operate )
-		{
-		expression = new Expression((Instance*)0,subject,operate->toString());
-		subject = new Instance(expression);
-		}
-	instance->value = (void*)subject;
-	p->setCurrentType((SymbolType*)0);
-	return 1;
-}
-
-int UnaryOperator2TawkNow(PLGitem *iTEM)
-{
-PLGitem 	*operate = iTEM->get("operate");
-	if ( operate->next )
-		return 0;
-	return 1;
-}
-
-void assignFailed(PLGtester *t)
-{
-Tawk 	*tOK = (Tawk*)t->testParser;
-	if ( tOK->assigning )
-		{
-		tOK->assigning = 0;
-		::printf("Assigning turned off\n");
-		}
-}
-
-void caseLabelFail(PLGtester *t)
-{
-Tawk 	*tOK = (Tawk*)t->testParser;
-	tOK->assuming = 0;
-}
-
-void expressPartFailed(PLGtester *t)
-{
-Tawk 	*tOK = (Tawk*)t->testParser;
-	tOK->popVirtuals();
-}
-
-void instanceTailFail(PLGtester *t)
-{
-Tawk 	*tOK = (Tawk*)t->testParser;
-	tOK->noShortcuts = 0;
-	t->printErrorMessage();
 }
 
 /*****************************************************************************
@@ -4700,13 +4208,11 @@ Tawk::Tawk()
 	externalENV = (void*)0;
 	alphaSet = 0;
 	nameStartSet = 0;
-	commentSet = 0;
 	compareSet = 0;
 	compareFollow = 0;
 	logicSet = 0;
 	methodSet = 0;
 	methodNameSet = 0;
-	nameSet = 0;
 	operatorSet = 0;
 	space = 0;
 	rangeSet = 0;
@@ -4723,19 +4229,140 @@ Tawk::Tawk()
 	Ranges = 0;
 	State = 0;
 	Structures = 0;
-	singleQuote = 0;
 	// WTF?
 	SymbolType::types = new Types();
 	blockStack = new Stak();
 	virtualStack = new Stak();
-	tokJunkBuffer = ::bufferFactory3("tokJunk",1000);
+	tokJunkBuffer = new Buffer("tokJunk",1000);
 	currentSymbols = new InstanceTable();
 	formatter = new FormatC();
 	lambdaSet = new PLGset();
 	lambdaSet->set((int)'^');
 	includedFiles = new BaseHash();
 	missingMethods = new BaseHash();
-	mainParser = (void*)this;
+}
+
+int Tawk::TypeListTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*item = new Instance(currentType);
+	instance->itemValue = (void*)item;
+	setCurrentType((SymbolType*)0);
+	return 1;
+}
+
+int Tawk::TypeNameTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+SymbolType 	*symbolType = 0;
+	symbolType = SymbolType::find(type->string());
+	type->unString();
+	if ( symbolType )
+		{
+		type->itemValue = (void*)symbolType;
+		return 1;
+		}
+	return 0;
+	return 1;
+}
+
+int Tawk::TypeTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*hasConst = (PLGitem*)iTEM->children->get("hasConst");
+PLGitem 	*noSign = (PLGitem*)iTEM->children->get("noSign");
+PLGitem 	*type = (PLGitem*)iTEM->children->get("type");
+PLGitem 	*temp = (PLGitem*)iTEM->children->get("temp");
+SymbolType 	*symbolType = 0;
+char 		*name = 0;
+	if ( !noSign && !temp )
+		symbolType = (SymbolType*)type->itemValue;
+	else {
+		if ( temp )
+			type->itemLength += temp->itemLength;
+		name = type->string();
+		if ( noSign )
+			name = ::concat(2,"unsigned ",name);
+		symbolType = SymbolType::find(name);
+		type->unString();
+		}
+	if ( !symbolType )
+		return 0;
+	if ( hasConst )
+		type->flag4 = 1;
+	type->itemValue = (void*)symbolType;
+	setCurrentType(symbolType);
+	return 1;
+}
+
+int Tawk::UnaryExpression2TawkNow(PLGitem *iTEM)
+{
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+PLGitem 	*cast = (PLGitem*)iTEM->children->get("cast");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Expression 	*expression = 0;
+PLGitem 	*item = 0;
+Instance 	*castInstance = 0;
+Instance 	*subject = 0;
+SymbolType 	*virtualType = 0;
+	subject = (Instance*)instance->itemValue;
+	//dealWith next not sure what !operate.next is guarding against
+	if ( operate )
+		if ( operate->toString() == "&" && !operate->itemNext )
+			subject->setReference((unsigned int)1);
+		else {
+			expression = new Expression((Instance*)0,subject,operate->toString());
+			subject = new Instance(expression);
+			}
+	if ( cast )
+		{
+		item = cast->getLabel("type");
+		castInstance = (Instance*)item->itemValue;
+		if ( !subject->express )
+			{
+			expression = new Expression((Instance*)0,subject,(char*)0);
+			subject = new Instance(expression);
+			}
+		else	subject = new Instance(subject);
+		subject->cast = castInstance;
+		}
+	virtualType = subject->getType();
+	if ( virtualType->overloads )
+		virtualItem = subject;
+	instance->itemValue = (void*)subject;
+	setCurrentType(virtualType);
+	return 1;
+}
+
+int Tawk::UnaryExpressionTawkNow(PLGitem *iTEM)
+{
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+PLGitem 	*instance = (PLGitem*)iTEM->children->get("instance");
+Instance 	*subject = 0;
+Expression 	*expression = 0;
+PLGitem 	*list = instance->getLabel("list");
+	instance->runDeferred(this);
+	subject = (Instance*)list->itemValue;
+	if ( operate )
+		{
+		expression = new Expression((Instance*)0,subject,operate->toString());
+		subject = new Instance(expression);
+		}
+	instance->itemValue = (void*)subject;
+	setCurrentType((SymbolType*)0);
+	return 1;
+}
+
+int Tawk::UnaryOperator2TawkNow(PLGitem *iTEM)
+{
+PLGitem 	*operate = (PLGitem*)iTEM->children->get("operate");
+	//dealWith thinking we can drop this action; not sure next is ever set
+	if ( operate->itemNext )
+		return 0;
+	return 1;
+}
+
+void Tawk::UnaryOperatorTawkAct(PLGitem *iTEM)
+{
 }
 
 /*******************************************************************************
@@ -4775,15 +4402,16 @@ Instance 	*instance = 0;
 Instance 	*parameter = 0;
 char 		*text = 0;
 int 		count = 0;
-	if ( !source->next )
-		return (Instance*)source->value;
+	//dealWith next
+	if ( !source->itemNext )
+		return (Instance*)source->itemValue;
 	/*************************************************************************
 	If all items to be concatenated are literals just glom them
 	together and go home
 	*************************************************************************/
-	for ( ; item; item = item->next )
+	for ( ; item; item = item->itemNext )
 		{
-		parameter = (Instance*)item->value;
+		parameter = (Instance*)item->itemValue;
 		if ( parameter )
 			{
 			if ( !parameter->isConstant || !parameter->prefix )
@@ -4796,9 +4424,9 @@ int 		count = 0;
 		{
 		text = (char*)::malloc(count + 1);
 		*text = 0;
-		for ( item = source; item; item = item->next )
+		for ( item = source; item; item = item->itemNext )
 			{
-			parameter = (Instance*)item->value;
+			parameter = (Instance*)item->itemValue;
 			::strcat(text,parameter->prefix);
 			}
 		instance = getInstance(text);
@@ -4813,18 +4441,19 @@ int 		count = 0;
 	instance = currentSymbols->find("concat");
 	// Make sure this is a new instance
 	instance = new Instance(instance->symbol);
-	for ( item = source; item; item = item->next )
+	for ( item = source; item; item = item->itemNext )
 		count++;
 	::asprintf(&text,"%d",count);
 	parameter = getInstance(text);
 	parameter->type = SymbolType::intType;
 	instance->addParameter(parameter);
-	for ( item = source; item; item = item->next )
+	for ( item = source; item; item = item->itemNext )
 		{
-		parameter = (Instance*)item->value;
+		parameter = (Instance*)item->itemValue;
 		instance->addParameter(parameter);
 		}
-	source->next = 0;
+	//dealWith next
+	source->itemNext = 0;
 	SymbolType::stringRoutines->setRefer();
 	return instance;
 }
@@ -4894,10 +4523,10 @@ char *Tawk::extractComment()
 {
 PLGitem 	*item = currentComment;
 	tokJunkBuffer->reset();
-	for ( ; item; item = item->next )
+	for ( ; item; item = item->itemNext )
 		{
-		tokJunkBuffer->appendString(item->string());
-		tokJunkBuffer->appendString("\n");
+		tokJunkBuffer->appendString(item->string(),0,0);
+		tokJunkBuffer->appendString("\n",0,0);
 		item->unString();
 		}
 	currentComment = 0;
@@ -5003,134 +4632,6 @@ Instance 	*instance = new Instance(text);
 	return instance;
 }
 
-void Tawk::initializeKeyWords()
-{
-	Attributes = new KeyTable("Attributes");
-	Attributes->add("C");
-	Attributes->add("isChar");
-	Attributes->add("isNumber");
-	Attributes->add("local");
-	Attributes->add("no.h");
-	Attributes->add("noClassForward");
-	Attributes->add("OC");
-	Attributes->add("proper");
-	Attributes->add("protocol");
-	Attributes->add("type");
-	Attributes->add("addClassNameToMethods");
-	Conditions = new KeyTable("Conditions");
-	ReservedWord = new KeyTable("ReservedWord");
-	ReservedWord->add("boolean");
-	ReservedWord->add("break");
-	ReservedWord->add("case");
-	ReservedWord->add("catch");
-	ReservedWord->add("cerr");
-	ReservedWord->add("char");
-	ReservedWord->add("continue");
-	ReservedWord->add("cout");
-	ReservedWord->add("default");
-	ReservedWord->add("delete");
-	ReservedWord->add("do");
-	ReservedWord->add("double");
-	ReservedWord->add("else");
-	ReservedWord->add("enumerator");
-	ReservedWord->add("extends");
-	ReservedWord->add("external");
-	ReservedWord->add("false");
-	ReservedWord->add("finally");
-	ReservedWord->add("float");
-	ReservedWord->add("for");
-	ReservedWord->add("goto");
-	ReservedWord->add("if");
-	ReservedWord->add("int");
-	ReservedWord->add("long");
-	ReservedWord->add("new");
-	ReservedWord->add("null");
-	ReservedWord->add("or");
-	ReservedWord->add("print");
-	ReservedWord->add("protocol");
-	ReservedWord->add("return");
-	ReservedWord->add("short");
-	ReservedWord->add("sizeof");
-	ReservedWord->add("static");
-	ReservedWord->add("String");
-	ReservedWord->add("struct");
-	ReservedWord->add("switch");
-	ReservedWord->add("throw");
-	ReservedWord->add("to");
-	ReservedWord->add("true");
-	ReservedWord->add("try");
-	ReservedWord->add("union");
-	ReservedWord->add("unsigned");
-	ReservedWord->add("use");
-	ReservedWord->add("void");
-	ReservedWord->add("while");
-	ReservedWord->add("gt");
-	ReservedWord->add("ge");
-	ReservedWord->add("lt");
-	ReservedWord->add("le");
-	ReservedWord->add("eq");
-	ReservedWord->add("ne");
-	Comparisons = new KeyTable("Comparisons");
-	Comparisons->add("gt");
-	Comparisons->add("ge");
-	Comparisons->add("lt");
-	Comparisons->add("le");
-	Comparisons->add("eq");
-	Comparisons->add("ne");
-	Directives = new KeyTable("Directives");
-	Directives->add("before");
-	Directives->add("ending");
-	Directives->add("starting");
-	Directives->add("within");
-	Linkage = new KeyTable("Linkage");
-	Linkage->add("const");
-	Linkage->add("extern");
-	Linkage->add("inline");
-	Linkage->add("static");
-	Linkage->add("virtual");
-	Operators = new KeyTable("Operators");
-	Ranges = new KeyTable("Ranges");
-	Ranges->add("..");
-	Ranges->add(">.");
-	Ranges->add(".<");
-	Ranges->add("><");
-	State = new KeyTable("State");
-	State->add("autoGetSet");
-	State->add("dEBUG");
-	State->add("dUMP");
-	State->add("initNOT");
-	State->add("mARK");
-	State->add("resetPRINT");
-	State->add("sUMMARY");
-	State->add("tEST");
-	Structures = new KeyTable("Structures");
-	Structures->add("boolean");
-	Structures->add("enumerator");
-	Structures->add("struct");
-	Structures->add("typedef");
-	Structures->add("union");
-}
-
-void Tawk::initializeSetTable()
-{
-	setTable->add("alphaSet",(void*)alphaSet);
-	setTable->add("nameStartSet",(void*)nameStartSet);
-	setTable->add("commentSet",(void*)commentSet);
-	setTable->add("compareSet",(void*)compareSet);
-	setTable->add("compareFollow",(void*)compareFollow);
-	setTable->add("logicSet",(void*)logicSet);
-	setTable->add("methodSet",(void*)methodSet);
-	setTable->add("methodNameSet",(void*)methodNameSet);
-	setTable->add("nameSet",(void*)nameSet);
-	setTable->add("operatorSet",(void*)operatorSet);
-	setTable->add("space",(void*)space);
-	setTable->add("rangeSet",(void*)rangeSet);
-	setTable->add("singleQuote",(void*)singleQuote);
-	setTable->add("stringOP",(void*)stringOP);
-	setTable->add("textFollow",(void*)textFollow);
-	setTable->add("typesSet",(void*)typesSet);
-}
-
 /*******************************************************************************
         Create an error instance
 *******************************************************************************/
@@ -5157,16 +4658,17 @@ SymbolType 	*type = 0;
 		expression = new Expression(instance,0,(char*)0);
 		return expression;
 		}
-	operate = item->get("operate");
-	expressItem = item->get("instance");
-	if ( item->next )
+	operate = item->getLabel("operate");
+	expressItem = item->getLabel("instance");
+	//dealWith next
+	if ( item->itemNext )
 		{
-		primary = (Instance*)expressItem->value;
-		expression = makeExpress(primary,item->next);
+		primary = (Instance*)expressItem->itemValue;
+		expression = makeExpress(primary,item->itemNext);
 		secondary = new Instance(expression);
 		}
 	else {
-		secondary = (Instance*)expressItem->value;
+		secondary = (Instance*)expressItem->itemValue;
 		if ( secondary->resolved )
 			{
 			expression = secondary->express;
@@ -5177,7 +4679,7 @@ SymbolType 	*type = 0;
 	/*************************************************************************
 	Resolve []= overloads
 	*************************************************************************/
-	if ( instance->resolved && instance->parameters && operate->compare("=") == 0 && (type = instance->getType()) && type->isVirtuous )
+	if ( instance->resolved && instance->parameters && operate->toString() == "=" && (type = instance->getType()) && type->isVirtuous )
 		{
 		char 	*text = type->overloaded("[]=");
 		if ( text )
@@ -5263,11 +4765,11 @@ SymbolType 	*type = 0;
 int 		direct = 0;
 	if ( target )
 		{
-		field = target->get("instance");
+		field = target->getLabel("instance");
 		if ( !field )
 			defaultPrinter = currentSymbols->find("printf");
 		else {
-			printObject = (Instance*)field->value;
+			printObject = (Instance*)field->itemValue;
 			type = printObject->getType();
 			direct = printObject->howDirect();
 			if ( type == SymbolType::stringType || type == SymbolType::charType )
@@ -5323,17 +4825,6 @@ void Tawk::resetVirtuals()
 		virtualOp = 0;
 		virtualStack->clear();
 		}
-}
-
-PLGitem *Tawk::run(char *name)
-{
-	initializeKeyWords();
-	if ( !rules->hashList->length )
-		{
-		setRules();
-		initialize();
-		}
-	return parse(name);
 }
 
 /*****************************************************************************
@@ -5472,1857 +4963,1866 @@ Operate 	*verb = 0;
 void Tawk::setRules()
 {
 	setSkip();
-	alphaSet = getSet("alphaSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z_");
-	nameStartSet = getSet("nameStartSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z_@");
-	commentSet = getSet("commentSet","-/#");
-	compareSet = getSet("compareSet","-!/|%^?:&*<>+=glen");
-	compareFollow = getSet("compareFollow","-+r(\"*&!");
-	logicSet = getSet("logicSet","glen");
-	methodSet = getSet("methodSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_*&(),@");
-	methodNameSet = getSet("methodNameSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_:");
-	nameSet = getSet("nameSet","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_");
-	operatorSet = getSet("operatorSet","-!/~|%^?:&*<>+=ei");
-	space = getSet("space","n");
-	rangeSet = getSet("rangeSet","<>.");
+	alphaSet = getSet("alphaSet","ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+	nameStartSet = getSet("nameStartSet","@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+	commentSet = getSet("commentSet","#-/");
+	compareSet = getSet("compareSet","!%&*+-/:<=>?^egln|");
+	compareFollow = getSet("compareFollow","\t\n\r !\"&'(*+-");
+	logicSet = getSet("logicSet","egln");
+	methodSet = getSet("methodSet","&()*,0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstu01234");
+	methodNameSet = getSet("methodNameSet","0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+	nameSet = getSet("nameSet","0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
+	operatorSet = getSet("operatorSet","!%&*+-/:<=>?^ei|~");
+	space = getSet("space","\t\n");
+	rangeSet = getSet("rangeSet",".<>");
 	singleQuote = getSet("singleQuote","'");
-	stringOP = getSet("stringOP","-+=");
-	textFollow = getSet("textFollow","ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_");
+	stringOP = getSet("stringOP","+-=");
+	textFollow = getSet("textFollow","0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz");
 	typesSet = getSet("typesSet","");
-	//
 	currentRule = getRule("Block");
-	currentRule->immediate = ::BlockTawkNow;
-	addTest(5,(void*)getRule("BlockStart"),"start",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Line"),"line",0,268435455,"defaultSKIP");
-	addTest(7,(void*)"}",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected } or statement";
-	//
+	currentAlt = new Alternative();
+	addTest(6,"BlockStart","start",1,1,"");
+	addTest(6,"Line","line",0,999999,"");
+	addTest(1,"}","",1,1,"");
+	currentAlt->immediate = BlockTawkNow;
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("StatementBody16");
-	currentRule->immediate = ::StatementBody16TawkNow;
-	addTest(7,(void*)"do",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Iterating"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)"while",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody17");
-	//
 	currentRule = getRule("BlockStart");
-	currentRule->immediate = ::BlockStartTawkNow;
-	addTest(7,(void*)"{","brace",1,1,"defaultSKIP");
-	//
+	currentAlt = new Alternative();
+	addTest(1,"{","brace",1,1,"");
+	currentAlt->immediate = BlockStartTawkNow;
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("ClassBlockStart");
-	currentRule->immediate = ::ClassBlockStartTawkNow;
-	addTest(7,(void*)"{",(char*)0,1,1,"defaultSKIP");
-	//
+	currentAlt = new Alternative();
+	addTest(1,"{","",1,1,"");
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("OperationTail");
-	currentRule->immediate = ::OperationTailTawkNow;
-	addTest(5,(void*)getRule("Operator"),"operate",1,1,"defaultSKIP");
-	currentSet = compareSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Question"),"question",0,1,"defaultSKIP");
-	currentRule->next = getRule("OperationTail2");
-	currentRule->fail = ::assignFailed;
-	//
+	currentAlt = new Alternative();
+	addTest(6,"Operator","operate",1,1,"");
+	addTest(6,"UnaryExpression","instance",1,1,"");
+	addTest(6,"Question","question",0,1,"");
+	currentAlt->immediate = OperationTailTawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(6,"Question","instance",1,1,"");
+	currentAlt->immediate = OperationTail2TawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(1,"in","in",1,1,"");
+	addTest(3,"textFollow","",-1,1,"");
+	setNoSkip();
+	setBanged();
+	addTest(6,"RangeField","range",1,1,"");
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("MacroBlock");
-	currentRule->immediate = ::MacroBlockTawkNow;
-	addTest(5,(void*)getRule("Line"),"line",0,268435455,"defaultSKIP");
-	//
+	currentAlt = new Alternative();
+	addTest(6,"Line","line",0,999999,"");
+	currentAlt->immediate = MacroBlockTawkNow;
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("OverLoadItem4");
-	currentRule->immediate = ::OverLoadItem4TawkNow;
-	addTest(5,(void*)getRule("OverLoadItem4Block1"),"newOp",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	currentRule->next = getRule("OverLoadItem5");
-	//
-	currentRule = getRule("Body2");
-	currentRule->immediate = ::Body2TawkNow;
-	addTest(5,(void*)getRule("Method"),"body",1,1,"defaultSKIP");
-	currentRule->next = getRule("Body3");
-	//
-	currentRule = getRule("Statement2");
-	currentRule->immediate = ::Statement2TawkNow;
-	addTest(5,(void*)getRule("StatementBody"),"statement",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Body3");
-	currentRule->immediate = ::Body3TawkNow;
-	addTest(5,(void*)getRule("Declaration"),"body",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected a semi-colon";
-	currentRule->next = getRule("Body4");
-	//
-	currentRule = getRule("SecondaryExpression2");
-	currentRule->immediate = ::SecondaryExpression2TawkNow;
-	addTest(7,(void*)"sizeof","instance",1,1,"defaultSKIP");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Type"),(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)"*","pointer",0,268435455,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrimaryExpression2");
-	addTest(5,(void*)getRule("SecondaryExpression"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("PrimaryExpression3");
-	//
-	currentRule = getRule("InitExpression2");
-	addTest(5,(void*)getRule("RangeField"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StringExpression2");
-	currentRule->immediate = ::StringExpression2TawkNow;
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("UnaryExpression2");
-	currentRule->immediate = ::UnaryExpression2TawkNow;
-	addTest(5,(void*)getRule("UnaryOperator"),"operate",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CastExpression"),"cast",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("PrimaryExpression"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("UnaryExpression3");
-	//
-	currentRule = getRule("ClassBlock");
-	currentRule->immediate = ::ClassBlockTawkNow;
-	addTest(5,(void*)getRule("ClassBlockStart"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Body"),(char*)0,0,268435455,"defaultSKIP");
-	addTest(7,(void*)"}",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected }, static, or type";
-	//
-	currentRule = getRule("ClassHeading");
-	currentRule->immediate = ::ClassHeadingTawkNow;
-	addTest(7,(void*)"class",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassName"),"nom",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassAttributes"),"attributes",0,268435455,"defaultSKIP");
-	currentRule->next = getRule("ClassHeading2");
-	//
-	currentRule = getRule("StatementBody14");
-	currentRule->immediate = ::StatementBody14TawkNow;
-	addTest(7,(void*)";","statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody15");
-	//
-	currentRule = getRule("RangeTail");
-	addTest(4,(void*)Ranges,"operate",1,1,"defaultSKIP");
-	currentSet = rangeSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ExpressItem");
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("ClassHeading2");
-	currentRule->immediate = ::ClassHeading2TawkNow;
-	addTest(7,(void*)"external","externalRef",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Structure"),"structure",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("ClassHeading3");
-	//
-	currentRule = getRule("Constant");
-	addTest(5,(void*)getRule("Number"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("Constant2");
-	//
-	currentRule = getRule("Inheritance");
-	addTest(5,(void*)getRule("Extends"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Inheritance2");
-	//
-	currentRule = getRule("ClassHeading3");
-	currentRule->immediate = ::ClassHeading3TawkNow;
-	addTest(7,(void*)"external",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassHeading3Block15"),"kind",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassName"),"nom",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassAttributes"),"attributes",0,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("ItemArray");
-	addTest(7,(void*)"[",(char*)0,1,1,"defaultSKIP");
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,0,268435455,"defaultSKIP");
-	addTest(7,(void*)"]",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Else2");
-	currentRule->immediate = ::Else2TawkNow;
-	addTest(7,(void*)"or",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("IfBody"),"statement",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CommentBody2");
-	addTest(7,(void*)"//",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("EndComment"),"end",1,1,"defaultSKIP");
-	currentRule->next = getRule("CommentBody3");
-	//
-	currentRule = getRule("StatementBody2");
-	currentRule->immediate = ::StatementBody2TawkNow;
-	addTest(5,(void*)getRule("Block"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody3");
-	//
-	currentRule = getRule("Number2Block8Block9");
-	addTest(7,(void*)"0",(char*)0,1,1,(char*)0);
-	currentSet = getSet("xX");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = getSet("01234567890-9abcdefa-fABCDEFA-F");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("Extends");
-	currentRule->immediate = ::ExtendsTawkNow;
-	addTest(5,(void*)getRule("ClassHeading"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ClassBlock"),(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("Extends2");
-	//
-	currentRule = getRule("Inheritance4");
-	currentRule->immediate = ::Inheritance4TawkNow;
-	addTest(5,(void*)getRule("EndComment"),"error",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrintCommand");
-	currentRule->immediate = ::PrintCommandTawkNow;
-	addTest(7,(void*)"print","printer",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("PrintTarget"),"target",0,1,(char*)0);
-	currentRule->next = getRule("PrintCommand2");
-	//
-	currentRule = getRule("PoundCommand");
-	currentRule->immediate = ::PoundCommandTawkNow;
-	addTest(4,(void*)State,"state",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Type"),"type",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Count"),"level",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("RuleList"),"list",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("FieldList"),"field",0,1,"defaultSKIP");
-	currentRule->next = getRule("PoundCommand2");
-	//
-	currentRule = getRule("Template2Any");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("FieldBody");
-	currentRule->defer = ::FieldBodyTawkAct;
-	addTest(5,(void*)getRule("Bump"),"prefix",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("FieldComponent"),"part",1,1,"defaultSKIP");
-	currentRule->next = getRule("FieldBody2");
-	//
-	currentRule = getRule("FieldBody2");
-	currentRule->defer = ::FieldBody2TawkAct;
-	addTest(5,(void*)getRule("New"),"name",1,1,"defaultSKIP");
-	currentRule->next = getRule("FieldBody3");
-	//
-	currentRule = getRule("FieldBody3");
-	currentRule->immediate = ::FieldBody3TawkNow;
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"name",1,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Qualified");
-	currentRule->immediate = ::QualifiedTawkNow;
-	addTest(5,(void*)getRule("QualifyType"),"type",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("QualifyStart"),"field",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("QualifyTail"),"rest",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("Bump"),"postfix",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("FieldExpression");
-	currentRule->immediate = ::FieldExpressionTawkNow;
-	addTest(5,(void*)getRule("CastExpression"),"cast",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Expression");
-	currentRule->immediate = ::ExpressionTawkNow;
-	addTest(5,(void*)getRule("ExpressPart"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ExpressTail"),"express",0,268435455,"defaultSKIP");
-	currentRule->fail = ::expressPartFailed;
-	//
-	currentRule = getRule("CastExpression");
-	currentRule->immediate = ::CastExpressionTawkNow;
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CastType"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CastTail"),"rest",0,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("SecondaryExpression");
-	currentRule->immediate = ::SecondaryExpressionTawkNow;
-	addTest(7,(void*)"null","instance",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentRule->next = getRule("SecondaryExpression2");
-	//
-	currentRule = getRule("InitExpression");
-	currentRule->immediate = ::InitExpressionTawkNow;
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("InitExpression2");
-	//
-	currentRule = getRule("RangeExpression");
-	currentRule->immediate = ::RangeExpressionTawkNow;
-	addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("RangeTail"),"back",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrimaryExpression");
-	addTest(5,(void*)getRule("Constant"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("PrimaryExpression2");
-	//
-	currentRule = getRule("StatementBody8");
-	currentRule->immediate = ::StatementBody8TawkNow;
-	addTest(5,(void*)getRule("Case"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody9");
-	//
-	currentRule = getRule("StringExpression");
-	addTest(5,(void*)getRule("AllowShortcuts"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("StringExpression2");
-	//
-	currentRule = getRule("UnaryExpression");
-	currentRule->immediate = ::UnaryExpressionTawkNow;
-	addTest(5,(void*)getRule("UnaryOperator"),"operate",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ConditionWord"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("UnaryExpression2");
-	//
-	currentRule = getRule("Fielding");
-	currentRule->immediate = ::FieldingTawkNow;
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("IfBody");
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"action",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Else"),"otherwise",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("ForOption");
-	currentRule->immediate = ::ForOptionTawkNow;
-	addTest(7,(void*)"(","instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ExpressList"),"initial",0,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected expression list or ;";
-	addTest(5,(void*)getRule("Expression"),"condition",0,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected expression or ;";
-	addTest(5,(void*)getRule("ExpressList"),"increment",0,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Expected expression list or )";
-	currentRule->next = getRule("ForOption2");
-	//
-	currentRule = getRule("ForOption2");
-	currentRule->immediate = ::ForOption2TawkNow;
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ForOption2Block16"),"name",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Include");
-	currentRule->immediate = ::IncludeTawkNow;
-	addTest(5,(void*)getRule("IncludeBalancE"),"include",1,1,(char*)0);
-	currentRule->next = getRule("Include2");
-	//
-	currentRule = getRule("Include2");
-	currentRule->immediate = ::Include2TawkNow;
-	addTest(5,(void*)getRule("Include2BalancE"),"include",1,1,(char*)0);
-	currentRule->next = getRule("Include3");
-	//
-	currentRule = getRule("CommentBody3");
-	addTest(5,(void*)getRule("CommentBody3BalancE"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("CommentBody4");
-	//
-	currentRule = getRule("StatementBody3");
-	currentRule->immediate = ::StatementBody3TawkNow;
-	addTest(7,(void*)"if",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("IfBody"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody4");
-	//
-	currentRule = getRule("Include3");
-	currentRule->immediate = ::Include3TawkNow;
-	addTest(5,(void*)getRule("Include3Block17"),(char*)0,1,1,"defaultSKIP");
-	currentSet = getSet("t");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	addTest(7,(void*)"\n","include",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("CommentBody4");
-	addTest(5,(void*)getRule("CommentBody4BalancE"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("CommentBody5");
-	//
-	currentRule = getRule("StatementBody4");
-	currentRule->immediate = ::StatementBody4TawkNow;
-	addTest(7,(void*)"return","statement",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Expression"),"instance",0,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody5");
-	//
-	currentRule = getRule("InstanceTail");
-	currentRule->immediate = ::InstanceTailTawkNow;
-	addTest(5,(void*)getRule("NewArray"),"array",1,268435455,"defaultSKIP");
-	currentRule->next = getRule("InstanceTail2");
-	//
-	currentRule = getRule("InstanceTail2");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("NoShortcuts"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ParameterList"),"expression",0,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	currentRule->fail = ::instanceTailFail;
-	//
-	currentRule = getRule("Iterating");
-	currentRule->immediate = ::IteratingTawkNow;
-	//
-	currentRule = getRule("OverLoadItem5");
-	currentRule->immediate = ::OverLoadItem5TawkNow;
-	addTest(7,(void*)"()",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Lambda");
-	currentRule->immediate = ::LambdaTawkNow;
-	addTest(5,(void*)getRule("LambdaName"),"function",1,1,"defaultSKIP");
-	addTest(7,(void*)"=",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Block"),"body",1,1,"defaultSKIP");
-	currentRule->next = getRule("Lambda2");
-	//
-	currentRule = getRule("Character");
-	currentRule->immediate = ::CharacterTawkNow;
-	addTest(5,(void*)getRule("CharacterBlock4"),"instance",1,1,(char*)0);
-	//
-	currentRule = getRule("Lambda2");
-	currentRule->immediate = ::Lambda2TawkNow;
-	addTest(5,(void*)getRule("MethodType"),"function",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Block"),"body",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Line");
-	currentRule->immediate = ::LineTawkNow;
-	addTest(7,(void*)"use",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("FieldExpression"),"target",1,1,"defaultSKIP");
-	currentRule->next = getRule("Line2");
-	//
-	currentRule = getRule("Line3");
-	currentRule->immediate = ::Line3TawkNow;
-	addTest(7,(void*)"label",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentTest->errorMessage = "Label declaration expected an ending ;";
-	//
-	currentRule = getRule("Format");
-	addTest(7,(void*)"#",(char*)0,1,1,(char*)0);
-	currentSet = getSet("- 0+");
-	addTest(6,(void*)currentSet,(char*)0,0,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,"width",0,268435455,(char*)0);
-	currentSet = getSet("*%.01234567890-9abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZA-Z");
-	addTest(6,(void*)currentSet,(char*)0,0,268435455,(char*)0);
-	//
-	currentRule = getRule("LineByLine");
-	currentRule->immediate = ::LineByLineTawkNow;
-	addTest(5,(void*)getRule("Statement"),"line",1,268435455,"defaultSKIP");
-	currentSet = getSet("ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9/(*");
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	//
-	currentRule = getRule("MacroName");
-	currentRule->immediate = ::MacroNameTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Method");
-	currentRule->immediate = ::MethodTawkNow;
-	addTest(5,(void*)getRule("MethodType"),"method",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Block"),"block",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("IncludeBoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"#include","begin",0,1,(char*)0);
-	addTest(7,(void*)"\n","end",0,1,(char*)0);
-	currentRule->next = getRule("IncludeAny");
-	//
-	currentRule = getRule("TargetMethod");
-	currentRule->immediate = ::TargetMethodTawkNow;
-	addTest(5,(void*)getRule("Name"),"target",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("MethodHead");
-	currentRule->defer = ::MethodHeadTawkAct;
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MethodName"),"function",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MethodParameters"),"head",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("MethodType");
-	currentRule->immediate = ::MethodTypeTawkNow;
-	currentRule->defer = ::MethodTypeTawkAct;
-	addTest(4,(void*)Linkage,"modify",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MethodHead"),"methodHead",1,1,"defaultSKIP");
-	addTest(7,(void*)"{",(char*)0,1,1,"defaultSKIP");
-	currentTest->isIgnored = 1;
-	//
-	currentRule = getRule("Extends2");
-	addTest(5,(void*)getRule("Comment"),(char*)0,1,1,"defaultSKIP");
-	currentSet = commentSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	currentRule->next = getRule("Extends3");
-	//
-	currentRule = getRule("Throw");
-	addTest(7,(void*)"throw",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"express",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("New");
-	currentRule->defer = ::NewTawkAct;
-	addTest(7,(void*)"new","instance",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Type"),"type",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("InstanceBody"),"body",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ArrayInitializer"),"initial",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("NoShortcuts");
-	currentRule->immediate = ::NoShortcutsTawkNow;
-	//
-	currentRule = getRule("AllowShortcuts");
-	currentRule->immediate = ::AllowShortcutsTawkNow;
-	//
-	currentRule = getRule("CaseLabel2");
-	currentRule->immediate = ::CaseLabel2TawkNow;
-	addTest(5,(void*)getRule("RangeField"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("CaseLabel3");
-	//
-	currentRule = getRule("Parameter");
-	currentRule->immediate = ::ParameterTawkNow;
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ParameterItem"),"item",0,268435455,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasParameter");
-	addTest(5,(void*)getRule("Name"),"parameter",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("AliasParameterBlock0"),"replacedBy",0,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("AliasParameter2");
-	//
-	currentRule = getRule("Indirection");
-	currentSet = getSet("*&^");
-	addTest(6,(void*)currentSet,"direct",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("ParameterItem");
-	currentRule->defer = ::ParameterItemTawkAct;
-	addTest(5,(void*)getRule("MethodHead"),"name",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("ParameterItem2");
-	//
-	currentRule = getRule("ParameterItem2");
-	currentRule->defer = ::ParameterItem2TawkAct;
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	addTest(7,(void*)"[]","array",0,268435455,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("ParameterItem3");
-	//
-	currentRule = getRule("ParameterItem3");
-	currentRule->defer = ::ParameterItem3TawkAct;
-	addTest(7,(void*)"[]","name",1,268435455,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("ParameterItem4");
-	//
-	currentRule = getRule("QualifyStart2");
-	addTest(5,(void*)getRule("FieldBody"),"field",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ParameterItem4");
-	currentRule->defer = ::ParameterItem4TawkAct;
-	addTest(5,(void*)getRule("Indirection"),"name",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("EscapeCharacters2");
-	addTest(7,(void*)"u",(char*)0,1,268435455,(char*)0);
-	currentSet = getSet("01234567890-9abcdefa-fABCDEFA-F");
-	addTest(6,(void*)currentSet,(char*)0,4,4,(char*)0);
-	currentRule->next = getRule("EscapeCharacters3");
-	//
-	currentRule = getRule("AliasItem2");
-	currentRule->immediate = ::AliasItem2TawkNow;
-	addTest(7,(void*)"new",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"alias",1,1,"defaultSKIP");
-	currentRule->next = getRule("AliasItem3");
-	//
-	currentRule = getRule("Print");
-	currentRule->immediate = ::PrintTawkNow;
-	addTest(5,(void*)getRule("PrintCommand"),"start",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("PrintItem"),"arguments",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("PrintTo"),"output",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("FieldComponent");
-	addTest(5,(void*)getRule("Fielding"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("InstanceBody"),"body",0,1,"defaultSKIP");
-	currentRule->next = getRule("FieldComponent2");
-	//
-	currentRule = getRule("PrintCommand2");
-	currentRule->immediate = ::PrintCommand2TawkNow;
-	addTest(7,(void*)"cout","stdPrint",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentRule->next = getRule("PrintCommand3");
-	//
-	currentRule = getRule("PoundCommand2");
-	addTest(5,(void*)getRule("MacroDefine"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("PoundCommand3");
-	//
-	currentRule = getRule("PrintCommand3");
-	currentRule->immediate = ::PrintCommand3TawkNow;
-	addTest(7,(void*)"cerr","stdPrint",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	//
-	currentRule = getRule("PoundCommand3");
-	addTest(5,(void*)getRule("Directive"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrintItem2");
-	currentRule->immediate = ::PrintItem2TawkNow;
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Format"),"format",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("SaveVirtuals");
-	currentRule->immediate = ::SaveVirtualsTawkNow;
-	//
-	currentRule = getRule("PrintShortcut");
-	currentRule->immediate = ::PrintShortcutTawkNow;
-	currentSet = getSet(",:`");
-	addTest(6,(void*)currentSet,"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CastType");
-	currentRule->immediate = ::CastTypeTawkNow;
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CastTypeBlock13"),"array",0,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody17");
-	currentRule->immediate = ::StatementBody17TawkNow;
-	addTest(5,(void*)getRule("Throw"),"statement",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody18");
-	//
-	currentRule = getRule("QualifyStart");
-	currentRule->immediate = ::QualifyStartTawkNow;
-	addTest(7,(void*)"this","name",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentRule->next = getRule("QualifyStart2");
-	//
-	currentRule = getRule("NotQuote");
-	//
-	currentRule = getRule("ResetType");
-	currentRule->immediate = ::ResetTypeTawkNow;
-	//
-	currentRule = getRule("Start");
-	currentRule->immediate = ::StartTawkNow;
-	addTest(5,(void*)getRule("Inheritance"),(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody");
-	currentRule->immediate = ::StatementBodyTawkNow;
-	addTest(5,(void*)getRule("CommentBody"),"statement",1,1,"defaultSKIP");
-	currentSet = commentSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	currentRule->next = getRule("StatementBody2");
-	//
-	currentRule = getRule("CommentBody");
-	addTest(5,(void*)getRule("CodePass"),"comment",1,1,"defaultSKIP");
-	currentRule->next = getRule("CommentBody2");
-	//
-	currentRule = getRule("Template2");
-	addTest(5,(void*)getRule("Template2BalancE"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody5");
-	currentRule->immediate = ::StatementBody5TawkNow;
-	addTest(7,(void*)"for",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Iterating"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ForOption"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody6");
-	//
-	currentRule = getRule("MethodNameSet");
-	currentSet = nameStartSet;
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = methodNameSet;
-	addTest(6,(void*)currentSet,(char*)0,0,268435455,(char*)0);
-	//
-	currentRule = getRule("CommentBody5");
-	addTest(7,(void*)"#define",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("EndComment"),"end",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("NameSet");
-	currentSet = nameStartSet;
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = nameSet;
-	addTest(6,(void*)currentSet,(char*)0,0,268435455,(char*)0);
-	//
-	currentRule = getRule("StatementBody6");
-	currentRule->immediate = ::StatementBody6TawkNow;
-	addTest(5,(void*)getRule("Print"),"statement",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody7");
-	//
-	currentRule = getRule("StatementBody7");
-	currentRule->immediate = ::StatementBody7TawkNow;
-	addTest(7,(void*)"while",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Iterating"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody8");
-	//
-	currentRule = getRule("StatementBody9");
-	currentRule->immediate = ::StatementBody9TawkNow;
-	addTest(7,(void*)"break","statement",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody10");
-	//
-	currentRule = getRule("StatementBody10");
-	currentRule->immediate = ::StatementBody10TawkNow;
-	addTest(7,(void*)"continue","statement",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody11");
-	//
-	currentRule = getRule("StatementBody11");
-	currentRule->immediate = ::StatementBody11TawkNow;
-	addTest(7,(void*)"goto","statement",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Target"),"field",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody12");
-	//
-	currentRule = getRule("Replacement");
-	addTest(5,(void*)getRule("Quote"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Replacement2");
-	//
-	currentRule = getRule("NewArray");
-	addTest(7,(void*)"[",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"instance",0,1,"defaultSKIP");
-	addTest(7,(void*)"]",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody12");
-	currentRule->immediate = ::StatementBody12TawkNow;
-	addTest(5,(void*)getRule("Switch"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Block"),"block",1,1,"defaultSKIP");
-	currentTest->errorMessage = "Switch expected a block";
-	currentRule->next = getRule("StatementBody13");
-	//
-	currentRule = getRule("ItemHead");
-	currentRule->immediate = ::ItemHeadTawkNow;
-	addTest(5,(void*)getRule("Indirection"),"direct",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ItemArray"),"array",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("Bits"),"bits",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody15");
-	currentRule->immediate = ::StatementBody15TawkNow;
-	addTest(7,(void*)"delete","statement",1,1,"defaultSKIP");
-	addTest(7,(void*)"[]","array",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody16");
-	//
-	currentRule = getRule("StatementBody18");
-	currentRule->immediate = ::StatementBody18TawkNow;
-	addTest(5,(void*)getRule("Try"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody19");
-	//
-	currentRule = getRule("StatementBody19");
-	currentRule->immediate = ::StatementBody19TawkNow;
-	addTest(5,(void*)getRule("Declaration"),"statement",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody20");
-	//
-	currentRule = getRule("FieldComponent2");
-	addTest(5,(void*)getRule("TypeName"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("InstanceBody"),"body",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody20");
-	currentRule->immediate = ::StatementBody20TawkNow;
-	addTest(5,(void*)getRule("Expression"),"statement",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody21");
-	//
-	currentRule = getRule("ClassHeading3Block15");
-	addTest(4,(void*)Structures,"kind",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	//
-	currentRule = getRule("EscapeCharacters");
-	currentSet = getSet("nrtb\"\\");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentRule->next = getRule("EscapeCharacters2");
-	//
-	currentRule = getRule("StatementBody21");
-	currentRule->immediate = ::StatementBody21TawkNow;
-	addTest(5,(void*)getRule("Lambda"),"statement",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ForOption2Block16");
-	addTest(7,(void*)"on",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("DeclareItem");
-	currentRule->defer = ::DeclareItemTawkAct;
-	addTest(5,(void*)getRule("MethodHead"),"item",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MethodInitializer"),"instance",0,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("DeclareItem2");
-	//
-	currentRule = getRule("StructureItem");
-	currentRule->defer = ::StructureItemTawkAct;
-	addTest(5,(void*)getRule("Declaration"),"item",1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("StructureItem2");
-	//
-	currentRule = getRule("Switch");
-	currentRule->immediate = ::SwitchTawkNow;
-	addTest(7,(void*)"switch","statement",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("FieldBody3"),"name",0,1,"defaultSKIP");
-	currentTest->errorMessage = "Switch expected expression in parentheses";
-	//
-	currentRule = getRule("Target");
-	currentRule->immediate = ::TargetTawkNow;
-	addTest(5,(void*)getRule("Qualified"),"field",1,1,"defaultSKIP");
-	currentRule->next = getRule("Target2");
-	//
-	currentRule = getRule("PrintTarget");
-	addTest(7,(void*)"(",(char*)0,1,1,(char*)0);
-	addTest(5,(void*)getRule("FieldExpression"),"instance",0,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CastTail");
-	currentRule->immediate = ::CastTailTawkNow;
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CastType"),"rest",1,268435455,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("DotH");
-	//
-	currentRule = getRule("Target2");
-	currentRule->immediate = ::Target2TawkNow;
-	addTest(5,(void*)getRule("Name"),"field",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Directivise");
-	addTest(5,(void*)getRule("Line"),"line",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("AliasTarget2");
-	addTest(5,(void*)getRule("Name"),"target",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("AliasBody"),"body",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrintItem");
-	addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("PrintItem2");
-	//
 	currentRule = getRule("Body");
-	addTest(5,(void*)getRule("Commands"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Body2");
-	//
+	currentAlt = new Alternative();
+	addTest(6,"Commands","",1,1,"");
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(6,"Method","body",1,1,"");
+	currentAlt->defer = BodyTawkAct;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(6,"Declaration","body",1,1,"");
+	addTest(1,";","",1,1,"");
+	currentAlt->immediate = Body2TawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(6,"Comment","",1,1,"");
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(6,"Include3","",1,1,"");
+	currentRule->alternatives->add(currentAlt);
 	currentRule = getRule("MethodName");
-	currentRule->immediate = ::MethodNameTawkNow;
-	addTest(5,(void*)getRule("MethodNameSet"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Bump");
-	addTest(5,(void*)getRule("BumpBlock3"),"bump",1,1,(char*)0);
-	//
-	currentRule = getRule("CodePass");
-	addTest(7,(void*)"-%",(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)"%-","comment",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("Comment");
-	currentRule->immediate = ::CommentTawkNow;
-	addTest(5,(void*)getRule("CommentBody"),"comment",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("EndComment");
-	currentSet = getSet("\n");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("Count");
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("ConditionList");
-	//
-	currentRule = getRule("NumberBlock6");
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	addTest(7,(void*)".",(char*)0,1,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	addTest(5,(void*)getRule("NumberBlock6Block7"),(char*)0,0,1,(char*)0);
-	//
-	currentRule = getRule("Declaration");
-	currentRule->defer = ::DeclarationTawkAct;
-	currentRule->doNotGuard = 1;
-	addTest(7,(void*)"outlet","outlet",0,1,"defaultSKIP");
-	addTest(4,(void*)Linkage,"modify",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("DeclareType"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("DeclareItem"),"declare",1,268435455,"defaultSKIP");
-	currentRule->next = getRule("Declaration2");
-	//
-	currentRule = getRule("CaseLabel3");
-	currentRule->immediate = ::CaseLabel3TawkNow;
-	addTest(5,(void*)getRule("Qualified"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)":",(char*)0,1,1,"defaultSKIP");
-	currentTest->isIgnored = 1;
-	currentRule->next = getRule("CaseLabel4");
-	//
-	currentRule = getRule("AliasTarget");
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Indirection"),"indirect",0,1,"defaultSKIP");
-	currentRule->next = getRule("AliasTarget2");
-	//
-	currentRule = getRule("Escape");
-	addTest(7,(void*)"\\",(char*)0,1,1,(char*)0);
-	addTest(5,(void*)getRule("EscapeCharacters"),(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("AliasItem4");
-	currentRule->immediate = ::AliasItem4TawkNow;
-	addTest(5,(void*)getRule("NameSet"),"alias",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("AliasTarget"),"value",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("EscapeCharacters4");
-	currentSet = getSet("45674-7");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,0,1,(char*)0);
-	//
-	currentRule = getRule("ExpressList");
-	currentRule->immediate = ::ExpressListTawkNow;
-	addTest(5,(void*)getRule("NoShortcuts"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ExpressItem"),"list",1,268435455,"defaultSKIP");
-	currentRule->fail = ::instanceTailFail;
-	//
-	currentRule = getRule("MacroPart");
-	currentSet = getSet(",(");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,"defaultSKIP");
-	currentRule->next = getRule("MacroPart2");
-	//
-	currentRule = getRule("Include3Block17");
-	addTest(7,(void*)"include",(char*)0,1,1,"defaultSKIP");
-	saveTest = currentTest;
-	addTest(7,(void*)"import",(char*)0,1,1,"defaultSKIP");
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("ExpressPart");
-	currentRule->immediate = ::ExpressPartTawkNow;
-	addTest(5,(void*)getRule("SaveVirtuals"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("UnaryOperator"),"unaryOp",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("UnaryExpression"),"instance",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("RangeTail"),(char*)0,-1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ExpressType"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("OperationTail"),"express",0,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("ClassAttributes4");
-	currentRule->defer = ::ClassAttributes4TawkAct;
-	addTest(7,(void*)"namespace",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("NameSet"),"nSpace",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("DeclareConditions");
-	addTest(7,(void*)"Conditions",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ConditionLabel"),(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("Field");
-	currentRule->immediate = ::FieldTawkNow;
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ParameterList");
-	addTest(5,(void*)getRule("ExpressItem"),"expression",1,268435455,"defaultSKIP");
-	currentRule->next = getRule("ParameterList2");
-	//
-	currentRule = getRule("Initializer");
-	currentRule->immediate = ::InitializerTawkNow;
-	addTest(5,(void*)getRule("ExpressList"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("Initializer2");
-	//
-	currentRule = getRule("ArrayInitializer");
-	currentRule->immediate = ::ArrayInitializerTawkNow;
-	addTest(7,(void*)"{",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Initializer"),"instance",0,268435455,"defaultSKIP");
-	addTest(7,(void*)"}",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CommentBody4Any");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("ItemInitializer");
-	addTest(7,(void*)"=",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("SetObject"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ItemInitializerBlock12"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("MethodInitializer");
-	addTest(7,(void*)"=",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("RangeField2");
-	addTest(5,(void*)getRule("RangeExpression"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("InstanceBody");
-	addTest(5,(void*)getRule("InstanceTail"),"body",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Quote");
-	currentRule->immediate = ::QuoteTawkNow;
-	addTest(7,(void*)"@","string",0,1,(char*)0);
-	addTest(7,(void*)"\"","instance",1,1,(char*)0);
-	addTest(7,(void*)"\"","body",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("Label");
-	addTest(5,(void*)getRule("Name"),"name",1,1,(char*)0);
-	addTest(7,(void*)":",(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("MethodParameters");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Parameter"),"parameter",0,268435455,"defaultSKIP");
-	addTest(7,(void*)"...","ellipsis",0,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Initializer2");
-	addTest(5,(void*)getRule("ArrayInitializer"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("AssumedString");
-	currentRule->immediate = ::AssumedStringTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"instance",1,1,(char*)0);
-	//
-	currentRule = getRule("MacroParameters");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MacroElement"),"parameters",1,268435455,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasParameters");
-	addTest(5,(void*)getRule("AliasParameter"),"body",0,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("InitializerItem");
-	currentRule->immediate = ::InitializerItemTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"field",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("NameSet"),"function",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CheckMacroParameters");
-	currentRule->immediate = ::CheckMacroParametersTawkNow;
-	addTest(5,(void*)getRule("CheckMacroParametersBalancE"),"braced",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Modify");
-	//
-	currentRule = getRule("Name");
-	currentRule->immediate = ::NameTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("NotQuote2");
-	//
-	currentRule = getRule("Number");
-	currentRule->immediate = ::NumberTawkNow;
-	addTest(5,(void*)getRule("NumberBlock6"),"instance",1,1,(char*)0);
-	currentRule->next = getRule("Number2");
-	//
-	currentRule = getRule("Operator");
-	currentRule->immediate = ::OperatorTawkNow;
-	addTest(4,(void*)Operators,"operand",1,1,"defaultSKIP");
-	currentSet = operatorSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	currentRule->next = getRule("Operator2");
-	//
-	currentRule = getRule("UnaryOperator");
-	addTest(5,(void*)getRule("Bump"),"operate",1,1,"defaultSKIP");
-	currentRule->next = getRule("UnaryOperator2");
-	//
-	currentRule = getRule("Path");
-	addTest(7,(void*)"/",(char*)0,0,1,(char*)0);
-	addTest(5,(void*)getRule("PathBlock11"),(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("Imports");
-	addTest(5,(void*)getRule("Include"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Imports2");
-	//
-	currentRule = getRule("PrintSet");
-	//
-	currentRule = getRule("Inheritance2");
-	addTest(5,(void*)getRule("Imports"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Inheritance3");
-	//
-	currentRule = getRule("Question");
-	currentRule->immediate = ::QuestionTawkNow;
-	addTest(7,(void*)"?","question",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"trueExp",1,1,"defaultSKIP");
-	addTest(7,(void*)":",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"falseExp",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("RangeField");
-	currentRule->immediate = ::RangeFieldTawkNow;
-	addTest(5,(void*)getRule("Name"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("RangeField2");
-	//
-	currentRule = getRule("RuleList");
-	addTest(7,(void*)"Rule",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("DebugRule"),"debugRULE",1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ClassName");
-	currentRule->immediate = ::ClassNameTawkNow;
-	addTest(5,(void*)getRule("ClassAttributes"),(char*)0,-1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Path"),"path",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("NameSet"),"name",1,1,(char*)0);
-	addTest(5,(void*)getRule("Template"),"temp",0,1,"defaultSKIP");
-	addTest(7,(void*)".h","dotH",0,1,(char*)0);
-	//
-	currentRule = getRule("Statement");
-	addTest(5,(void*)getRule("CheckMacro"),"statement",1,1,"defaultSKIP");
-	currentRule->next = getRule("Statement2");
-	//
-	currentRule = getRule("FieldList");
-	addTest(7,(void*)"Field",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentSet = getSet("ABCDEFGHIJKLMNOPQRSTUVWXYZA-Zabcdefghijklmnopqrstuvwxyza-z01234567890-9_()*");
-	addTest(6,(void*)currentSet,"name",0,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("FieldList2");
-	//
-	currentRule = getRule("Strings");
-	currentRule->immediate = ::StringsTawkNow;
-	addTest(5,(void*)getRule("StringExpression"),"item",1,268435455,"defaultSKIP");
-	currentSet = getSet(";");
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	//
-	currentRule = getRule("MacroPart2");
-	addTest(5,(void*)getRule("Braced"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("SyntaxExtensions");
-	addTest(7,(void*)"overload",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("OverLoadItem"),(char*)0,1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("SyntaxExtensions2");
-	//
-	currentRule = getRule("ItemInitializerBlock12");
-	addTest(5,(void*)getRule("ArrayInitializer"),"instance",1,1,"defaultSKIP");
-	saveTest = currentTest;
-	addTest(5,(void*)getRule("InitExpression"),"instance",1,1,"defaultSKIP");
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("Template");
-	addTest(7,(void*)"<>",(char*)0,1,1,(char*)0);
-	currentRule->next = getRule("Template2");
-	//
-	currentRule = getRule("PrimaryExpression3");
-	addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("PrimaryExpression4");
-	//
-	currentRule = getRule("Body4");
-	addTest(5,(void*)getRule("Comment"),(char*)0,1,1,"defaultSKIP");
-	currentSet = commentSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	currentRule->next = getRule("Body5");
-	//
-	currentRule = getRule("FieldList2");
-	addTest(7,(void*)"Map;",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("UnaryExpression3");
-	addTest(5,(void*)getRule("AllowShortcuts"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("PrintShortcut"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Try");
-	addTest(7,(void*)"try",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Catch"),"catch",0,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("Final"),"end",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("StructureBody2");
-	currentRule->defer = ::StructureBody2TawkAct;
-	addTest(5,(void*)getRule("StructureItem"),"entry",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("Type");
-	currentRule->immediate = ::TypeTawkNow;
-	currentRule->doNotGuard = 1;
-	addTest(7,(void*)"const","hasConst",0,1,"defaultSKIP");
-	addTest(7,(void*)"unsigned","noSign",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("TypeName"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Template"),"temp",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("TypeList");
-	currentRule->immediate = ::TypeListTawkNow;
-	addTest(5,(void*)getRule("Type"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Include2BalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"#import","start",1,1,(char*)0);
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("Include2BoDY"),"body",0,268435455,(char*)0);
-	addTest(7,(void*)"\n","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("IncludeBalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"#include","start",1,1,(char*)0);
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("IncludeBoDY"),"body",0,268435455,(char*)0);
-	addTest(7,(void*)"\n","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("Template2BalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"<","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("Template2BoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)">","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("CommentBody4BalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"#ifdef","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("CommentBody4BoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)"#endif","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("CommentBody3BalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"/*","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("CommentBody3BoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)"*/","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("ClassAttributes");
-	currentRule->defer = ::ClassAttributesTawkAct;
-	addTest(4,(void*)Attributes,"trait",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentRule->next = getRule("ClassAttributes2");
-	//
-	currentRule = getRule("CheckMacroParametersBalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("CheckMacroParametersBoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)")","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("BracedBalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("BracedBoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)")","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("AliasBodyBalancE");
-	currentRule->immediate = ::balancE;
-	addTest(7,(void*)"(","start",1,1,"defaultSKIP");
-	currentTest->leftBalance = 1;
-	addTest(5,(void*)getRule("AliasBodyBoDY"),"body",0,268435455,"defaultSKIP");
-	addTest(7,(void*)")","finish",1,1,(char*)0);
-	currentTest->rightBalance = 1;
-	//
-	currentRule = getRule("AliasItem");
-	currentRule->immediate = ::AliasItemTawkNow;
-	addTest(5,(void*)getRule("Field"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("TargetMethod"),"target",1,1,"defaultSKIP");
-	currentRule->next = getRule("AliasItem2");
-	//
-	currentRule = getRule("CheckMacro");
-	currentRule->immediate = ::CheckMacroTawkNow;
-	addTest(5,(void*)getRule("MacroName"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CheckMacroParameters"),"braced",0,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("ConditionLabel");
-	currentRule->immediate = ::ConditionLabelTawkNow;
-	addTest(5,(void*)getRule("Name"),"label",1,1,"defaultSKIP");
-	currentSet = getSet("t");
-	addTest(6,(void*)currentSet,(char*)0,0,1,"defaultSKIP");
-	addTest(7,(void*)"\n","text",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("NumberBlock6Block7");
-	currentSet = getSet("eE");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = getSet("-+");
-	addTest(6,(void*)currentSet,(char*)0,0,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("Extender");
-	currentRule->immediate = ::ExtenderTawkNow;
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("QualifyType");
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(7,(void*)".",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("OverLoadItem");
-	currentRule->immediate = ::OverLoadItemTawkNow;
-	addTest(5,(void*)getRule("Operator"),"operate",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	currentRule->next = getRule("OverLoadItem2");
-	//
-	currentRule = getRule("ButtonArray");
-	currentRule->defer = ::ButtonArrayTawkAct;
-	addTest(7,(void*)"[",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"button",1,268435455,"defaultSKIP");
-	addTest(7,(void*)"]",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("OverLoadItem2");
-	currentRule->immediate = ::OverLoadItem2TawkNow;
-	addTest(7,(void*)"[]",(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)"=","assign",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	currentRule->next = getRule("OverLoadItem3");
-	//
-	currentRule = getRule("OverLoadItem3");
-	currentRule->immediate = ::OverLoadItem3TawkNow;
-	addTest(5,(void*)getRule("Bump"),"operate",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	currentRule->next = getRule("OverLoadItem4");
-	//
-	currentRule = getRule("MacroBit");
-	currentRule->immediate = ::MacroBitTawkNow;
-	currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`A-z01234567890-9");
-	addTest(6,(void*)currentSet,"bitpart",1,268435455,(char*)0);
-	//
-	currentRule = getRule("DeclareItem3");
-	currentRule->defer = ::DeclareItem3TawkAct;
-	addTest(5,(void*)getRule("ItemHead"),"item",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ItemInitializer"),"assign",0,1,"defaultSKIP");
-	addTest(7,(void*)":","initialize",0,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Assuming");
-	currentRule->immediate = ::AssumingTawkNow;
-	//
-	currentRule = getRule("MacroBody");
-	currentRule->immediate = ::MacroBodyTawkNow;
-	addTest(5,(void*)getRule("MacroBodyPart"),"parts",1,268435455,(char*)0);
-	//
-	currentRule = getRule("MacroDelimit");
-	currentRule->immediate = ::MacroDelimitTawkNow;
-	currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`A-z01234567890-9;");
-	addTest(6,(void*)currentSet,"delimiter",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("MacroDefine");
-	currentRule->immediate = ::MacroDefineTawkNow;
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MacroParameters"),"parameters",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("MacroDelimit"),(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)&macroDelimiter,"body",0,1,(char*)0);
-	currentTest->aVariable = 1;
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("Replacement2");
-	currentSet = getSet(",n");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("DeclareItem2");
-	currentRule->defer = ::DeclareItem2TawkAct;
-	addTest(5,(void*)getRule("Name"),"item",1,1,"defaultSKIP");
-	addTest(7,(void*)"(",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Expression"),"argument",1,1,"defaultSKIP");
-	addTest(7,(void*)")",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("DeclareItem3");
-	//
-	currentRule = getRule("StructureItem2");
-	currentRule->defer = ::StructureItem2TawkAct;
-	addTest(5,(void*)getRule("Name"),"name",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Bits"),"bits",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ButtonArray"),"buttons",0,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasParameterBlock0");
-	addTest(7,(void*)"=",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Replacement"),"replacedBy",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasBodyAny");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("AliasParameter2");
-	addTest(5,(void*)getRule("Replacement"),"parameter",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasBody");
-	addTest(5,(void*)getRule("AliasBodyBalancE"),"body",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("LambdaName");
-	currentRule->immediate = ::LambdaNameTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"name",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("AliasBodyBoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"(","begin",0,1,(char*)0);
-	addTest(7,(void*)")","end",0,1,(char*)0);
-	currentRule->next = getRule("AliasBodyAny");
-	//
-	currentRule = getRule("ExpressType");
-	currentRule->immediate = ::ExpressTypeTawkNow;
-	//
-	currentRule = getRule("AliasItem3");
-	addTest(5,(void*)getRule("Comment"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("AliasItem4");
-	//
-	currentRule = getRule("EscapeCharacters3");
-	currentSet = getSet("01230-3");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,0,1,(char*)0);
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,0,1,(char*)0);
-	currentRule->next = getRule("EscapeCharacters4");
-	//
-	currentRule = getRule("Final");
-	addTest(7,(void*)"finally",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("OverLoadItem4Block1");
-	currentSet = operatorSet;
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("MacroElement");
-	currentSet = getSet(",)");
-	addTest(6,(void*)currentSet,"element",1,268435455,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Declaration3");
-	addTest(5,(void*)getRule("DeclareConditions"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("MacroBodyPart");
-	currentRule->doNotGuard = 1;
-	addTest(5,(void*)getRule("MacroBit"),"other",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	currentRule->next = getRule("MacroBodyPart2");
-	//
-	currentRule = getRule("MacroBodyPart2");
-	addTest(1,(void*)0,"rest",1,268435455,(char*)0);
-	//
-	currentRule = getRule("CharacterBlock4Block5");
-	addTest(5,(void*)getRule("Escape"),(char*)0,1,1,(char*)0);
-	saveTest = currentTest;
-	currentSet = getSet("'");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("Braced");
-	addTest(5,(void*)getRule("BracedBalancE"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Case");
-	currentRule->immediate = ::CaseTawkNow;
-	addTest(7,(void*)"default:","instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("Case2");
-	//
-	currentRule = getRule("BracedBoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"(","begin",0,1,(char*)0);
-	addTest(7,(void*)")","end",0,1,(char*)0);
-	currentRule->next = getRule("BracedAny");
-	//
-	currentRule = getRule("Case2");
-	currentRule->immediate = ::Case2TawkNow;
-	addTest(7,(void*)"case",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Assuming"),(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CaseLabel"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)":",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Case3");
-	currentRule->fail = ::caseLabelFail;
-	//
-	currentRule = getRule("BracedAny");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("Constant4");
-	currentRule->immediate = ::Constant4TawkNow;
-	addTest(7,(void*)"true","instance",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	currentRule->next = getRule("Constant5");
-	//
-	currentRule = getRule("MacroArgument");
-	addTest(5,(void*)getRule("MacroArgumentBlock2"),"part",1,1,"defaultSKIP");
-	addTest(7,(void*)",",(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("MacroArgumentBlock2");
-	addTest(5,(void*)getRule("MacroPart"),(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("IncludeAny");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("MacroArgumentList");
-	addTest(5,(void*)getRule("MacroArgument"),"argument",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("Line2");
-	addTest(7,(void*)"}",(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("Line3");
-	//
-	currentRule = getRule("CheckMacroParametersBoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"(","begin",0,1,(char*)0);
-	addTest(7,(void*)")","end",0,1,(char*)0);
-	currentRule->next = getRule("CheckMacroParametersAny");
-	//
-	currentRule = getRule("CheckMacroParametersAny");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("CodeMatch2");
-	addTest(4,(void*)Directives,(char*)0,-1,1,"defaultSKIP");
-	currentSet = space;
-	addTest(6,(void*)currentSet,"body",0,1,(char*)0);
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("OperationTail2");
-	currentRule->immediate = ::OperationTail2TawkNow;
-	addTest(5,(void*)getRule("Question"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("OperationTail3");
-	//
-	currentRule = getRule("Case3");
-	currentRule->immediate = ::Case3TawkNow;
-	addTest(5,(void*)getRule("Label"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CaseLabel");
-	currentRule->immediate = ::CaseLabelTawkNow;
-	addTest(5,(void*)getRule("Constant"),"instance",1,1,"defaultSKIP");
-	addTest(7,(void*)":",(char*)0,1,1,"defaultSKIP");
-	currentTest->isIgnored = 1;
-	currentRule->next = getRule("CaseLabel2");
-	//
-	currentRule = getRule("CaseLabel5");
-	currentRule->immediate = ::CaseLabel5TawkNow;
-	addTest(5,(void*)getRule("Name"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("ClassAttributes2");
-	currentRule->defer = ::ClassAttributes2TawkAct;
-	addTest(7,(void*)"extends",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	currentRule->next = getRule("ClassAttributes3");
-	//
-	currentRule = getRule("ClassAttributes3");
-	currentRule->defer = ::ClassAttributes3TawkAct;
-	addTest(7,(void*)"implements",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Type"),"proto",1,268435455,"defaultSKIP");
-	currentRule->next = getRule("ClassAttributes4");
-	//
-	currentRule = getRule("Constant5");
-	currentRule->immediate = ::Constant5TawkNow;
-	addTest(7,(void*)"false","instance",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	//
-	currentRule = getRule("Commands");
-	addTest(7,(void*)"#",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("PoundCommand"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("Commands2");
-	//
-	currentRule = getRule("DebugDirective");
-	currentRule->defer = ::DebugDirectiveTawkAct;
-	addTest(7,(void*)"#",(char*)0,-1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Comment"),(char*)0,0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Name"),"method",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("CodeMatch"),"body",0,1,"defaultSKIP");
-	addTest(4,(void*)Directives,"locate",0,1,"defaultSKIP");
-	addTest(7,(void*)"active","active",0,1,"defaultSKIP");
-	addTest(7,(void*)"#;","code",0,1,(char*)0);
-	currentTest->skipOverMatch = 1;
-	currentTest->processUpTo = 1;
-	//
-	currentRule = getRule("Directive");
-	currentRule->immediate = ::DirectiveTawkNow;
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("DebugDirective"),"directives",0,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("FileName");
-	currentRule->immediate = ::FileNameTawkNow;
-	addTest(5,(void*)getRule("Path"),"path",0,1,(char*)0);
-	addTest(5,(void*)getRule("NameSet"),"name",1,1,(char*)0);
-	addTest(7,(void*)".twk",(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("Number2");
-	currentRule->immediate = ::Number2TawkNow;
-	addTest(5,(void*)getRule("Number2Block8"),"instance",1,1,(char*)0);
-	currentSet = getSet("lL");
-	addTest(6,(void*)currentSet,"isLong",0,1,(char*)0);
-	//
-	currentRule = getRule("DebugText");
-	currentRule->immediate = ::DebugTextTawkNow;
-	addTest(7,(void*)"=",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Quote"),"upcoming",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("DebugRule");
-	currentRule->immediate = ::DebugRuleTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"name",1,268435455,"defaultSKIP");
-	addTest(5,(void*)getRule("DebugText"),"upcoming",0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Stop");
-	currentRule->immediate = ::StopTawkNow;
-	//
-	currentRule = getRule("Constant3");
-	addTest(5,(void*)getRule("Quote"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("Constant4");
-	//
-	currentRule = getRule("SyntaxExtensions2");
-	currentRule->immediate = ::SyntaxExtensions2TawkNow;
-	addTest(7,(void*)"alias",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("AliasItem"),(char*)0,1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("SyntaxExtensions3");
-	//
-	currentRule = getRule("Alpha");
-	currentSet = getSet("abcdefghijklmnopqrstuvwxyza-zABCDEFGHIJKLMNOPQRSTUVWXYZA-Z01234567890-9_.");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("BumpBlock3");
-	addTest(7,(void*)"++","bump",1,1,(char*)0);
-	saveTest = currentTest;
-	addTest(7,(void*)"--","bump",1,1,(char*)0);
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("CharacterBlock4");
-	currentSet = getSet("'");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	addTest(5,(void*)getRule("CharacterBlock4Block5"),(char*)0,1,1,(char*)0);
-	currentSet = getSet("'");
-	addTest(6,(void*)currentSet,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("CaseLabel4");
-	addTest(5,(void*)getRule("Expression"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("CaseLabel5");
-	//
-	currentRule = getRule("Commands2");
-	addTest(5,(void*)getRule("SyntaxExtensions"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("CommentBody3BoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"/*","begin",0,1,(char*)0);
-	addTest(7,(void*)"*/","end",0,1,(char*)0);
-	currentRule->next = getRule("CommentBody3Any");
-	//
-	currentRule = getRule("CommentBody3Any");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("PathBlock11");
-	addTest(5,(void*)getRule("Alpha"),(char*)0,1,1,(char*)0);
-	addTest(7,(void*)"/",(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("CommentBody4BoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"#ifdef","begin",0,1,(char*)0);
-	addTest(7,(void*)"#endif","end",0,1,(char*)0);
-	currentRule->next = getRule("CommentBody4Any");
-	//
-	currentRule = getRule("CodeMatch");
-	addTest(5,(void*)getRule("Quote"),"body",1,1,"defaultSKIP");
-	currentRule->next = getRule("CodeMatch2");
-	//
-	currentRule = getRule("Constant2");
-	addTest(5,(void*)getRule("Character"),"instance",1,1,"defaultSKIP");
-	currentRule->next = getRule("Constant3");
-	//
-	currentRule = getRule("SyntaxExtensions3");
-	addTest(7,(void*)"extender",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Extender"),(char*)0,1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("SyntaxExtensions4");
-	//
-	currentRule = getRule("SyntaxExtensions4");
-	addTest(7,(void*)"initializer",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("InitializerItem"),(char*)0,1,268435455,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Number2Block8");
-	addTest(5,(void*)getRule("Number2Block8Block9"),"instance",1,1,(char*)0);
-	saveTest = currentTest;
-	addTest(5,(void*)getRule("Number2Block8Block10"),"instance",1,1,(char*)0);
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("Number2Block8Block10");
-	currentSet = getSet("01234567890-9");
-	addTest(6,(void*)currentSet,(char*)0,1,268435455,(char*)0);
-	//
-	currentRule = getRule("DeclareType");
-	currentRule->immediate = ::DeclareTypeTawkNow;
-	currentRule->doNotGuard = 1;
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StructureType");
-	addTest(5,(void*)getRule("Type"),"type",1,1,"defaultSKIP");
-	currentRule->next = getRule("StructureType2");
-	//
-	currentRule = getRule("Declaration2");
-	currentRule->defer = ::Declaration2TawkAct;
-	addTest(5,(void*)getRule("Structure"),"declare",1,1,"defaultSKIP");
-	currentRule->next = getRule("Declaration3");
-	//
-	currentRule = getRule("SetObject");
-	currentRule->immediate = ::SetObjectTawkNow;
-	//
-	currentRule = getRule("Structure");
-	currentRule->defer = ::StructureTawkAct;
-	addTest(4,(void*)Structures,"kind",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("StructureBody"),"body",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StructureBody");
-	currentRule->defer = ::StructureBodyTawkAct;
-	addTest(5,(void*)getRule("StructureType"),"label",1,1,"defaultSKIP");
-	addTest(7,(void*)"{",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("StructureItem"),"entry",1,268435455,"defaultSKIP");
-	addTest(7,(void*)"}",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("DeclareItem"),"field",0,268435455,"defaultSKIP");
-	currentRule->next = getRule("StructureBody2");
-	//
-	currentRule = getRule("StructureType2");
-	currentRule->defer = ::StructureType2TawkAct;
-	addTest(5,(void*)getRule("Name"),"type",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("StatementBody13");
-	addTest(5,(void*)getRule("Commands"),(char*)0,1,1,"defaultSKIP");
-	currentRule->next = getRule("StatementBody14");
-	//
-	currentRule = getRule("QualifyTail");
-	addTest(7,(void*)".",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("FieldBody"),"field",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("TypeName");
-	currentRule->immediate = ::TypeNameTawkNow;
-	addTest(5,(void*)getRule("NameSet"),"type",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Bits");
-	addTest(7,(void*)":",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Number"),"length",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Template2BoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"<","begin",0,1,(char*)0);
-	addTest(7,(void*)">","end",0,1,(char*)0);
-	currentRule->next = getRule("Template2Any");
-	//
-	currentRule = getRule("Include2BoDY");
-	currentRule->immediate = ::balancEbody;
-	addTest(7,(void*)"#import","begin",0,1,(char*)0);
-	addTest(7,(void*)"\n","end",0,1,(char*)0);
-	currentRule->next = getRule("Include2Any");
-	//
-	currentRule = getRule("ConditionWord");
-	currentRule->defer = ::ConditionWordTawkAct;
-	currentRule->doNotGuard = 1;
-	addTest(4,(void*)Conditions,"list",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	//
-	currentRule = getRule("Operator2");
-	currentRule->immediate = ::Operator2TawkNow;
-	addTest(4,(void*)Comparisons,"comparator",1,1,"defaultSKIP");
-	currentSet = logicSet;
-	currentRule->guardSet = currentSet;
-	currentTest->guardSet = currentSet;
-	currentSet = alphaSet;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	//
-	currentRule = getRule("Divert");
-	addTest(5,(void*)getRule("Inheritance"),(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("UnaryOperator2");
-	currentRule->immediate = ::UnaryOperator2TawkNow;
-	currentSet = getSet("-+!~");
-	addTest(6,(void*)currentSet,"operate",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("CastTypeBlock13");
-	addTest(7,(void*)"[]",(char*)0,1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("ExpressTail");
-	addTest(5,(void*)getRule("ExpressTailBlock14"),"operate",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ExpressPart"),"instance",1,1,"defaultSKIP");
-	currentRule->fail = ::expressPartFailed;
-	//
-	currentRule = getRule("ExpressTailBlock14");
-	addTest(7,(void*)"&&","operate",1,1,"defaultSKIP");
-	saveTest = currentTest;
-	addTest(7,(void*)"||","operate",1,1,"defaultSKIP");
-	saveTest->setAlternate(currentTest);
-	//
-	currentRule = getRule("OperationTail3");
-	addTest(7,(void*)"in","in",1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("RangeField"),"range",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Body5");
-	addTest(5,(void*)getRule("Include3"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("PrimaryExpression4");
-	addTest(5,(void*)getRule("AssumedString"),"instance",1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Catch");
-	addTest(7,(void*)"catch",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Parameter"),"except",0,1,"defaultSKIP");
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,0,1,"defaultSKIP");
-	//
-	currentRule = getRule("Else");
-	addTest(7,(void*)"else",(char*)0,1,1,"defaultSKIP");
-	currentSet = textFollow;
-	addTest(6,(void*)currentSet,(char*)0,-1,1,(char*)0);
-	addTest(5,(void*)getRule("Statement"),"statement",1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("ResetType"),(char*)0,0,1,"defaultSKIP");
-	currentRule->next = getRule("Else2");
-	//
-	currentRule = getRule("Extends3");
-	addTest(5,(void*)getRule("DeclareConditions"),(char*)0,1,1,"defaultSKIP");
-	addTest(7,(void*)";",(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Include2Any");
-	currentRule->immediate = ::balancEbail;
-	addTest(1,(void*)0,(char*)0,1,1,(char*)0);
-	//
-	currentRule = getRule("Imports2");
-	addTest(5,(void*)getRule("Commands"),(char*)0,1,1,"defaultSKIP");
-	//
-	currentRule = getRule("Inheritance3");
-	addTest(5,(void*)getRule("Body"),"method",1,268435455,"defaultSKIP");
-	currentRule->next = getRule("Inheritance4");
-	//
-	currentRule = getRule("ParameterList2");
-	addTest(5,(void*)getRule("TypeList"),"expression",1,268435455,"defaultSKIP");
-	//
-	currentRule = getRule("PrintTo");
-	addTest(7,(void*)"to",(char*)0,1,1,"defaultSKIP");
-	addTest(5,(void*)getRule("FieldExpression"),"instance",1,1,"defaultSKIP");
+	currentAlt = new Alternative();
+	addTest(6,"MethodNameSet","name",1,1,"");
+	currentAlt->immediate = MethodNameTawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentRule = getRule("Body2");
+	currentRule = getRule("Statement2");
+	currentRule = getRule("Body3");
+	currentRule = getRule("SecondaryExpression2");
+	currentRule = getRule("StringExpression2");
+	currentRule = getRule("UnaryExpression2");
+	currentRule = getRule("ClassBlock");
+	currentAlt = new Alternative();
+	addTest(6,"ClassBlockStart","",1,1,"");
+	addTest(6,"Body","",0,999999,"");
+	addTest(1,"}","",1,1,"");
+	currentRule->alternatives->add(currentAlt);
+	currentRule = getRule("ClassHeading");
+	currentAlt = new Alternative();
+	addTest(1,"class","",1,1,"");
+	addTest(6,"ClassName","nom",1,1,"");
+	addTest(6,"ClassAttributes","attributes",0,999999,"");
+	currentAlt->immediate = ClassHeadingTawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(1,"external","externalRef",0,1,"");
+	addTest(6,"Structure","structure",1,1,"");
+	addTest(1,";","",0,1,"");
+	currentAlt->immediate = ClassHeading2TawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentAlt = new Alternative();
+	addTest(1,"external","",1,1,"");
+	addTest(6,"ClassHeadingBlock0","kind",0,1,"");
+	addTest(6,"ClassName","nom",0,999999,"");
+	addTest(6,"ClassAttributes","attributes",0,999999,"");
+	addTest(1,";","",0,1,"");
+	currentAlt->immediate = ClassHeading3TawkNow;
+	currentRule->alternatives->add(currentAlt);
+	currentRule = getRule("StatementBody14");
+	currentRule = getRule("ClassHeadingBlock0");
+	currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "kind";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("RangeTail");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "operate";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(6,"Expression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ExpressItem");
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ClassHeading2");
+currentRule = getRule("Inheritance");
+currentAlt = new Alternative();
+addTest(6,"Extends","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Imports","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Body","method",1,999999,"");
+currentAlt->defer = InheritanceTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"EndComment","error",1,1,"");
+currentAlt->immediate = Inheritance2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Constant");
+currentAlt = new Alternative();
+addTest(6,"Number","instance",1,1,"");
+currentAlt->defer = ConstantTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Character","instance",1,1,"");
+currentAlt->immediate = Constant2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Quote","instance",1,1,"");
+currentAlt->immediate = Constant3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"true","instance",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"false","instance",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ClassHeading3");
+currentRule = getRule("ItemArray");
+currentAlt = new Alternative();
+addTest(1,"[","",1,1,"");
+addTest(3,"0-9","",0,999999,"");
+addTest(1,"]","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Else");
+currentAlt = new Alternative();
+addTest(1,"else","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",0,1,"");
+currentAlt->defer = ElseTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"or","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"IfBody","statement",1,1,"");
+currentAlt->immediate = Else2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Else2");
+currentRule = getRule("StatementBody2");
+currentRule = getRule("Extends");
+currentAlt = new Alternative();
+addTest(6,"ClassHeading","",1,1,"");
+addTest(6,"ClassBlock","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Comment","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"DeclareConditions","",1,1,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PrintCommand");
+currentAlt = new Alternative();
+addTest(1,"print","printer",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"PrintTarget","target",0,1,"");
+setNoSkip();
+currentAlt->immediate = PrintCommandTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"cout","stdPrint",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->immediate = PrintCommand2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"cerr","stdPrint",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->immediate = PrintCommand3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PoundCommand");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "state";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(6,"Type","type",0,1,"");
+addTest(6,"Count","level",0,1,"");
+addTest(6,"RuleList","list",0,1,"");
+addTest(6,"FieldList","field",0,1,"");
+currentAlt->immediate = PoundCommandTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"MacroDefine","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Directive","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FieldBody");
+currentAlt = new Alternative();
+addTest(6,"Bump","prefix",0,1,"");
+addTest(6,"FieldComponent","part",1,1,"");
+currentAlt->defer = FieldBodyTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"New","name",1,1,"");
+currentAlt->defer = FieldBody2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(6,"Expression","name",1,1,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = FieldBody3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FieldBody2");
+currentRule = getRule("FieldBody3");
+currentRule = getRule("Qualified");
+currentAlt = new Alternative();
+addTest(6,"QualifyType","type",0,1,"");
+addTest(6,"QualifyStart","field",1,1,"");
+addTest(6,"QualifyTail","rest",0,999999,"");
+addTest(6,"Bump","postfix",0,1,"");
+currentAlt->immediate = QualifiedTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FieldExpression");
+currentAlt = new Alternative();
+addTest(6,"CastExpression","cast",0,1,"");
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"Qualified","instance",1,1,"");
+currentAlt->immediate = FieldExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Expression");
+currentAlt = new Alternative();
+addTest(6,"ExpressPart","instance",1,1,"");
+addTest(6,"ExpressTail","express",0,999999,"");
+currentAlt->immediate = ExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CastExpression");
+currentAlt = new Alternative();
+addTest(6,"Indirection","direct",0,1,"");
+addTest(1,"(","",1,1,"");
+addTest(6,"CastType","type",1,1,"");
+addTest(6,"CastTail","rest",0,1,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = CastExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("SecondaryExpression");
+currentAlt = new Alternative();
+addTest(1,"null","instance",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->immediate = SecondaryExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"sizeof","instance",1,1,"");
+addTest(1,"(","",1,1,"");
+addTest(6,"Type","",1,1,"");
+addTest(1,"*","pointer",0,999999,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = SecondaryExpression2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("InitExpression");
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+currentAlt->immediate = InitExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"RangeField","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("RangeExpression");
+currentAlt = new Alternative();
+addTest(6,"UnaryExpression","instance",1,1,"");
+addTest(6,"RangeTail","back",1,1,"");
+currentAlt->immediate = RangeExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PrimaryExpression");
+currentAlt = new Alternative();
+addTest(6,"Constant","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"SecondaryExpression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"FieldExpression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"AssumedString","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody8");
+currentRule = getRule("StringExpression");
+currentAlt = new Alternative();
+addTest(6,"AllowShortcuts","",1,1,"");
+addTest(6,"PrintShortcut","instance",1,1,"");
+currentAlt->defer = StringExpressionTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+currentAlt->immediate = StringExpression2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("UnaryExpression");
+currentAlt = new Alternative();
+addTest(6,"UnaryOperator","operate",0,1,"");
+addTest(6,"ConditionWord","instance",1,1,"");
+currentAlt->immediate = UnaryExpressionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"UnaryOperator","operate",0,1,"");
+addTest(6,"CastExpression","cast",0,1,"");
+addTest(6,"PrimaryExpression","instance",1,1,"");
+currentAlt->immediate = UnaryExpression2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"AllowShortcuts","",1,1,"");
+addTest(6,"PrintShortcut","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Fielding");
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = FieldingTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("IfBody");
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+addTest(6,"Comment","",0,1,"");
+addTest(6,"Statement","action",1,1,"");
+addTest(6,"ResetType","",0,1,"");
+addTest(6,"Else","otherwise",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ForOption");
+currentAlt = new Alternative();
+addTest(1,"(","instance",1,1,"");
+addTest(6,"ExpressList","initial",0,1,"");
+addTest(1,";","",1,1,"");
+addTest(6,"Expression","condition",0,1,"");
+addTest(1,";","",1,1,"");
+addTest(6,"ExpressList","increment",0,1,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = ForOptionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+addTest(6,"ForOptionBlock0","name",0,1,"");
+currentAlt->immediate = ForOption2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ForOption2");
+currentRule = getRule("Include");
+currentAlt = new Alternative();
+addTest(1,"#include","include",1,1,"");
+addTest(1,"\n","",1,1,"");
+currentAlt->immediate = IncludeTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"#import","include",1,1,"");
+addTest(1,"\n","",1,1,"");
+currentAlt->immediate = Include2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"IncludeBlock0","",1,1,"");
+addTest(3," \t","",1,999999,"");
+setNoSkip();
+addTest(3,"^\n","include",1,999999,"");
+setNoSkip();
+addTest(1,"\n","",1,1,"");
+setNoSkip();
+currentAlt->immediate = Include3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Include2");
+currentRule = getRule("StatementBody3");
+currentRule = getRule("Include3");
+currentRule = getRule("StatementBody4");
+currentRule = getRule("Inheritance2");
+currentRule = getRule("PrintSet");
+currentRule = getRule("InstanceTail");
+currentAlt = new Alternative();
+addTest(6,"NewArray","array",1,999999,"");
+currentAlt->immediate = InstanceTailTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(6,"ResetType","",1,1,"");
+addTest(6,"NoShortcuts","",1,1,"");
+addTest(6,"ParameterList","expression",0,1,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Iterating");
+currentRule = getRule("OverLoadItem5");
+currentRule = getRule("macroDelimiter");
+currentRule = getRule("Lambda");
+currentAlt = new Alternative();
+addTest(6,"LambdaName","function",1,1,"");
+addTest(1,"=","",1,1,"");
+addTest(6,"Block","body",1,1,"");
+currentAlt->immediate = LambdaTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"MethodType","function",1,1,"");
+addTest(6,"Block","body",1,1,"");
+currentAlt->immediate = Lambda2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Character");
+currentAlt = new Alternative();
+addTest(6,"CharacterBlock0","instance",1,1,"");
+currentAlt->immediate = CharacterTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Lambda2");
+currentRule = getRule("Line");
+currentAlt = new Alternative();
+addTest(1,"use","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"FieldExpression","target",1,1,"");
+currentAlt->immediate = LineTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"}","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",0,1,"");
+currentAlt->immediate = Line2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"label","",1,1,"");
+addTest(6,"Name","name",1,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Line2");
+currentRule = getRule("MacroArgumentList");
+currentAlt = new Alternative();
+addTest(6,"MacroArgument","argument",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("LineByLine");
+currentAlt = new Alternative();
+addTest(6,"Statement","line",1,999999,"");
+currentAlt->immediate = LineByLineTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroName");
+currentAlt = new Alternative();
+addTest(6,"NameSet","name",1,1,"");
+currentAlt->immediate = MacroNameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Method");
+currentAlt = new Alternative();
+addTest(6,"MethodType","method",1,1,"");
+addTest(6,"Block","block",1,1,"");
+currentAlt->immediate = MethodTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("TargetMethod");
+currentAlt = new Alternative();
+addTest(6,"Name","target",1,1,"");
+currentAlt->immediate = TargetMethodTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MethodHead");
+currentAlt = new Alternative();
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"MethodName","function",0,1,"");
+addTest(6,"MethodParameters","head",1,1,"");
+currentAlt->defer = MethodHeadTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MethodType");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 0;
+	elem->maximum = 999999;
+	elem->kind = 8;
+	elem->label = "modify";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(6,"Type","type",1,1,"");
+addTest(6,"MethodHead","methodHead",1,1,"");
+addTest(1,"{","",1,1,"");
+setIgnored();
+currentAlt->immediate = MethodTypeTawkNow;
+currentAlt->defer = MethodTypeTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Throw");
+currentAlt = new Alternative();
+addTest(1,"throw","",1,1,"");
+addTest(6,"Expression","express",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("New");
+currentAlt = new Alternative();
+addTest(1,"new","instance",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Type","type",0,1,"");
+addTest(6,"InstanceBody","body",0,1,"");
+addTest(6,"ArrayInitializer","initial",0,1,"");
+currentAlt->defer = NewTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NoShortcuts");
+currentRule = getRule("AllowShortcuts");
+currentRule = getRule("CaseLabel2");
+currentRule = getRule("Parameter");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+addTest(6,"ParameterItem","item",0,999999,"");
+addTest(1,",","",0,1,"");
+currentAlt->immediate = ParameterTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasParameter");
+currentAlt = new Alternative();
+addTest(6,"Name","parameter",1,1,"");
+addTest(6,"AliasParameterBlock0","replacedBy",0,1,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Replacement","parameter",1,1,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Indirection");
+currentAlt = new Alternative();
+addTest(3,"*&^","direct",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ParameterItem");
+currentAlt = new Alternative();
+addTest(6,"MethodHead","name",1,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->defer = ParameterItemTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"Name","name",1,1,"");
+addTest(1,"[]","array",0,999999,"");
+addTest(1,",","",0,1,"");
+currentAlt->defer = ParameterItem2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"[]","name",1,999999,"");
+addTest(1,",","",0,1,"");
+currentAlt->defer = ParameterItem3TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Indirection","name",1,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->defer = ParameterItem4TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ParameterItem2");
+currentRule = getRule("ParameterItem3");
+currentRule = getRule("ParameterItem4");
+currentRule = getRule("AliasItem2");
+currentRule = getRule("Print");
+currentAlt = new Alternative();
+addTest(6,"PrintCommand","start",1,1,"");
+addTest(6,"PrintItem","arguments",0,999999,"");
+addTest(6,"PrintTo","output",0,1,"");
+currentAlt->immediate = PrintTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FieldComponent");
+currentAlt = new Alternative();
+addTest(6,"Fielding","name",1,1,"");
+addTest(6,"InstanceBody","body",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"TypeName","name",1,1,"");
+addTest(6,"InstanceBody","body",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PrintCommand2");
+currentRule = getRule("PrintCommand3");
+currentRule = getRule("PrintItem");
+currentAlt = new Alternative();
+addTest(6,"PrintShortcut","instance",1,1,"");
+currentAlt->defer = PrintItemTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+addTest(6,"Format","format",0,1,"");
+currentAlt->immediate = PrintItem2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Directivise");
+currentAlt = new Alternative();
+addTest(6,"Line","line",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Target2");
+currentRule = getRule("PrintItem2");
+currentRule = getRule("SaveVirtuals");
+currentRule = getRule("PrintShortcut");
+currentAlt = new Alternative();
+addTest(3,",:`","instance",1,1,"");
+currentAlt->immediate = PrintShortcutTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CastType");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"CastTypeBlock0","array",0,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->immediate = CastTypeTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody17");
+currentRule = getRule("QualifyStart");
+currentAlt = new Alternative();
+addTest(1,"this","name",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->immediate = QualifyStartTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"FieldBody","field",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NotQuote");
+currentRule = getRule("ResetType");
+currentRule = getRule("Start");
+currentAlt = new Alternative();
+addTest(6,"Inheritance","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Statement");
+currentAlt = new Alternative();
+addTest(6,"CheckMacro","statement",1,1,"");
+currentAlt->defer = StatementTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"StatementBody","statement",1,1,"");
+currentAlt->immediate = Statement2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FieldList");
+currentAlt = new Alternative();
+addTest(1,"Field","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(3,"A-Za-z0-9_()*","name",0,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"Map;","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody");
+currentAlt = new Alternative();
+addTest(6,"CommentBody","statement",1,1,"");
+currentAlt->immediate = StatementBodyTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Block","statement",1,1,"");
+currentAlt->immediate = StatementBody2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"if","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"IfBody","statement",1,1,"");
+currentAlt->immediate = StatementBody3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"return","statement",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Expression","instance",0,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody4TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"for","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Iterating","",0,1,"");
+addTest(6,"ForOption","instance",1,1,"");
+addTest(6,"Statement","statement",1,1,"");
+currentAlt->immediate = StatementBody5TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Print","statement",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody6TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"while","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Iterating","",0,1,"");
+addTest(6,"Expression","instance",1,1,"");
+addTest(6,"Comment","",0,1,"");
+addTest(6,"Statement","statement",1,1,"");
+currentAlt->immediate = StatementBody7TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Case","statement",1,1,"");
+currentAlt->immediate = StatementBody8TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"break","statement",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody9TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"continue","statement",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody10TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"goto","statement",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"Target","field",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody11TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Switch","statement",1,1,"");
+addTest(6,"Comment","",0,1,"");
+addTest(6,"Block","block",1,1,"");
+currentAlt->immediate = StatementBody12TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Commands","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,";","statement",1,1,"");
+currentAlt->immediate = StatementBody13TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"delete","statement",1,1,"");
+addTest(1,"[]","array",0,1,"");
+addTest(6,"Qualified","instance",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody14TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"do","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Iterating","",0,1,"");
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",1,1,"");
+addTest(1,"while","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Expression","instance",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody15TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Throw","statement",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody16TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Try","statement",1,1,"");
+currentAlt->immediate = StatementBody17TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Declaration","statement",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody18TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Expression","statement",1,1,"");
+addTest(1,";","",1,1,"");
+currentAlt->immediate = StatementBody19TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Lambda","statement",1,1,"");
+currentAlt->immediate = StatementBody20TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CommentBody");
+currentAlt = new Alternative();
+addTest(6,"CodePass","comment",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"//","",1,1,"");
+addTest(6,"EndComment","end",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"/*","",1,1,"");
+addTest(1,"*/","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"#ifdef","",1,1,"");
+addTest(1,"#endif","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"#define","",1,1,"");
+addTest(6,"EndComment","end",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody5");
+currentRule = getRule("MethodNameSet");
+currentAlt = new Alternative();
+addTest(3,"nameStartSet","",1,1,"");
+addTest(3,"methodNameSet","",0,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NameSet");
+currentAlt = new Alternative();
+addTest(3,"nameStartSet","",1,1,"");
+addTest(3,"nameSet","",0,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody6");
+currentRule = getRule("StatementBody7");
+currentRule = getRule("StatementBody9");
+currentRule = getRule("StatementBody10");
+currentRule = getRule("StatementBody11");
+currentRule = getRule("Replacement");
+currentAlt = new Alternative();
+addTest(6,"Quote","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(3,"^,;\n","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NewArray");
+currentAlt = new Alternative();
+addTest(1,"[","",1,1,"");
+addTest(6,"Expression","instance",0,1,"");
+addTest(1,"]","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody12");
+currentRule = getRule("ItemHead");
+currentAlt = new Alternative();
+addTest(6,"Indirection","direct",0,1,"");
+addTest(6,"Name","name",1,1,"");
+addTest(6,"ItemArray","array",0,999999,"");
+addTest(6,"Bits","bits",0,1,"");
+currentAlt->immediate = ItemHeadTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StatementBody13");
+currentRule = getRule("QualifyTail");
+currentAlt = new Alternative();
+addTest(1,".","",1,1,"");
+addTest(6,"FieldBody","field",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StructureType2");
+currentRule = getRule("StatementBody15");
+currentRule = getRule("StatementBody18");
+currentRule = getRule("StatementBody19");
+currentRule = getRule("StatementBody20");
+currentRule = getRule("EscapeCharacters");
+currentAlt = new Alternative();
+addTest(3,"nrtbf\"'\\","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"u","",1,999999,"");
+addTest(3,"0-9a-fA-F","",4,0,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(3,"0-3","",1,1,"");
+addTest(3,"0-9","",0,1,"");
+addTest(3,"0-9","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(3,"4-7","",1,1,"");
+addTest(3,"0-9","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Switch");
+currentAlt = new Alternative();
+addTest(1,"switch","statement",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"FieldBody3","name",0,1,"");
+currentAlt->immediate = SwitchTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Target");
+currentAlt = new Alternative();
+addTest(6,"Qualified","field",1,1,"");
+currentAlt->immediate = TargetTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","field",1,1,"");
+currentAlt->immediate = Target2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PrintTarget");
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+setNoSkip();
+addTest(6,"FieldExpression","instance",0,1,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CastTail");
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(6,"CastType","rest",1,999999,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = CastTailTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DotH");
+currentRule = getRule("Bump");
+currentAlt = new Alternative();
+addTest(6,"BumpBlock0","bump",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CodePass");
+currentAlt = new Alternative();
+addTest(1,"-%","",1,1,"");
+addTest(3,"^%-","comment",1,999999,"");
+addTest(1,"%-","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CastTypeBlock0");
+currentAlt = new Alternative();
+addTest(1,"[]","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("OverLoadItemBlock0");
+currentAlt = new Alternative();
+addTest(3,"operatorSet","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("IncludeBlock0");
+currentAlt = new Alternative();
+addTest(1,"include","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"import","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Comment");
+currentAlt = new Alternative();
+addTest(6,"CommentBody","comment",1,999999,"");
+currentAlt->immediate = CommentTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("EndComment");
+currentAlt = new Alternative();
+addTest(3,"^\n","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Count");
+currentAlt = new Alternative();
+addTest(3,"0-9","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ConditionList");
+currentRule = getRule("Declaration");
+currentAlt = new Alternative();
+addTest(1,"outlet","outlet",0,1,"");
+{
+Element 	*elem = new Element();
+	elem->minimum = 0;
+	elem->maximum = 999999;
+	elem->kind = 8;
+	elem->label = "modify";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(6,"DeclareType","type",1,1,"");
+addTest(6,"DeclareItem","declare",1,999999,"");
+currentAlt->defer = DeclarationTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Structure","declare",1,1,"");
+currentAlt->defer = Declaration2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"DeclareConditions","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CaseLabel3");
+currentRule = getRule("AliasTarget");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+addTest(6,"Indirection","indirect",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","target",1,1,"");
+addTest(6,"AliasBody","body",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Escape");
+currentAlt = new Alternative();
+addTest(1,"\\","",1,1,"");
+addTest(6,"EscapeCharacters","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ExpressList");
+currentAlt = new Alternative();
+addTest(6,"NoShortcuts","",1,1,"");
+addTest(6,"ExpressItem","list",1,999999,"");
+currentAlt->immediate = ExpressListTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroPart");
+currentAlt = new Alternative();
+addTest(3,"^,(","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Braced","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ExpressPart");
+currentAlt = new Alternative();
+addTest(6,"SaveVirtuals","",1,1,"");
+addTest(6,"UnaryOperator","unaryOp",0,1,"");
+addTest(6,"UnaryExpression","instance",1,1,"");
+addTest(6,"RangeTail","",-1,1,"");
+setBanged();
+addTest(6,"ExpressType","",0,1,"");
+addTest(6,"OperationTail","express",0,999999,"");
+currentAlt->immediate = ExpressPartTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ClassAttributes4");
+currentRule = getRule("DeclareConditions");
+currentAlt = new Alternative();
+addTest(1,"Conditions","",1,1,"");
+addTest(6,"ConditionLabel","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Field");
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = FieldTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ParameterList");
+currentAlt = new Alternative();
+addTest(6,"ExpressItem","expression",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"TypeList","expression",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Initializer");
+currentAlt = new Alternative();
+addTest(6,"ExpressList","instance",1,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->immediate = InitializerTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"ArrayInitializer","instance",1,1,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ArrayInitializer");
+currentAlt = new Alternative();
+addTest(1,"{","",1,1,"");
+addTest(6,"Initializer","instance",0,999999,"");
+addTest(1,"}","",1,1,"");
+currentAlt->immediate = ArrayInitializerTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ItemInitializer");
+currentAlt = new Alternative();
+addTest(1,"=","",1,1,"");
+addTest(6,"SetObject","",0,1,"");
+addTest(6,"ItemInitializerBlock0","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MethodInitializer");
+currentAlt = new Alternative();
+addTest(1,"=","",1,1,"");
+addTest(6,"FieldExpression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("InstanceBody");
+currentAlt = new Alternative();
+addTest(6,"InstanceTail","body",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Quote");
+currentAlt = new Alternative();
+addTest(1,"@","string",0,1,"");
+addTest(1,"\"","instance",1,1,"");
+addTest(3,"^\"","body",1,999999,"");
+setNoSkip();
+addTest(1,"\"","",1,1,"");
+setNoSkip();
+currentAlt->immediate = QuoteTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Label");
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+addTest(1,":","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MethodParameters");
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(6,"Parameter","parameter",0,999999,"");
+addTest(1,"...","ellipsis",0,1,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AssumedString");
+currentAlt = new Alternative();
+addTest(6,"NameSet","instance",1,1,"");
+currentAlt->immediate = AssumedStringTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroParameters");
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(6,"MacroElement","parameters",1,999999,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasParameters");
+currentAlt = new Alternative();
+addTest(6,"AliasParameter","body",0,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("InitializerItem");
+currentAlt = new Alternative();
+addTest(6,"NameSet","field",1,1,"");
+addTest(6,"NameSet","function",1,1,"");
+currentAlt->immediate = InitializerItemTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CheckMacroParameters");
+currentAlt = new Alternative();
+addTest(1,"(","braced",1,1,"");
+addTest(1,")","",1,1,"");
+currentAlt->immediate = CheckMacroParametersTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Modify");
+currentRule = getRule("NumberBlock2");
+currentAlt = new Alternative();
+addTest(6,"NumberBlock2Block3","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"NumberBlock2Block4","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Name");
+currentAlt = new Alternative();
+addTest(6,"NameSet","name",1,1,"");
+currentAlt->immediate = NameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NotQuote2");
+currentRule = getRule("Number");
+currentAlt = new Alternative();
+addTest(6,"NumberBlock0","instance",1,1,"");
+currentAlt->immediate = NumberTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"NumberBlock2","instance",1,1,"");
+addTest(3,"lL","isLong",0,1,"");
+currentAlt->immediate = Number2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Operator");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "operand";
+	currentAlt->elements->add((void*)elem);
+}
+currentAlt->immediate = OperatorTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "comparator";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"alphaSet","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->immediate = Operator2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("UnaryOperator");
+currentAlt = new Alternative();
+addTest(6,"Bump","operate",1,1,"");
+currentAlt->defer = UnaryOperatorTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(3,"-+!~","operate",1,999999,"");
+currentAlt->immediate = UnaryOperator2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Path");
+currentAlt = new Alternative();
+addTest(1,"/","",0,1,"");
+addTest(6,"PathBlock0","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Imports");
+currentAlt = new Alternative();
+addTest(6,"Include","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Commands","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Question");
+currentAlt = new Alternative();
+addTest(1,"?","question",1,1,"");
+addTest(6,"Expression","trueExp",1,1,"");
+addTest(1,":","",1,1,"");
+addTest(6,"Expression","falseExp",1,1,"");
+currentAlt->immediate = QuestionTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("RangeField");
+currentAlt = new Alternative();
+addTest(6,"Name","instance",1,1,"");
+currentAlt->immediate = RangeFieldTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"RangeExpression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("RuleList");
+currentAlt = new Alternative();
+addTest(1,"Rule","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ClassName");
+currentAlt = new Alternative();
+addTest(6,"ClassAttributes","",-1,1,"");
+setBanged();
+addTest(6,"Path","path",0,1,"");
+addTest(6,"NameSet","name",1,1,"");
+setNoSkip();
+addTest(6,"Template","temp",0,1,"");
+addTest(1,".h","dotH",0,1,"");
+setNoSkip();
+currentAlt->immediate = ClassNameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Strings");
+currentAlt = new Alternative();
+addTest(6,"StringExpression","item",1,999999,"");
+currentAlt->immediate = StringsTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("SyntaxExtensions");
+currentAlt = new Alternative();
+addTest(1,"overload","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"OverLoadItem","",1,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"alias","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"AliasItem","",1,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"extender","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Extender","",1,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"initializer","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"InitializerItem","",1,999999,"");
+addTest(1,";","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Template");
+currentAlt = new Alternative();
+addTest(1,"<>","",1,1,"");
+setNoSkip();
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"<","",1,1,"");
+setNoSkip();
+addTest(1,">","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Macro");
+currentRule = getRule("Try");
+currentAlt = new Alternative();
+addTest(1,"try","",1,1,"");
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",1,1,"");
+addTest(6,"Catch","catch",0,999999,"");
+addTest(6,"Final","end",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StructureBody2");
+currentRule = getRule("Type");
+currentAlt = new Alternative();
+addTest(1,"const","hasConst",0,1,"");
+addTest(1,"unsigned","noSign",0,1,"");
+addTest(6,"TypeName","type",1,1,"");
+addTest(6,"Template","temp",0,1,"");
+currentAlt->immediate = TypeTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("TypeList");
+currentAlt = new Alternative();
+addTest(6,"Type","instance",1,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->immediate = TypeListTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ClassAttributes");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "trait";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->defer = ClassAttributesTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"extends","",1,1,"");
+addTest(6,"Type","type",1,1,"");
+currentAlt->defer = ClassAttributes2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"implements","",1,1,"");
+addTest(6,"Type","proto",1,999999,"");
+currentAlt->defer = ClassAttributes3TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"namespace","",1,1,"");
+addTest(6,"NameSet","nSpace",1,1,"");
+currentAlt->defer = ClassAttributes4TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasItem");
+currentAlt = new Alternative();
+addTest(6,"Field","name",1,1,"");
+addTest(6,"TargetMethod","target",1,1,"");
+currentAlt->immediate = AliasItemTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"new","",1,1,"");
+addTest(6,"Name","alias",1,1,"");
+currentAlt->immediate = AliasItem2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Comment","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"NameSet","alias",1,1,"");
+addTest(6,"AliasTarget","value",1,1,"");
+currentAlt->immediate = AliasItem3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasItem3");
+currentRule = getRule("Final");
+currentAlt = new Alternative();
+addTest(1,"finally","",1,1,"");
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CheckMacro");
+currentAlt = new Alternative();
+addTest(6,"MacroName","statement",1,1,"");
+addTest(6,"CheckMacroParameters","braced",0,1,"");
+addTest(1,";","",0,1,"");
+currentAlt->immediate = CheckMacroTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ConditionLabel");
+currentAlt = new Alternative();
+addTest(6,"Name","label",1,1,"");
+addTest(3," \t","",0,1,"");
+addTest(3,"^\n","text",1,999999,"");
+setNoSkip();
+addTest(1,"\n","",1,1,"");
+setNoSkip();
+currentAlt->immediate = ConditionLabelTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Extender");
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = ExtenderTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("QualifyType");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+addTest(1,".","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("OverLoadItem");
+currentAlt = new Alternative();
+addTest(6,"Operator","operate",1,1,"");
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = OverLoadItemTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"[]","",1,1,"");
+addTest(1,"=","assign",0,1,"");
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = OverLoadItem2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Bump","operate",1,1,"");
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = OverLoadItem3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"OverLoadItemBlock0","newOp",1,1,"");
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = OverLoadItem4TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"()","",1,1,"");
+addTest(6,"Name","name",1,1,"");
+currentAlt->immediate = OverLoadItem5TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ButtonArray");
+currentAlt = new Alternative();
+addTest(1,"[","",1,1,"");
+addTest(6,"Name","button",1,999999,"");
+addTest(1,"]","",1,1,"");
+currentAlt->defer = ButtonArrayTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("OverLoadItem2");
+currentRule = getRule("OverLoadItem3");
+currentRule = getRule("MacroBody");
+currentAlt = new Alternative();
+addTest(6,"MacroBodyPart","parts",1,999999,"");
+currentAlt->immediate = MacroBodyTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroDelimit");
+currentAlt = new Alternative();
+addTest(3,"^a-zA-z0-9;","delimiter",1,1,"");
+currentAlt->immediate = MacroDelimitTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroDefine");
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+addTest(6,"MacroParameters","parameters",0,1,"");
+addTest(6,"MacroDelimit","",1,1,"");
+addTest(3,"^","body",1,999999,"");
+addTest(1,"","",1,1,"");
+currentAlt->immediate = MacroDefineTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasParameterBlock0");
+currentAlt = new Alternative();
+addTest(1,"=","",1,1,"");
+addTest(6,"Replacement","replacedBy",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CharacterBlock0");
+currentAlt = new Alternative();
+addTest(3,"'","",1,1,"");
+addTest(6,"CharacterBlock0Block1","",1,1,"");
+addTest(3,"'","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NumberBlock0");
+currentAlt = new Alternative();
+addTest(3,"0-9","",1,999999,"");
+addTest(1,".","",1,1,"");
+addTest(3,"0-9","",1,999999,"");
+addTest(6,"NumberBlock0Block1","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ForOptionBlock0");
+currentAlt = new Alternative();
+addTest(1,"on","",1,1,"");
+addTest(6,"Name","name",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ItemInitializerBlock0");
+currentAlt = new Alternative();
+addTest(6,"ArrayInitializer","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"InitExpression","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("AliasBody");
+currentAlt = new Alternative();
+addTest(1,"(","body",1,1,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("LambdaName");
+currentAlt = new Alternative();
+addTest(6,"NameSet","name",1,1,"");
+currentAlt->immediate = LambdaNameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroElement");
+currentAlt = new Alternative();
+addTest(3,"^,)","element",1,999999,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroBit");
+currentAlt = new Alternative();
+addTest(3,"a-zA-z0-9","bitpart",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DeclareItem3");
+currentRule = getRule("Assuming");
+currentRule = getRule("MacroBodyPart");
+currentAlt = new Alternative();
+addTest(3,"^","other",1,999999,"");
+addTest(1,"","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(4,"","rest",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Braced");
+currentAlt = new Alternative();
+addTest(1,"(","",1,1,"");
+addTest(1,")","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Case");
+currentAlt = new Alternative();
+addTest(1,"default:","instance",1,1,"");
+currentAlt->immediate = CaseTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"case","",1,1,"");
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"Assuming","",1,1,"");
+addTest(6,"CaseLabel","instance",1,1,"");
+addTest(1,":","",1,1,"");
+currentAlt->immediate = Case2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Label","instance",1,1,"");
+currentAlt->immediate = Case3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroArgument");
+currentAlt = new Alternative();
+addTest(6,"MacroArgumentBlock0","part",1,1,"");
+addTest(1,",","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("MacroArgumentBlock0");
+currentAlt = new Alternative();
+addTest(6,"MacroPart","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ExpressTailBlock0");
+currentAlt = new Alternative();
+addTest(1,"&&","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"||","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("BumpBlock0");
+currentAlt = new Alternative();
+addTest(1,"++","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(1,"--","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("FileName");
+currentAlt = new Alternative();
+addTest(6,"Path","path",0,1,"");
+addTest(6,"NameSet","name",1,1,"");
+addTest(1,".twk","",1,1,"");
+currentAlt->immediate = FileNameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PathBlock0");
+currentAlt = new Alternative();
+addTest(6,"Alpha","",1,1,"");
+addTest(1,"/","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Case2");
+currentRule = getRule("Case3");
+currentRule = getRule("CaseLabel");
+currentAlt = new Alternative();
+addTest(6,"Constant","instance",1,1,"");
+addTest(1,":","",1,1,"");
+setIgnored();
+currentAlt->immediate = CaseLabelTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"RangeField","instance",1,1,"");
+currentAlt->immediate = CaseLabel2TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Qualified","instance",1,1,"");
+addTest(1,":","",1,1,"");
+setIgnored();
+currentAlt->immediate = CaseLabel3TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Expression","instance",1,1,"");
+currentAlt->immediate = CaseLabel4TawkNow;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CaseLabel4");
+currentRule = getRule("ClassAttributes2");
+currentRule = getRule("ClassAttributes3");
+currentRule = getRule("Constant2");
+currentRule = getRule("Constant3");
+currentRule = getRule("Stop");
+currentRule = getRule("DebugDirective");
+currentAlt = new Alternative();
+addTest(1,"#","",-1,1,"");
+setBanged();
+addTest(6,"Comment","",0,1,"");
+addTest(6,"Name","method",1,1,"");
+addTest(6,"CodeMatch","body",0,1,"");
+{
+Element 	*elem = new Element();
+	elem->minimum = 0;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "locate";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(1,"active","active",0,1,"");
+addTest(3,"^#;","code",1,999999,"");
+addTest(1,"#;","",1,1,"");
+currentAlt->defer = DebugDirectiveTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Directive");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+addTest(6,"DebugDirective","directives",0,999999,"");
+currentAlt->immediate = DirectiveTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Number2");
+currentRule = getRule("SyntaxExtensions2");
+currentRule = getRule("Alpha");
+currentAlt = new Alternative();
+addTest(3,"a-zA-Z0-9_.","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CharacterBlock0Block1");
+currentAlt = new Alternative();
+addTest(6,"Escape","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(3,"^'","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NumberBlock0Block1");
+currentAlt = new Alternative();
+addTest(3,"eE","",1,1,"");
+addTest(3,"+-","",0,1,"");
+addTest(3,"0-9","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Commands");
+currentAlt = new Alternative();
+addTest(1,"#","",1,1,"");
+addTest(6,"PoundCommand","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"SyntaxExtensions","",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("CodeMatch");
+currentAlt = new Alternative();
+addTest(6,"Quote","body",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = -1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->banged = 1;
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"^","body",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Format");
+currentAlt = new Alternative();
+addTest(1,"#","",1,1,"");
+addTest(3,"- 0+","",0,1,"");
+addTest(3,"0-9","width",0,999999,"");
+addTest(3,"*%.0-9a-zA-Z","",0,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DebugText");
+currentAlt = new Alternative();
+addTest(1,"=","",1,1,"");
+addTest(6,"Quote","upcoming",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DebugRule");
+currentAlt = new Alternative();
+addTest(6,"NameSet","name",1,999999,"");
+addTest(6,"DebugText","upcoming",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NumberBlock2Block3");
+currentAlt = new Alternative();
+addTest(1,"0","",1,1,"");
+addTest(3,"xX","",1,1,"");
+addTest(3,"0-9a-fA-F","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("NumberBlock2Block4");
+currentAlt = new Alternative();
+addTest(3,"0-9","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DeclareItem");
+currentAlt = new Alternative();
+addTest(6,"MethodHead","item",1,1,"");
+addTest(6,"MethodInitializer","instance",0,1,"");
+addTest(1,",","",0,1,"");
+addTest(6,"Comment","",0,1,"");
+currentAlt->defer = DeclareItemTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","item",1,1,"");
+addTest(1,"(","",1,1,"");
+addTest(6,"Expression","argument",1,1,"");
+addTest(1,")","",1,1,"");
+currentAlt->defer = DeclareItem2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"ItemHead","item",1,1,"");
+addTest(6,"ItemInitializer","assign",0,1,"");
+addTest(1,":","initialize",0,1,"");
+addTest(1,",","",0,1,"");
+addTest(6,"Comment","",0,1,"");
+currentAlt->defer = DeclareItem3TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StructureItem");
+currentAlt = new Alternative();
+addTest(6,"Declaration","item",1,1,"");
+addTest(1,";","",0,1,"");
+currentAlt->defer = StructureItemTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","name",1,1,"");
+addTest(6,"Bits","bits",0,1,"");
+addTest(6,"ButtonArray","buttons",0,1,"");
+addTest(1,",","",0,1,"");
+currentAlt->defer = StructureItem2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("DeclareItem2");
+currentRule = getRule("StructureItem2");
+currentRule = getRule("DeclareType");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+currentAlt->immediate = DeclareTypeTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StructureType");
+currentAlt = new Alternative();
+addTest(6,"Type","type",1,1,"");
+currentAlt->defer = StructureTypeTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"Name","type",1,1,"");
+currentAlt->defer = StructureType2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Declaration2");
+currentRule = getRule("SetObject");
+currentRule = getRule("Structure");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "kind";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+addTest(6,"StructureBody","body",1,1,"");
+currentAlt->defer = StructureTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("StructureBody");
+currentAlt = new Alternative();
+addTest(6,"StructureType","label",1,1,"");
+addTest(1,"{","",1,1,"");
+addTest(6,"StructureItem","entry",1,999999,"");
+addTest(1,"}","",1,1,"");
+addTest(6,"DeclareItem","field",0,999999,"");
+currentAlt->defer = StructureBodyTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentAlt = new Alternative();
+addTest(6,"StructureItem","entry",1,999999,"");
+currentAlt->defer = StructureBody2TawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("TypeName");
+currentAlt = new Alternative();
+addTest(6,"NameSet","type",1,1,"");
+currentAlt->immediate = TypeNameTawkNow;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Bits");
+currentAlt = new Alternative();
+addTest(1,":","",1,1,"");
+addTest(6,"Number","length",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ConditionWord");
+currentAlt = new Alternative();
+{
+Element 	*elem = new Element();
+	elem->minimum = 1;
+	elem->maximum = 1;
+	elem->kind = 8;
+	elem->label = "list";
+	currentAlt->elements->add((void*)elem);
+}
+addTest(3,"textFollow","",-1,1,"");
+setNoSkip();
+setBanged();
+currentAlt->defer = ConditionWordTawkAct;
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("ExpressType");
+currentRule = getRule("OperationTail2");
+currentRule = getRule("Operator2");
+currentRule = getRule("Divert");
+currentAlt = new Alternative();
+addTest(6,"Inheritance","",1,999999,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("UnaryOperator2");
+currentRule = getRule("ExpressTail");
+currentAlt = new Alternative();
+addTest(6,"ExpressTailBlock0","operate",1,1,"");
+addTest(6,"ExpressPart","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("Catch");
+currentAlt = new Alternative();
+addTest(1,"catch","",1,1,"");
+addTest(6,"Parameter","except",0,1,"");
+addTest(6,"Statement","statement",1,1,"");
+addTest(6,"ResetType","",0,1,"");
+currentRule->alternatives->add(currentAlt);
+currentRule = getRule("PrintTo");
+currentAlt = new Alternative();
+addTest(1,"to","",1,1,"");
+addTest(6,"FieldExpression","instance",1,1,"");
+currentRule->alternatives->add(currentAlt);
 }
 
 /*****************************************************************************
@@ -7359,45 +6859,31 @@ int 		m = 0;
 	::printf("\t\t\t Total\t%10d\t%10d\t%10d\n",t,c,m);
 	summary(10);
 }
-// Ignoring declaration of unused variable type in method: AliasItem4TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: AliasItemTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: ArrayInitializerTawkNow(PLGitem*)
+// Ignoring declaration of unused variable type in method: AliasItem3TawkNow(PLGitem*)
 // Ignoring declaration of unused variable brace in method: BlockStartTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: CaseLabelTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: CastTailTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: CharacterTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: DebugTextTawkNow(PLGitem*)
+// Ignoring declaration of unused variable body in method: BodyTawkAct(PLGitem*)
+// Ignoring declaration of unused variable instance in method: ConstantTawkAct(PLGitem*)
 // Ignoring declaration of unused variable staticCopy in method: DeclarationTawkAct(PLGitem*)
 // Ignoring declaration of unused variable initialize in method: DeclareItem3TawkAct(PLGitem*)
-// Ignoring declaration of unused variable p in method: FieldBody2TawkAct(PLGitem*)
-// Ignoring declaration of unused variable p in method: FieldBody3TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: FieldExpressionTawkNow(PLGitem*)
+// Ignoring declaration of unused variable statement in method: ElseTawkAct(PLGitem*)
 // Ignoring declaration of unused variable path in method: FileNameTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: InitializerTawkNow(PLGitem*)
+// Ignoring declaration of unused variable method in method: InheritanceTawkAct(PLGitem*)
 // Ignoring declaration of unused variable direct in method: ItemHeadTawkNow(PLGitem*)
 // Ignoring declaration of unused variable name in method: ItemHeadTawkNow(PLGitem*)
 // Ignoring declaration of unused variable bits in method: ItemHeadTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: ItemHeadTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: LambdaTawkNow(PLGitem*)
+// Ignoring declaration of unused variable statement in method: Line2TawkNow(PLGitem*)
 // Ignoring declaration of unused variable modify in method: MethodTypeTawkAct(PLGitem*)
 // Ignoring declaration of unused variable methodHead in method: MethodTypeTawkAct(PLGitem*)
-// Ignoring declaration of unused variable p in method: OperationTail2TawkNow(PLGitem*)
 // Ignoring declaration of unused variable selectedField in method: PoundCommandTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: QuestionTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: RangeExpressionTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody11TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody14TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody15TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody20TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody21TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody2TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody3TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody4TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody6TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StatementBody8TawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StopTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StringsTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: StructureType2TawkAct(PLGitem*)
-// Ignoring declaration of unused variable p in method: TargetTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: TypeNameTawkNow(PLGitem*)
-// Ignoring declaration of unused variable p in method: UnaryOperator2TawkNow(PLGitem*)
+// Ignoring declaration of unused variable instance in method: PrintItemTawkAct(PLGitem*)
+// Ignoring declaration of unused variable statement in method: StatementTawkAct(PLGitem*)
+// Ignoring declaration of unused variable instance in method: StringExpressionTawkAct(PLGitem*)
+// Ignoring declaration of unused variable type in method: StructureTypeTawkAct(PLGitem*)
+// Ignoring declaration of unused variable operate in method: UnaryOperatorTawkAct(PLGitem*)
+/*	Warning: the following methods were referenced but not declared
+	string()
+	toString()
+	unString()
+	setString(char*)
+	copyTo(Buffer*)
+*/
